@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+//  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------- ENUMS --------------------
+enum Currency {
+  GBP
+  INR
+  USD
+  EUR
+  AUD
+  CAD
+  JPY
+  CNY
+  OTHER
+}
+
+enum SplitType {
+  EQUAL
+  AMOUNT
+  PERCENTAGE
+}
+
+// -------------------- USER --------------------
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String
+  email         String    @unique
+  expensesPaid  Expense[] @relation("PaidBy")
+  expensesShared Expense[] // implicit many-to-many
+}
+
+// -------------------- CATEGORY --------------------
+model Category {
+  id       Int       @id @default(autoincrement())
+  code     String    @unique           // e.g., FOOD, TRAVEL
+  label    String                         // e.g., "Food", "Travel"
+  expenses Expense[]
+}
+
+// -------------------- EXPENSE --------------------
+model Expense {
+  id           Int       @id @default(autoincrement())
+  title        String
+  amount       Float
+  currency     Currency  @default(GBP)
+  paidBy       User      @relation("PaidBy", fields: [paidById], references: [id])
+  paidById     Int
+  splitWith    User[]    // implicit many-to-many join table created by Prisma
+  splitAmount  Float[]   // meaningful if splitType = AMOUNT
+  splitPercentage Float[] // meaningful if splitType = PERCENTAGE
+  splitType    SplitType @default(EQUAL)
+  category     Category  @relation(fields: [categoryId], references: [id])
+  categoryId   Int
+  notes        String?
+  expenseDate  DateTime
+  createdAt    DateTime  @default(now())
+  settled      Boolean   @default(false)
+}
+
+
+
