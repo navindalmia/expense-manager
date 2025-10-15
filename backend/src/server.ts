@@ -1,11 +1,11 @@
-// // src/server.ts
-// import dotenv from "dotenv";
-// import app from "./app";
+// src/server.ts
+import dotenv from "dotenv";
+import app from "./app";
 
-// dotenv.config();
+dotenv.config();
 
-// const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4000;
 
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server running on http://localhost:${PORT}`);
-// });
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
