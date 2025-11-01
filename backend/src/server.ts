@@ -1,6 +1,7 @@
-// src/server.ts
+
 import dotenv from "dotenv";
 import app from "./app";
+import { errorHandler } from "./middlewares/errorHandler";
 
 dotenv.config();
 

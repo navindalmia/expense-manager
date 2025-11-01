@@ -1,0 +1,16 @@
+{
+  "EXPENSE": {
+    "SPLIT_SUM_MISMATCH": "La somme des montants ne correspond pas au total.",
+    "SPLIT_PERCENTAGE_INVALID": "Les pourcentages doivent totaliser 100 %.",
+    "NOT_FOUND": "Dépense non trouvée.",
+    "CREATION_FAILED": "Échec de la création de la dépense.",
+    "FETCH_FAILED": "Échec du chargement des dépenses.",
+    "DELETE_FAILED": "Échec de la suppression de la dépense."
+  },
+  "USER": {
+    "NOT_FOUND": "Utilisateur non trouvé."
+  },
+  "CATEGORY": {
+    "NOT_FOUND": "Catégorie non trouvée."
+  }
+}
