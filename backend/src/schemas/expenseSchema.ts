@@ -1,4 +1,4 @@
-// src/schemas/expenseSchema.ts
+
 import { z } from "zod";
 import { Currency, SplitType } from "@prisma/client";
 
