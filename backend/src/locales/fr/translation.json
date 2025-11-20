@@ -3,6 +3,9 @@
     "INTERNAL_SERVER_ERROR": "Erreur interne du serveur.",
     "UNKNOWN_ERROR": "Une erreur inconnue s'est produite."
   },
+    "VALIDATION": {
+    "ERROR": "La validation a échoué. Veuillez vérifier vos données."
+  },
   "EXPENSE": {
     "SPLIT_SUM_MISMATCH": "La somme des montants ne correspond pas au total.",
     "SPLIT_PERCENTAGE_INVALID": "Les pourcentages doivent totaliser 100 %.",

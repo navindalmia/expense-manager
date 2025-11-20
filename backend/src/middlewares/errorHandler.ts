@@ -15,19 +15,25 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
     const translation = i18next.t(message, { lng: lang });
     if (translation !== message) message = translation;
   }
-console.error("Error message before translation:", err.message);
-console.log("Current language:", (req as any).language);
-console.log("Translation attempt:", i18next.t(err.message, { lng: (req as any).language }));
+  console.error("Error message before translation:", err.message);
+  console.log("Current language:", (req as any).language);
+  console.log("Translation attempt:", i18next.t(err.message, { lng: (req as any).language }));
   // Handle known AppError
   if (err instanceof AppError) {
+    const message = i18next.t(err.messageKey, { lng: lang });
+
     return res.status(err.statusCode).json({
       error: message,
-      code: err.code,
+      code: err.code ?? null,
+      details: err.details ?? null
+
     });
   }
 
   // Handle generic errors
   res.status(500).json({
-    error: i18next.t("GENERAL.INTERNAL_SERVER_ERROR", { lng: lang }) || "Internal server error",
+    error: i18next.t("GENERAL.INTERNAL_SERVER_ERROR", { lng: lang }),
+    code: "INTERNAL_SERVER_ERROR",
+    details: null
   });
 }

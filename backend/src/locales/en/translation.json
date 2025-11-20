@@ -2,6 +2,9 @@
   "GENERAL": {
     "INTERNAL_SERVER_ERROR": "Internal Server Error."
   },
+   "VALIDATION": {
+    "ERROR": "Validation failed. Please check your input."
+  },
   "EXPENSE": {
     "SPLIT_SUM_MISMATCH": "Sum of split amounts must equal total amount.",
     "SPLIT_PERCENTAGE_INVALID": "Split percentages must add up to 100%.",
