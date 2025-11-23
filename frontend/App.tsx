@@ -34,7 +34,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './src/screens/HomeScreen';
 
 const Stack = createNativeStackNavigator();
-
+console.log("Frontend API Base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
 export default function App() {
   return (
     <NavigationContainer>
