@@ -20,7 +20,7 @@ export interface ApiErrorPayload {
  * Converts any error into a consistent ApiErrorPayload
  */
 export function normalizeApiError(err: unknown): ApiErrorPayload {
-  // 1️⃣ Axios errors (runtime detection using `isAxiosError`)
+  //  Axios errors (runtime detection using `isAxiosError`)
   if (err && typeof err === "object" && "isAxiosError" in err && (err as any).isAxiosError) {
     const axiosErr = err as any; // safe runtime cast
 
@@ -28,7 +28,7 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
     if (axiosErr.response?.data?.error) {
       return {
         message: axiosErr.response.data.error,
-        code: axiosErr.response.data.code,
+        code: axiosErr.response.data.code || 'api_error',
         status: axiosErr.response.status,
       };
     }
@@ -37,6 +37,7 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
     if (axiosErr.code === "ECONNABORTED") {
       return {
         message: "Request timed out. Please try again.",
+        code: "timeout"
       };
     }
 
@@ -44,25 +45,29 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
     if (!axiosErr.response) {
       return {
         message: "Network error. Check your connection.",
+        code: "network_error"
       };
     }
 
     // Fallback
     return {
-      message: axiosErr.message,
-      status: axiosErr.response.status,
+      message: axiosErr.message || 'An unknown network error occurred',
+      code: "fallback_network_error",
+      status: axiosErr.response?.status,
     };
   }
 
-  // 2️⃣ Generic JS Error
+  //  Generic JS Error
   if (err instanceof Error) {
     return {
-      message: err.message || "An unknown error occurred.",
+      message: err.message || "An unknown JS error occurred.",
+      code: "js_error"
     };
   }
 
-  // 3️⃣ Unknown error type
+  //  Unknown error type
   return {
     message: "An unknown error occurred.",
+    code: "unknown_error"
   };
 }
