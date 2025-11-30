@@ -1,9 +1,11 @@
 
+import { logger } from '../../utils/logger';
+
 /**
  * Responsibility:
  *  - Normalize all API errors into a consistent frontend shape.
  *  - Handle Axios errors, network failures, timeouts, and generic JS errors.
-
+ *  - Log errors for debugging and monitoring.
  */
 
 export interface ApiErrorPayload {
@@ -26,15 +28,38 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
 
     // Backend responded with JSON { error, code }
     if (axiosErr.response?.data?.error) {
-      return {
+      const errorPayload = {
         message: axiosErr.response.data.error,
         code: axiosErr.response.data.code || 'api_error',
         status: axiosErr.response.status,
       };
+      
+      // Log server errors (5xx) as errors, others as warnings
+      if (axiosErr.response.status >= 500) {
+        logger.error('Server error', axiosErr, { 
+          status: axiosErr.response.status,
+          url: axiosErr.config?.url,
+          method: axiosErr.config?.method
+        });
+      } else {
+        logger.warn('API error', { 
+          ...errorPayload,
+          url: axiosErr.config?.url,
+          method: axiosErr.config?.method
+        });
+      }
+      
+      return errorPayload;
     }
 
     // Timeout
     if (axiosErr.code === "ECONNABORTED") {
+      logger.warn('Request timeout', { 
+        url: axiosErr.config?.url,
+        method: axiosErr.config?.method,
+        timeout: axiosErr.config?.timeout 
+      });
+      
       return {
         message: "Request timed out. Please try again.",
         code: "timeout"
@@ -43,31 +68,58 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
 
     // Network errors (no response)
     if (!axiosErr.response) {
+      logger.error('Network error', axiosErr, { 
+        url: axiosErr.config?.url,
+        method: axiosErr.config?.method
+      });
+      
       return {
         message: "Network error. Check your connection.",
         code: "network_error"
       };
     }
 
-    // Fallback
-    return {
+    // Fallback for unhandled Axios errors
+    const errorPayload = {
       message: axiosErr.message || 'An unknown network error occurred',
       code: "fallback_network_error",
       status: axiosErr.response?.status,
     };
+    
+    logger.error('Unhandled API error', axiosErr, { 
+      ...errorPayload,
+      url: axiosErr.config?.url,
+      method: axiosErr.config?.method
+    });
+    
+    return errorPayload;
   }
 
-  //  Generic JS Error
+  // Generic JS Error
   if (err instanceof Error) {
-    return {
+    const errorPayload = {
       message: err.message || "An unknown JS error occurred.",
       code: "js_error"
     };
+    
+    logger.error('JavaScript error', err, { 
+      ...errorPayload,
+      stack: process.env.NODE_ENV !== 'production' ? err.stack : undefined
+    });
+    
+    return errorPayload;
   }
 
-  //  Unknown error type
-  return {
+  // Unknown error type
+  const errorPayload = {
     message: "An unknown error occurred.",
     code: "unknown_error"
   };
+  
+  logger.error('Unknown error type', { 
+    originalError: err,
+    ...errorPayload
+  });
+  
+  return errorPayload;
 }
