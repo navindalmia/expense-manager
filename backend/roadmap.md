@@ -149,4 +149,34 @@ Goal: Build a minimal test frontend to validate backend, translation, and error 
 
 ---
 
+## 🚀 Deployment Plan
+
+### Phase 1: Azure Setup (Free Tier)
+1. **Frontend**
+   - Deploy React Native web build to Azure Static Web Apps (Free tier)
+   - Configure custom domain (optional)
+   - Set up CI/CD with GitHub Actions
+
+2. **Backend**
+   - Containerize Express API
+   - Deploy to Azure Container Apps (Free tier)
+   - Configure environment variables
+
+3. **Database**
+   - Set up Azure Cosmos DB (Free tier)
+   - Or use Azure Database for PostgreSQL (Free for 12 months)
+   - Configure connection strings and backup
+
+4. **Monitoring** (Optional)
+   - Azure Application Insights (Free tier)
+   - Basic logging and error tracking
+
+### Phase 2: Future Scaling
+- Implement user authentication
+- Add rate limiting
+- Set up auto-scaling rules
+- Configure monitoring alerts
+
+---
+
 🧡 *Expense Manager – built with clarity, modularity, and multilingual reach.*
