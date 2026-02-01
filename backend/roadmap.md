@@ -36,6 +36,21 @@ A modular, multilingual expense management system with a clean backend–fronten
 
 ---
 
+## ✅ Phase 1.5 — Unit Testing Infrastructure (⏳ Pending)
+
+Goal: Set up Jest (backend) and Vitest (frontend) with comprehensive test coverage patterns.
+
+| Task | Description | Status |
+|------|--------------|--------|
+| 🧪 Setup Jest + ts-jest for backend | Configure Jest for TypeScript, Prisma mocking | ⏳ Pending |
+| 📝 Add jest.config.js and test scripts | Setup test environment, coverage reports | ⏳ Pending |
+| 🧪 Setup Vitest + React Testing Library for frontend | Configure Vitest for React + Vite | ⏳ Pending |
+| 📝 Add vitest.config.ts and test scripts | Setup jsdom environment, component testing | ⏳ Pending |
+| 📁 Create test file structure | Add `__tests__/` directories, test examples | ⏳ Pending |
+| 📚 Document testing best practices | Update `.cursorrules` with testing guidelines | ⏳ Pending |
+
+---
+
 ## 🚧 Phase 2 — Frontend Bridge (🟡 In Progress)
 
 Goal: Build a minimal test frontend to validate backend, translation, and error flows.
