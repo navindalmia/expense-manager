@@ -1,14 +1,14 @@
-# 🧪 Feature Testing Checklist
+#  Feature Testing Checklist
 
 This file reminds you to add tests when building new features.
 
 ---
 
-## 📋 Testing Strategy Decision
+##  Testing Strategy Decision
 
 **When to write tests?**
 
-✅ **Decision: Code First, Tests After (Approach 2)**
+ **Decision: Code First, Tests After (Approach 2)**
 
 ```
 Workflow:
@@ -150,17 +150,6 @@ describe('ComponentName', () => {
 ```
 
 ---
-
-## ⚠️ Common Mistakes
-
-- ❌ Mock data and assert same data (pointless test)
-- ✅ Mock Prisma/API, verify SERVICE passed correct data to it
-
-- ❌ Test mock failure handling (tests the mock, not code)
-- ✅ Test component renders correctly (real behavior)
-
-- ❌ Skip tests because "too complicated"
-- ✅ Add minimal tests (buttons, API calls)
 
 ---
 
