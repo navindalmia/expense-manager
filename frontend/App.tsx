@@ -31,15 +31,46 @@
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { RootStackParamList } from './src/types/navigation';
 import HomeScreen from './src/screens/HomeScreen';
+import ExpenseListScreen from './src/screens/ExpenseListScreen';
+// import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
+// import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
 console.log("Frontend API Base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
+
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator>
-        <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: true,
+          headerBackTitle: 'Back',
+        }}
+      >
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen}
+          options={{ title: 'Expense Manager' }}
+        />
+        <Stack.Screen 
+          name="ExpenseList" 
+          component={ExpenseListScreen}
+          options={{ title: 'Expenses' }}
+        />
+        {/* TODO: Add ExpenseDetailScreen and CreateExpenseScreen components */}
+        {/* <Stack.Screen 
+          name="ExpenseDetail" 
+          component={ExpenseDetailScreen}
+          options={{ title: 'Expense Details' }}
+        />
+        <Stack.Screen 
+          name="CreateExpense" 
+          component={CreateExpenseScreen}
+          options={{ title: 'Add Expense' }}
+        /> */}
       </Stack.Navigator>
     </NavigationContainer>
   );
