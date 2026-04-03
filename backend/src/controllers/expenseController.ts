@@ -15,8 +15,14 @@ export async function getExpenses(req: Request, res: Response) {
 
 export async function createExpense(req: Request, res: Response) {
   try {
+    // TODO: Get userId from JWT token (auth middleware)
+    const userId = 1; // Placeholder - will be req.user.id
+
     //  Validate input using ZOD
-    const parsed = createExpenseSchema.parse(req.body);
+    const parsed = createExpenseSchema.parse({
+      ...req.body,
+      paidById: userId, // Set paidBy from current user
+    });
     // Convert into enum types
     const cleanData = {
       ...parsed,
@@ -26,7 +32,11 @@ export async function createExpense(req: Request, res: Response) {
 
     //  Pass to service
     const expense = await expenseService.createExpense(cleanData);
-    res.status(201).json(expense);
+    res.status(201).json({
+      success: true,
+      data: expense,
+      message: 'Expense created successfully',
+    });
   } catch (err: any) {
     // if (err.name === "ZodError") {
     //   return res.status(400).json({ error: err.errors });

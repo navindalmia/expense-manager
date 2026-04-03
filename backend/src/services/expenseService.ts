@@ -138,7 +138,7 @@ export async function createExpense(data: {
         title,
         amount,
         currency,
-        groupId,
+        group: { connect: { id: groupId } },
         paidBy: { connect: { id: paidById } },
         category: { connect: { id: categoryId } },
         splitWith: { connect: splitWithIds.map((id) => ({ id })) },
