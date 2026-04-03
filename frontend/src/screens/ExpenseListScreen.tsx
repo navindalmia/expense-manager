@@ -26,11 +26,11 @@ import ErrorState from '../components/ErrorState';
 
 
 /**
- * Main screen component displaying list of expenses.
+ * Main screen component displaying list of expenses for a group.
  * Wrapped in memo() to prevent unnecessary re-renders.
  * 
  * Features:
- * - Fetch expenses from backend on component mount
+ * - Fetch expenses for specific group from backend
  * - Display in scrollable list with memoized renderers
  * - Pull-to-refresh for reloading
  * - Loading spinner during fetch
@@ -38,7 +38,9 @@ import ErrorState from '../components/ErrorState';
  * - Empty state when no expenses
  * - Proper accessibility labels for screen readers
  */
-function ExpenseListScreen({ navigation }: ExpenseListScreenProps) {
+function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
+  const { groupId } = route.params;
+  
   // State management
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,7 +175,7 @@ function ExpenseListScreen({ navigation }: ExpenseListScreenProps) {
         <Text style={styles.emptySubtext}>Add your first expense to get started</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('CreateExpense')}
+          onPress={() => navigation.navigate('CreateExpense', { groupId })}
           testID="empty-state-add-button"
           accessible={true}
           accessibilityLabel="Add your first expense"
@@ -218,7 +220,7 @@ function ExpenseListScreen({ navigation }: ExpenseListScreenProps) {
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
-            navigation.navigate('CreateExpense');
+            navigation.navigate('CreateExpense', { groupId });
           }}
           testID="add-expense-button"
           accessible={true}

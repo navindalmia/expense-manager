@@ -7,10 +7,16 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
  */
 export interface RootStackParamList extends Record<string, object | undefined> {
   Home: undefined;
-  ExpenseList: undefined;
+  ExpenseList: { groupId: number };
   ExpenseDetail: { expenseId: number };
-  CreateExpense: undefined;
+  CreateExpense: { groupId: number };
+  CreateGroup: undefined;
 }
+
+/**
+ * Props for HomeScreen
+ */
+export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 /**
  * Props for ExpenseListScreen
@@ -29,6 +35,6 @@ export type ExpenseDetailScreenProps = NativeStackScreenProps<RootStackParamList
 export type CreateExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateExpense'>;
 
 /**
- * Props for HomeScreen
+ * Props for CreateGroupScreen
  */
-export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
+export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;

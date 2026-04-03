@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import expenseRoutes from "./routes/expenseRoutes";
+import groupRoutes from "./routes/groupRoutes";
 import { errorHandler } from "./middlewares/errorHandler"; 
 import { i18nMiddleware } from "./middlewares/i18nMiddleware";
 
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use(i18nMiddleware); // Language detection middleware added here
 
 // Routes
+app.use("/api/groups", groupRoutes);
 app.use("/api/expenses", expenseRoutes);
 
 // Health check

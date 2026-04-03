@@ -36,12 +36,29 @@ async function main() {
     });
   }
 
+  // -------------------- Groups --------------------
+  const group = await prisma.group.create({
+    data: {
+      name: "Team Dinner",
+      description: "Team bonding dinner",
+      createdBy: { connect: { email: "alice@example.com" } },
+      members: {
+        connect: [
+          { email: "alice@example.com" },
+          { email: "bob@example.com" },
+        ],
+      },
+      currency: "GBP",
+    },
+  });
+
   // -------------------- Sample Expense --------------------
   await prisma.expense.create({
     data: {
       title: "Team Lunch",
       amount: 100,
       paidBy: { connect: { email: "alice@example.com" } },
+      group: { connect: { id: group.id } },
       splitWith: {
         connect: [
           { email: "alice@example.com" },

@@ -5,7 +5,7 @@ import { Currency, SplitType } from "@prisma/client";
 export const createExpenseSchema = z.object({
   title: z.string().min(1, "Title is required"),
   amount: z.number().positive("Amount must be positive"),
-  
+  groupId: z.number().int().positive("Invalid group ID"),
   
   currency: z.enum(Object.values(Currency) as [string, ...string[]]).default(Currency.GBP),
   splitType: z.enum(Object.values(SplitType) as [string, ...string[]]).default(SplitType.EQUAL),

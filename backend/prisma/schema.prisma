@@ -35,11 +35,13 @@ enum SplitType {
 
 // -------------------- USER --------------------
 model User {
-  id            Int       @id @default(autoincrement())
-  name          String
-  email         String    @unique
-  expensesPaid  Expense[] @relation("PaidBy")
-  expensesShared Expense[] // implicit many-to-many
+  id              Int       @id @default(autoincrement())
+  name            String
+  email           String    @unique
+  expensesPaid    Expense[] @relation("PaidBy")
+  groupsCreated   Group[]   @relation("GroupCreatedBy")
+  groupsMember    Group[]   @relation("GroupMembers")
+  expensesSplit   Expense[] @relation("ExpenseSplitWith")
 }
 
 // -------------------- CATEGORY --------------------
@@ -50,24 +52,49 @@ model Category {
   expenses Expense[]
 }
 
+// -------------------- GROUP (List/Trip/Month) --------------------
+model Group {
+  id          Int       @id @default(autoincrement())
+  name        String    // e.g., "March 2024", "Paris Trip", "House Budget"
+  description String?   // Optional: trip description or purpose
+  createdBy   User      @relation("GroupCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdById Int
+  members     User[]    @relation("GroupMembers") // Users in this group
+  expenses    Expense[]
+  currency    Currency  @default(GBP) // Default currency for this group
+  isActive    Boolean   @default(true) // Soft delete flag
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([createdById])
+  @@index([isActive])
+}
+
 // -------------------- EXPENSE --------------------
 model Expense {
   id           Int       @id @default(autoincrement())
   title        String
   amount       Float
   currency     Currency  @default(GBP)
-  paidBy       User      @relation("PaidBy", fields: [paidById], references: [id])
+  paidBy       User      @relation("PaidBy", fields: [paidById], references: [id], onDelete: Cascade)
   paidById     Int
-  splitWith    User[]    // implicit many-to-many join table created by Prisma
+  group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId      Int
+  splitWith    User[]    @relation("ExpenseSplitWith") // implicit many-to-many join table created by Prisma
   splitAmount  Float[]   // meaningful if splitType = AMOUNT
   splitPercentage Float[] // meaningful if splitType = PERCENTAGE
   splitType    SplitType @default(EQUAL)
   category     Category  @relation(fields: [categoryId], references: [id])
   categoryId   Int
   notes        String?
-  expenseDate  DateTime
+  expenseDate  DateTime  @default(now())  // Defaults to today's date (current timestamp)
+  isSettled    Boolean   @default(false)
   createdAt    DateTime  @default(now())
-  settled      Boolean   @default(false)
+  updatedAt    DateTime  @updatedAt
+  
+  @@index([groupId])
+  @@index([paidById])
+  @@index([expenseDate])
 }
 
 

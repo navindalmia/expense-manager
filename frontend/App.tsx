@@ -34,6 +34,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/types/navigation';
 import HomeScreen from './src/screens/HomeScreen';
 import ExpenseListScreen from './src/screens/ExpenseListScreen';
+import CreateGroupScreen from './src/screens/CreateGroupScreen';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
 // import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 
@@ -49,16 +50,25 @@ export default function App() {
           headerShown: true,
           headerBackTitle: 'Back',
         }}
+        initialRouteName="Home"
       >
         <Stack.Screen 
           name="Home" 
           component={HomeScreen}
-          options={{ title: 'Expense Manager' }}
+          options={{ 
+            title: 'Expense Groups',
+            headerBackVisible: false
+          }}
         />
         <Stack.Screen 
           name="ExpenseList" 
           component={ExpenseListScreen}
-          options={{ title: 'Expenses' }}
+          options={{ title: 'Group Expenses' }}
+        />
+        <Stack.Screen 
+          name="CreateGroup" 
+          component={CreateGroupScreen}
+          options={{ title: 'Create Group' }}
         />
         {/* TODO: Add ExpenseDetailScreen and CreateExpenseScreen components */}
         {/* <Stack.Screen 

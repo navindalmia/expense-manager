@@ -4,6 +4,8 @@
  * - Mock Prisma client globally
  */
 
+/// <reference types="jest" />
+
 jest.mock('../lib/prisma', () => ({
   __esModule: true,
   default: {
@@ -19,6 +21,13 @@ jest.mock('../lib/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
+    },
+    group: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
     },
     category: {
       create: jest.fn(),
