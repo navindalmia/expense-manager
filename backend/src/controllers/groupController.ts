@@ -21,8 +21,8 @@ export async function createGroup(
   try {
     const validated = validateGroupInput(req.body);
     
-    // TODO: Get userId from JWT token (auth middleware)
-    const userId = 1; // Placeholder - will be req.user.id
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     const group = await groupService.createGroup({
       name: validated.name,
@@ -51,8 +51,8 @@ export async function getGroups(
   next: NextFunction
 ) {
   try {
-    // TODO: Get userId from JWT token
-    const userId = 1; // Placeholder
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     const groups = await groupService.getUserGroups(userId);
 
@@ -92,8 +92,8 @@ export async function getGroupById(
       });
     }
 
-    // TODO: Get userId from JWT token
-    const userId = 1; // Placeholder
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     const group = await groupService.getGroupById(groupId, userId);
 
@@ -133,8 +133,8 @@ export async function addMember(
       });
     }
 
-    // TODO: Get userId from JWT token
-    const userId = 1; // Placeholder
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     const group = await groupService.addMemberToGroup(groupId, memberId, userId);
 
@@ -174,8 +174,8 @@ export async function deleteGroup(
       });
     }
 
-    // TODO: Get userId from JWT token
-    const userId = 1; // Placeholder
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     const group = await groupService.deactivateGroup(groupId, userId);
 
@@ -215,8 +215,8 @@ export async function getStats(
       });
     }
 
-    // TODO: Get userId from JWT token
-    const userId = 1; // Placeholder
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     const stats = await groupService.getGroupStats(groupId, userId);
 

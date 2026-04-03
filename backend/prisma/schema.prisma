@@ -35,13 +35,21 @@ enum SplitType {
 
 // -------------------- USER --------------------
 model User {
-  id              Int       @id @default(autoincrement())
-  name            String
-  email           String    @unique
-  expensesPaid    Expense[] @relation("PaidBy")
-  groupsCreated   Group[]   @relation("GroupCreatedBy")
-  groupsMember    Group[]   @relation("GroupMembers")
-  expensesSplit   Expense[] @relation("ExpenseSplitWith")
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  email                  String    @unique
+  password               String?   // bcrypt hashed password (optional for compatibility)
+  isActive               Boolean   @default(true)
+  lastLogin              DateTime?
+  failedLoginAttempts    Int       @default(0)
+  lockedUntil            DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @default(now())
+  
+  expensesPaid           Expense[] @relation("PaidBy")
+  groupsCreated          Group[]   @relation("GroupCreatedBy")
+  groupsMember           Group[]   @relation("GroupMembers")
+  expensesSplit          Expense[] @relation("ExpenseSplitWith")
 }
 
 // -------------------- CATEGORY --------------------

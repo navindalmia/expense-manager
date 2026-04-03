@@ -1,12 +1,17 @@
 // src/routes/expenseRoutes.ts
 import { Router } from "express";
 import * as expenseController from "../controllers/expenseController";
+import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get("/", expenseController.getExpenses);
-router.post("/", expenseController.createExpense);
-router.delete("/:id", expenseController.deleteExpense);
+/**
+ * Expense Management Routes
+ * All routes are protected with JWT authentication
+ */
+router.get("/", authMiddleware, expenseController.getExpenses);
+router.post("/", authMiddleware, expenseController.createExpense);
+router.delete("/:id", authMiddleware, expenseController.deleteExpense);
 
 export default router;
 

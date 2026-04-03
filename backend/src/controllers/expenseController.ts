@@ -15,8 +15,8 @@ export async function getExpenses(req: Request, res: Response) {
 
 export async function createExpense(req: Request, res: Response) {
   try {
-    // TODO: Get userId from JWT token (auth middleware)
-    const userId = 1; // Placeholder - will be req.user.id
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
 
     //  Validate input using ZOD
     const parsed = createExpenseSchema.parse({

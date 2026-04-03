@@ -3,8 +3,10 @@ import express from "express";
 import cors from "cors";
 import expenseRoutes from "./routes/expenseRoutes";
 import groupRoutes from "./routes/groupRoutes";
+import authRoutes from "./routes/authRoutes";
 import { errorHandler } from "./middlewares/errorHandler"; 
 import { i18nMiddleware } from "./middlewares/i18nMiddleware";
+import "./types/express"; // Import JWT type extensions
 
 const app = express();
 
@@ -14,6 +16,7 @@ app.use(express.json());
 app.use(i18nMiddleware); // Language detection middleware added here
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/expenses", expenseRoutes);
 
