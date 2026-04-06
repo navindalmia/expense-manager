@@ -21,6 +21,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import { http } from '../api/http';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -173,27 +174,21 @@ function CreateGroupScreen({ navigation }: Props) {
     setLoading(true);
 
     try {
-      // TODO: Call actual API when ready
-      // const response = await fetch('http://localhost:4000/api/groups', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     name: name.trim(),
-      //     description: description.trim() || undefined,
-      //     currency,
-      //   }),
-      // });
-      // const result = await response.json();
-
-      // For now, just navigate back
-      Alert.alert('Success', 'Group created! (Mock)', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      const response = await http.post('/groups', {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        currency,
+      });
 
       logger.info('Group created successfully', {
         name,
         currency,
+        groupId: response.data.data?.id,
       });
+
+      Alert.alert('Success', 'Group created!', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       Alert.alert('Error', errorMessage);

@@ -24,13 +24,17 @@ export const signupSchema = z.object({
     .string()
     .min(1, 'Password is required')
     .min(8, 'Password must be at least 8 characters')
-    .refine(
-      (password: string) => {
-        const validation = validatePasswordStrength(password);
-        return validation.isValid;
-      },
-      'Password does not meet strength requirements'
-    )
+    .superRefine((password, ctx) => {
+      // Custom validation with detailed error messages
+      const validation = validatePasswordStrength(password);
+      if (!validation.isValid) {
+        // Return the FIRST specific validation error
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: validation.errors[0] || 'Password does not meet strength requirements',
+        });
+      }
+    })
     .refine(
       (password) => !isCommonPassword(password),
       'Password is too common. Please choose a stronger password'

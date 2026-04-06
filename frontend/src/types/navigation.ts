@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
  * Extends Record<string, object | undefined> for React Navigation compatibility
  */
 export interface RootStackParamList extends Record<string, object | undefined> {
+  Login: undefined;
   Home: undefined;
   ExpenseList: { groupId: number };
   ExpenseDetail: { expenseId: number };

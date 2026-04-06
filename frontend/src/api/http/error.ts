@@ -16,6 +16,9 @@ export interface ApiErrorPayload {
 
   /** Optional HTTP status code */
   status?: number;
+
+  /** Full response data from backend (may include details array) */
+  data?: any;
 }
 
 /**
@@ -32,6 +35,7 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
         message: axiosErr.response.data.error,
         code: axiosErr.response.data.code || 'api_error',
         status: axiosErr.response.status,
+        data: axiosErr.response.data, // Preserve full response including details array
       };
       
       // Log server errors (5xx) as errors, others as warnings

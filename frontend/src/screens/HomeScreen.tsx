@@ -21,6 +21,8 @@ import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import { http } from '../api/http';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -165,6 +167,25 @@ function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { logout } = useAuth();
+
+  /**
+   * Set up header with logout button
+   */
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={logout}
+          style={{ marginRight: 16 }}
+        >
+          <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
+            Logout
+          </Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, logout]);
 
   /**
    * Fetch all groups from backend
@@ -172,13 +193,8 @@ function HomeScreen({ navigation }: Props) {
   const loadGroups = async () => {
     try {
       setError(null);
-      // TODO: Call actual API when ready
-      // const response = await fetch('http://localhost:4000/api/groups');
-      // const data = await response.json();
-      // setGroups(data.data);
-      
-      // For now, show empty state
-      setGroups([]);
+      const response = await http.get('/groups');
+      setGroups(response.data.data || []);
     } catch (err) {
       const errorMessage = getErrorMessage(err);
       setError(errorMessage);
