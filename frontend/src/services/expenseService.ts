@@ -74,6 +74,7 @@ export interface CreateExpenseDTO {
 
 /**
  * Fetch all expenses from backend.
+ * DEPRECATED: Use getGroupExpenses() instead for group-scoped queries.
  * 
  * GET /api/expenses
  * 
@@ -82,6 +83,21 @@ export interface CreateExpenseDTO {
  */
 export async function getExpenses(): Promise<Expense[]> {
   const response = await http.get<Expense[]>('/expenses');
+  return response.data;
+}
+
+/**
+ * Fetch expenses for a specific group from backend.
+ * PREFERRED: Use this for group-scoped expense queries.
+ * 
+ * GET /api/groups/:groupId/expenses
+ * 
+ * @param groupId - Group ID to fetch expenses for
+ * @returns Promise<Expense[]> - Array of expenses for that group only (no orphans)
+ * @throws AppError if request fails
+ */
+export async function getGroupExpenses(groupId: number): Promise<Expense[]> {
+  const response = await http.get<Expense[]>(`/groups/${groupId}/expenses`);
   return response.data;
 }
 

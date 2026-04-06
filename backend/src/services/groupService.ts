@@ -7,6 +7,7 @@
 
 import prisma from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import { AppError } from '../errors/AppError';
 
 /**
  * Create a new expense group
@@ -282,5 +283,62 @@ export async function getGroupStats(groupId: number, userId: number) {
     };
   } catch (error) {
     throw new Error('Failed to fetch group statistics');
+  }
+}
+
+/**
+ * Get all expenses for a specific group
+ * @param groupId Group ID
+ * @param userId User ID (for permission check)
+ * @returns Array of expenses for the group
+ */
+export async function getGroupExpenses(groupId: number, userId: number) {
+  try {
+    // Verify group exists and user is member or creator
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      include: { members: { select: { id: true } } },
+    });
+
+    if (!group) {
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
+    }
+
+    const isMember = group.members.some((m: any) => m.id === userId);
+    const isCreator = group.createdById === userId;
+
+    if (!isMember && !isCreator) {
+      throw new AppError(
+        'Unauthorized: You are not a member of this group',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, userId }
+      );
+    }
+
+    // Fetch expenses ONLY for this group (not orphan expenses)
+    const expenses = await prisma.expense.findMany({
+      where: {
+        groupId, // CRITICAL: Filter by groupId
+        isSettled: false,
+      },
+      include: {
+        paidBy: {
+          select: { id: true, name: true, email: true },
+        },
+        category: true,
+        splitWith: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { expenseDate: 'desc' },
+    });
+
+    return expenses;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error; // Re-throw AppError as-is
+    }
+    throw new AppError('Failed to fetch group expenses', 500, 'FETCH_EXPENSES_ERROR');
   }
 }

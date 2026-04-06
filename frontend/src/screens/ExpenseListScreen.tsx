@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { getExpenses } from '../services/expenseService';
+import { getGroupExpenses } from '../services/expenseService';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { styles } from './ExpenseListScreen.styles';
@@ -54,11 +54,12 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * Fetch expenses from backend.
    * Sets loading state and handles errors.
    * Uses logger for centralized error tracking.
+   * Fetches only expenses for this group (no orphan expenses).
    */
   const loadExpenses = async () => {
     try {
       setError(null);
-      const data = await getExpenses();
+      const data = await getGroupExpenses(groupId); // ← Use groupId-scoped endpoint
       setExpenses(data);
       
       // Update currency preference from first expense
@@ -73,6 +74,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       logger.error('Failed to load expenses', err, {
         screen: 'ExpenseListScreen',
         action: 'loadExpenses',
+        groupId,
       });
     } finally {
       setLoading(false);
@@ -81,12 +83,13 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   };
 
   /**
-   * Load expenses on component mount.
-   * Empty dependency array means run only once when component mounts.
+   * Load expenses on component mount or when groupId changes.
+   * CRITICAL: groupId in dependency array ensures expenses reload
+   * when user navigates to different group.
    */
   useEffect(() => {
     loadExpenses();
-  }, []);
+  }, [groupId, loadExpenses]); // ✓ Include groupId to reload on change
 
   /**
    * Handle pull-to-refresh gesture.

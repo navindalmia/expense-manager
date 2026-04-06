@@ -228,3 +228,35 @@ export async function getStats(
     next(error);
   }
 }
+
+/**
+ * Get expenses for a specific group
+ * GET /api/groups/:id/expenses
+ */
+export async function getGroupExpenses(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    const groupId = parseInt(id, 10);
+
+    if (isNaN(groupId)) {
+      throw new Error('Invalid group ID');
+    }
+
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
+
+    const expenses = await groupService.getGroupExpenses(groupId, userId);
+
+    res.status(200).json({
+      success: true,
+      data: expenses,
+      count: expenses.length,
+    });
+  } catch (error) {
+    next(error); // Let error middleware handle all errors consistently
+  }
+}
