@@ -22,6 +22,8 @@ import type { RootStackParamList } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
+import AddMemberModal from '../components/AddMemberModal';
+import type { Group } from '../services/groupService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -140,6 +142,8 @@ function CreateGroupScreen({ navigation }: Props) {
   const [currency, setCurrency] = useState('GBP');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [createdGroup, setCreatedGroup] = useState<Group | null>(null);
 
   /**
    * Validate form inputs
@@ -180,15 +184,16 @@ function CreateGroupScreen({ navigation }: Props) {
         currency,
       });
 
+      const group = response.data.data as Group;
       logger.info('Group created successfully', {
         name,
         currency,
-        groupId: response.data.data?.id,
+        groupId: group.id,
       });
 
-      Alert.alert('Success', 'Group created!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      // Store group and show member modal
+      setCreatedGroup(group);
+      setShowMemberModal(true);
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       Alert.alert('Error', errorMessage);
@@ -199,6 +204,22 @@ function CreateGroupScreen({ navigation }: Props) {
       setLoading(false);
     }
   }, [name, description, currency, validateForm, navigation]);
+
+  const handleMemberAdded = useCallback(() => {
+    setShowMemberModal(false);
+    setCreatedGroup(null);
+    Alert.alert('Success', 'Group created! Members invited.', [
+      { text: 'OK', onPress: () => navigation.goBack() },
+    ]);
+  }, [navigation]);
+
+  const handleCloseMemberModal = useCallback(() => {
+    setShowMemberModal(false);
+    setCreatedGroup(null);
+    Alert.alert('Success', 'Group created!', [
+      { text: 'OK', onPress: () => navigation.goBack() },
+    ]);
+  }, [navigation]);
 
   return (
     <KeyboardAvoidingView
@@ -308,6 +329,14 @@ function CreateGroupScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Add Member Modal */}
+      <AddMemberModal
+        visible={showMemberModal}
+        group={createdGroup}
+        onClose={handleCloseMemberModal}
+        onMemberAdded={handleMemberAdded}
+      />
     </KeyboardAvoidingView>
   );
 }

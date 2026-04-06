@@ -15,28 +15,19 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
+import EditGroupModal from '../components/EditGroupModal';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
 import { useAuth } from '../context/AuthContext';
+import type { Group } from '../services/groupService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
-
-interface Group {
-  id: number;
-  name: string;
-  description?: string;
-  currency: string;
-  _count: {
-    expenses: number;
-    members: number;
-  };
-  createdAt: string;
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -167,6 +158,8 @@ function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<Group | null>(null);
   const { logout } = useAuth();
 
   /**
@@ -209,11 +202,15 @@ function HomeScreen({ navigation }: Props) {
   };
 
   /**
-   * Load groups on mount
+   * Load groups when screen comes into focus
+   * This ensures new groups appear immediately after creation
+   * without requiring manual refresh
    */
-  useEffect(() => {
-    loadGroups();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadGroups();
+    }, [])
+  );
 
   /**
    * Handle pull-to-refresh
@@ -222,6 +219,18 @@ function HomeScreen({ navigation }: Props) {
     setRefreshing(true);
     loadGroups();
   };
+
+  /**
+   * Handle group edit success - update list and close modal
+   */
+  const handleEditSuccess = useCallback((updatedGroup: Group) => {
+    // Update the group in the list
+    setGroups((prevGroups) =>
+      prevGroups.map((g) => (g.id === updatedGroup.id ? updatedGroup : g))
+    );
+    setEditModalVisible(false);
+    setSelectedGroupForEdit(null);
+  }, []);
 
   /**
    * Render individual group item
@@ -234,44 +243,60 @@ function HomeScreen({ navigation }: Props) {
       });
 
       return (
-        <TouchableOpacity
+        <View
           style={styles.groupCard}
-          onPress={() => {
-            navigation.navigate('ExpenseList', { groupId: item.id });
-          }}
           testID={`group-item-${item.id}`}
-          accessible={true}
-          accessibilityLabel={`${item.name}, ${item._count.expenses} expenses`}
-          accessibilityRole="button"
         >
-          <View style={styles.groupHeader}>
-            <View style={styles.groupInfo}>
-              <Text 
-                style={styles.groupName}
-                numberOfLines={1}
-                testID={`group-name-${item.id}`}
-              >
-                {item.name}
-              </Text>
-              <Text style={styles.groupMeta}>
-                {item._count.expenses} expenses • {item._count.members} members
-              </Text>
+          <TouchableOpacity
+            onPress={() => {
+              navigation.navigate('ExpenseList', { groupId: item.id });
+            }}
+            accessible={true}
+            accessibilityLabel={`${item.name}, ${item._count.expenses} expenses`}
+            accessibilityRole="button"
+          >
+            <View style={styles.groupHeader}>
+              <View style={styles.groupInfo}>
+                <Text 
+                  style={styles.groupName}
+                  numberOfLines={1}
+                  testID={`group-name-${item.id}`}
+                >
+                  {item.name}
+                </Text>
+                <Text style={styles.groupMeta}>
+                  {item._count.expenses} expenses • {item._count.members} members
+                </Text>
+              </View>
+              <Text style={styles.groupCurrency}>{item.currency}</Text>
             </View>
-            <Text style={styles.groupCurrency}>{item.currency}</Text>
-          </View>
 
-          {item.description && (
-            <Text 
-              style={styles.groupDescription}
-              numberOfLines={2}
-              testID={`group-description-${item.id}`}
-            >
-              {item.description}
+            {item.description && (
+              <Text 
+                style={styles.groupDescription}
+                numberOfLines={2}
+                testID={`group-description-${item.id}`}
+              >
+                {item.description}
+              </Text>
+            )}
+
+            <Text style={styles.groupDate}>{monthYear}</Text>
+          </TouchableOpacity>
+
+          {/* Edit button */}
+          <TouchableOpacity
+            style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}
+            onPress={() => {
+              setSelectedGroupForEdit(item);
+              setEditModalVisible(true);
+            }}
+          >
+            <Text style={{ color: '#0066cc', fontSize: 13, fontWeight: '600' }}>
+              ✏️ Edit Group
             </Text>
-          )}
-
-          <Text style={styles.groupDate}>{monthYear}</Text>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
       );
     },
     [navigation]
@@ -359,6 +384,17 @@ function HomeScreen({ navigation }: Props) {
         maxToRenderPerBatch={10}
         windowSize={10}
         removeClippedSubviews={true}
+      />
+
+      {/* Edit Group Modal */}
+      <EditGroupModal
+        visible={editModalVisible}
+        group={selectedGroupForEdit}
+        onClose={() => {
+          setEditModalVisible(false);
+          setSelectedGroupForEdit(null);
+        }}
+        onSuccess={handleEditSuccess}
       />
     </View>
   );

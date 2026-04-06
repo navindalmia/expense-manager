@@ -37,9 +37,17 @@ router.get('/:id/expenses', authMiddleware, groupController.getGroupExpenses);
 // GET /api/groups/:id
 router.get('/:id', authMiddleware, groupController.getGroupById);
 
-// Add member to group
+// Add member to group by email (specific route BEFORE generic)
+// POST /api/groups/:id/members/email
+router.post('/:id/members/email', authMiddleware, groupController.addMemberByEmail);
+
+// Add member to group by ID
 // POST /api/groups/:id/members
 router.post('/:id/members', authMiddleware, groupController.addMember);
+
+// Update/edit a group
+// PATCH /api/groups/:id
+router.patch('/:id', authMiddleware, groupController.updateGroup);
 
 // Delete/deactivate group
 // DELETE /api/groups/:id

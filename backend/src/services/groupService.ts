@@ -153,7 +153,92 @@ export async function getGroupById(groupId: number, userId: number) {
 }
 
 /**
- * Add member to group
+ * Add member to group by email
+ * @param groupId Group ID  
+ * @param email Email of user to add
+ * @param requestorId User making the request
+ * @returns Updated group with members
+ */
+export async function addMemberByEmail(
+  groupId: number,
+  email: string,
+  requestorId: number
+) {
+  try {
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        members: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
+    }
+
+    // Only creator can add members
+    if (group.createdById !== requestorId) {
+      throw new AppError(
+        'Unauthorized: Only group creator can add members',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, requestorId }
+      );
+    }
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { id: true, email: true, name: true },
+    });
+
+    if (!user) {
+      throw new AppError(
+        'Unable to add member. Please verify the email address.',
+        400,
+        'ADD_MEMBER_FAILED'
+      );
+    }
+
+    // Check if already a member
+    const isMember = group.members?.some((m) => m.id === user.id);
+    if (isMember) {
+      throw new AppError(
+        'User is already a member of this group',
+        400,
+        'ALREADY_MEMBER',
+        { userId: user.id, groupId }
+      );
+    }
+
+    // Add user to group
+    const updated = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        members: {
+          connect: { id: user.id },
+        },
+      },
+      include: {
+        members: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    return { ...updated, addedMember: user };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to add member to group', 500, 'ADD_MEMBER_ERROR');
+  }
+}
+
+/**
+ * Add member to group (by ID - for backward compatibility)
  * @param groupId Group ID
  * @param memberId User ID to add
  * @param requestorId User making the request
@@ -193,6 +278,74 @@ export async function addMemberToGroup(
     return updated;
   } catch (error) {
     throw error;
+  }
+}
+
+/**
+ * Update/edit a group
+ * @param groupId Group ID
+ * @param requestorId User making the request
+ * @param data Update data (name, description, currency)
+ * @returns Updated group
+ */
+export async function updateGroup(
+  groupId: number,
+  requestorId: number,
+  data: Partial<{ name: string; description: string; currency: string }>
+) {
+  try {
+    const group = await prisma.group.findUnique({ where: { id: groupId } });
+
+    if (!group) {
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
+    }
+
+    // Only creator can edit group
+    if (group.createdById !== requestorId) {
+      throw new AppError(
+        'Unauthorized: Only group creator can edit group',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, requestorId }
+      );
+    }
+
+    // Validate update data
+    if (data.name !== undefined && data.name.trim().length === 0) {
+      throw new AppError('Group name cannot be empty', 400, 'INVALID_NAME');
+    }
+
+    if (data.name && data.name.length > 100) {
+      throw new AppError('Group name must be less than 100 characters', 400, 'NAME_TOO_LONG');
+    }
+
+    if (data.description && data.description.length > 500) {
+      throw new AppError('Description must be less than 500 characters', 400, 'DESCRIPTION_TOO_LONG');
+    }
+
+    const updated = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        name: data.name?.trim(),
+        description: data.description?.trim(),
+        currency: data.currency as any, // Enum type
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+        members: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    return updated;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Failed to update group', 500, 'UPDATE_GROUP_ERROR');
   }
 }
 

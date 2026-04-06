@@ -41,3 +41,19 @@ export type CreateGroupRequest = z.infer<typeof createGroupSchema>;
 export function validateGroupInput(data: unknown): CreateGroupRequest {
   return createGroupSchema.parse(data);
 }
+
+/**
+ * Schema for adding a member by email
+ */
+export const addMemberSchema = z.object({
+  email: z
+    .string()
+    .email('Please enter a valid email address')
+    .trim()
+    .toLowerCase(),
+});
+
+/**
+ * Type for add member request
+ */
+export type AddMemberRequest = z.infer<typeof addMemberSchema>;

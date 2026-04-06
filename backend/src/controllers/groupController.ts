@@ -7,7 +7,8 @@
 
 import { Request, Response, NextFunction } from 'express';
 import * as groupService from '../services/groupService';
-import { validateGroupInput } from '../schemas/groupSchema';
+import { validateGroupInput, addMemberSchema } from '../schemas/groupSchema';
+import { AppError } from '../errors/AppError';
 
 /**
  * Create a new group
@@ -107,6 +108,44 @@ export async function getGroupById(
 }
 
 /**
+ * Add member to group by email
+ * POST /api/groups/:id/members/email
+ */
+export async function addMemberByEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    const { email } = addMemberSchema.parse(req.body);
+    
+    if (!id) {
+      throw new AppError('Group ID is required', 400, 'MISSING_GROUP_ID');
+    }
+    
+    const groupId = parseInt(id, 10);
+
+    if (isNaN(groupId)) {
+      throw new AppError('Invalid group ID', 400, 'INVALID_GROUP_ID', { groupId: id });
+    }
+
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
+
+    const result = await groupService.addMemberByEmail(groupId, email, userId);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: `${result.addedMember?.name} added to group successfully`,
+    });
+  } catch (error) {
+    next(error); // Let error middleware handle all errors consistently
+  }
+}
+
+/**
  * Add member to group
  * POST /api/groups/:id/members
  */
@@ -149,6 +188,43 @@ export async function addMember(
 }
 
 /**
+ * Update/edit a group
+ * PATCH /api/groups/:id
+ */
+export async function updateGroup(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    
+    if (!id) {
+      throw new AppError('Group ID is required', 400, 'MISSING_GROUP_ID');
+    }
+    
+    const groupId = parseInt(id, 10);
+
+    if (isNaN(groupId)) {
+      throw new AppError('Invalid group ID', 400, 'INVALID_GROUP_ID', { groupId: id });
+    }
+
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
+
+    const group = await groupService.updateGroup(groupId, userId, req.body);
+
+    res.status(200).json({
+      success: true,
+      data: group,
+      message: 'Group updated successfully',
+    });
+  } catch (error) {
+    next(error); // Let error middleware handle all errors consistently
+  }
+}
+
+/**
  * Delete/deactivate group
  * DELETE /api/groups/:id
  */
@@ -159,19 +235,15 @@ export async function deleteGroup(
 ) {
   try {
     const { id } = req.params;
+    
     if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Group ID is required',
-      });
+      throw new AppError('Group ID is required', 400, 'MISSING_GROUP_ID');
     }
+    
     const groupId = parseInt(id, 10);
 
     if (isNaN(groupId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid group ID',
-      });
+      throw new AppError('Invalid group ID', 400, 'INVALID_GROUP_ID', { groupId: id });
     }
 
     // Get userId from JWT token via auth middleware
@@ -240,10 +312,15 @@ export async function getGroupExpenses(
 ) {
   try {
     const { id } = req.params;
+    
+    if (!id) {
+      throw new AppError('Group ID is required', 400, 'MISSING_GROUP_ID');
+    }
+    
     const groupId = parseInt(id, 10);
 
     if (isNaN(groupId)) {
-      throw new Error('Invalid group ID');
+      throw new AppError('Invalid group ID', 400, 'INVALID_GROUP_ID', { groupId: id });
     }
 
     // Get userId from JWT token via auth middleware
