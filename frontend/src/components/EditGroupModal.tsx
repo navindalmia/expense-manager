@@ -18,6 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { updateGroup, Group } from '../services/groupService';
+import AddMemberModal from './AddMemberModal';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 
@@ -145,6 +146,8 @@ export default function EditGroupModal({
   const [currency, setCurrency] = useState('GBP');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
 
   // Initialize form with group data when modal opens
   useEffect(() => {
@@ -203,6 +206,11 @@ export default function EditGroupModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMemberAdded = (updatedGroup: Group) => {
+    // Update parent with group containing new members
+    onSuccess(updatedGroup);
   };
 
   return (
@@ -297,8 +305,27 @@ export default function EditGroupModal({
               )}
             </TouchableOpacity>
           </View>
+
+          {/* Manage Members Button */}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#27ae60', marginTop: 12 }]}
+            onPress={() => setShowMemberModal(true)}
+            disabled={loading}
+          >
+            <Text style={[styles.buttonText, styles.saveButtonText]}>
+              👥 Manage Members
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Add Member Modal */}
+      <AddMemberModal
+        visible={showMemberModal}
+        group={group}
+        onClose={() => setShowMemberModal(false)}
+        onMemberAdded={handleMemberAdded}
+      />
     </Modal>
   );
 }
