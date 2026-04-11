@@ -31,10 +31,20 @@ export const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
   },
 
+  headerContent: {
+    flex: 1,
+  },
+
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#000',
+  },
+
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 4,
   },
 
   addButton: {

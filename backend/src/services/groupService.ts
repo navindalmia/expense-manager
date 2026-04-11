@@ -85,6 +85,9 @@ export async function getUserGroups(userId: number) {
         members: {
           select: { id: true, name: true, email: true },
         },
+        expenses: {
+          select: { amount: true },
+        },
         _count: {
           select: { expenses: true, members: true },
         },
@@ -92,7 +95,14 @@ export async function getUserGroups(userId: number) {
       orderBy: { updatedAt: 'desc' },
     });
 
-    return groups;
+    // Calculate total amount for each group and keep expenses array for reuse
+    return groups.map((group: any) => {
+      const totalAmount = group.expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+      return {
+        ...group,
+        totalAmount,
+      };
+    });
   } catch (error) {
     throw new Error('Failed to fetch groups');
   }
@@ -323,19 +333,38 @@ export async function updateGroup(
       throw new AppError('Description must be less than 500 characters', 400, 'DESCRIPTION_TOO_LONG');
     }
 
+    // Build update object only with provided fields
+    const updateData: any = {};
+
+    if (data.name !== undefined && data.name !== null) {
+      updateData.name = data.name.trim();
+    }
+
+    if (data.description !== undefined && data.description !== null) {
+      updateData.description = data.description.trim() || null; // Allow clearing description
+    }
+
+    if (data.currency !== undefined && data.currency !== null) {
+      updateData.currency = data.currency;
+    }
+
+    // If no fields to update, return current group as-is
+    if (Object.keys(updateData).length === 0) {
+      return group;
+    }
+
     const updated = await prisma.group.update({
       where: { id: groupId },
-      data: {
-        name: data.name?.trim(),
-        description: data.description?.trim(),
-        currency: data.currency as any, // Enum type
-      },
+      data: updateData,
       include: {
         createdBy: {
           select: { id: true, name: true, email: true },
         },
         members: {
           select: { id: true, name: true, email: true },
+        },
+        _count: {
+          select: { expenses: true, members: true },
         },
       },
     });

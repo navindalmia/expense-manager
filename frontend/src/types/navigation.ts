@@ -8,9 +8,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 export interface RootStackParamList extends Record<string, object | undefined> {
   Login: undefined;
   Home: undefined;
-  ExpenseList: { groupId: number };
+  ExpenseList: { groupId: number; groupName?: string };
   ExpenseDetail: { expenseId: number };
-  CreateExpense: { groupId: number };
+  CreateExpense: { groupId: number; groupName?: string };
   CreateGroup: undefined;
 }
 

@@ -148,7 +148,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  editButton: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  editButtonText: {
+    color: '#0066cc',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  groupFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  groupTotal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0066cc',
+  },
 });
+
+/**
+ * Format date efficiently - memoize to avoid recalculation
+ */
+const formatGroupDate = (createdAt: string): string => {
+  return new Date(createdAt).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+  });
+};
 
 /**
  * Home Screen showing all groups/lists
@@ -183,7 +215,7 @@ function HomeScreen({ navigation }: Props) {
   /**
    * Fetch all groups from backend
    */
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       setError(null);
       const response = await http.get('/groups');
@@ -199,7 +231,7 @@ function HomeScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   /**
    * Load groups when screen comes into focus
@@ -209,7 +241,7 @@ function HomeScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       loadGroups();
-    }, [])
+    }, [loadGroups])
   );
 
   /**
@@ -222,26 +254,33 @@ function HomeScreen({ navigation }: Props) {
 
   /**
    * Handle group edit success - update list and close modal
+   * This uses optimistic update: immediately update state with the response from API
    */
   const handleEditSuccess = useCallback((updatedGroup: Group) => {
-    // Update the group in the list
+    // Immediately update the group in the list with the fresh data from API
+    // This creates a NEW array reference which triggers FlatList re-render
     setGroups((prevGroups) =>
-      prevGroups.map((g) => (g.id === updatedGroup.id ? updatedGroup : g))
+      prevGroups.map((g) =>
+        g.id === updatedGroup.id ? updatedGroup : g
+      )
     );
+    
+    // Close modal after state update
     setEditModalVisible(false);
     setSelectedGroupForEdit(null);
+    
+    logger.info('Group updated in list', {
+      groupId: updatedGroup.id,
+      name: updatedGroup.name,
+    });
   }, []);
 
   /**
    * Render individual group item
+   * Memoized to prevent re-renders of unchanged items
    */
   const renderGroupItem = useCallback(
     ({ item }: { item: Group }) => {
-      const monthYear = new Date(item.createdAt).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-      });
-
       return (
         <View
           style={styles.groupCard}
@@ -249,7 +288,7 @@ function HomeScreen({ navigation }: Props) {
         >
           <TouchableOpacity
             onPress={() => {
-              navigation.navigate('ExpenseList', { groupId: item.id });
+              navigation.navigate('ExpenseList', { groupId: item.id, groupName: item.name });
             }}
             accessible={true}
             accessibilityLabel={`${item.name}, ${item._count.expenses} expenses`}
@@ -281,18 +320,23 @@ function HomeScreen({ navigation }: Props) {
               </Text>
             )}
 
-            <Text style={styles.groupDate}>{monthYear}</Text>
+            <View style={styles.groupFooter}>
+              <Text style={styles.groupDate}>{formatGroupDate(item.createdAt)}</Text>
+              <Text style={styles.groupTotal}>
+                {item.totalAmount.toFixed(2)} {item.currency}
+              </Text>
+            </View>
           </TouchableOpacity>
 
           {/* Edit button */}
           <TouchableOpacity
-            style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}
+            style={styles.editButton}
             onPress={() => {
               setSelectedGroupForEdit(item);
               setEditModalVisible(true);
             }}
           >
-            <Text style={{ color: '#0066cc', fontSize: 13, fontWeight: '600' }}>
+            <Text style={styles.editButtonText}>
               ✏️ Edit Group
             </Text>
           </TouchableOpacity>
@@ -367,6 +411,7 @@ function HomeScreen({ navigation }: Props) {
 
       <FlatList
         data={groups}
+        extraData={groups}
         renderItem={renderGroupItem}
         keyExtractor={(item) => item.id.toString()}
         ListEmptyComponent={renderEmptyState}
@@ -381,8 +426,9 @@ function HomeScreen({ navigation }: Props) {
         }
         contentContainerStyle={styles.listContent}
         testID="groups-flat-list"
-        maxToRenderPerBatch={10}
-        windowSize={10}
+        maxToRenderPerBatch={5}
+        updateCellsBatchingPeriod={50}
+        windowSize={5}
         removeClippedSubviews={true}
       />
 

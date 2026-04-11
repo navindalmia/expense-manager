@@ -15,6 +15,7 @@ export interface Group {
   name: string;
   description?: string;
   currency: string;
+  totalAmount: number;
   createdBy: {
     id: number;
     name: string;

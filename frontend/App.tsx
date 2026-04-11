@@ -7,10 +7,10 @@ import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ExpenseListScreen from './src/screens/ExpenseListScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
+import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setOnUnauthorized } from './src/api/http/interceptors';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
-// import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -84,16 +84,16 @@ function AppNavigator() {
               component={CreateGroupScreen}
               options={{ title: 'Create Group' }}
             />
-            {/* TODO: Add ExpenseDetailScreen and CreateExpenseScreen components */}
+            <Stack.Screen
+              name="CreateExpense"
+              component={CreateExpenseScreen}
+              options={{ title: 'Add Expense' }}
+            />
+            {/* TODO: Add ExpenseDetailScreen component */}
             {/* <Stack.Screen 
               name="ExpenseDetail" 
               component={ExpenseDetailScreen}
               options={{ title: 'Expense Details' }}
-            />
-            <Stack.Screen 
-              name="CreateExpense" 
-              component={CreateExpenseScreen}
-              options={{ title: 'Add Expense' }}
             /> */}
           </Stack.Group>
         )}

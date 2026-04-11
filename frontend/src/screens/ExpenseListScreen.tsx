@@ -39,10 +39,11 @@ import ErrorState from '../components/ErrorState';
  * - Proper accessibility labels for screen readers
  */
 function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
-  const { groupId } = route.params;
+  const { groupId, groupName: initialGroupName } = route.params;
   
   // State management
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [groupName, setGroupName] = useState<string>(initialGroupName || '');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +60,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   const loadExpenses = async () => {
     try {
       setError(null);
-      const data = await getGroupExpenses(groupId); // ← Use groupId-scoped endpoint
+      const data = await getGroupExpenses(groupId);
       setExpenses(data);
       
       // Update currency preference from first expense
@@ -69,8 +70,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
     } catch (err) {
       const errorMessage = getErrorMessage(err);
       setError(errorMessage);
-      
-      // Use logger instead of console.error for centralized tracking
       logger.error('Failed to load expenses', err, {
         screen: 'ExpenseListScreen',
         action: 'loadExpenses',
@@ -178,7 +177,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         <Text style={styles.emptySubtext}>Add your first expense to get started</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('CreateExpense', { groupId })}
+          onPress={() => navigation.navigate('CreateExpense', { groupId, groupName })}
           testID="empty-state-add-button"
           accessible={true}
           accessibilityLabel="Add your first expense"
@@ -214,16 +213,21 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       testID="expense-list-screen"
     >
       <View style={styles.header}>
-        <Text 
-          style={styles.headerTitle}
-          testID="header-title"
-        >
-          Expenses
-        </Text>
+        <View style={styles.headerContent}>
+          <Text 
+            style={styles.headerTitle}
+            testID="header-title"
+          >
+            {groupName || 'Expenses'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            Expenses
+          </Text>
+        </View>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
-            navigation.navigate('CreateExpense', { groupId });
+            navigation.navigate('CreateExpense', { groupId, groupName });
           }}
           testID="add-expense-button"
           accessible={true}
@@ -232,7 +236,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         >
           <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
-      </View>
+        </View>
 
       {expenses.length > 0 && (
         <View 

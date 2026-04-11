@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
   },
   modalView: {
     width: '90%',
+    maxHeight: '85%',
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
@@ -46,6 +47,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    display: 'flex',
+    flexDirection: 'column',
   },
   modalTitle: {
     fontSize: 18,
@@ -131,6 +134,28 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginBottom: 8,
   },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 12,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+    fontStyle: 'italic',
+  },
+  manageButton: {
+    backgroundColor: '#27ae60',
+    marginBottom: 12,
+    paddingVertical: 14,
+  },
 });
 
 const CURRENCIES = ['GBP', 'USD', 'EUR', 'INR', 'AUD', 'CAD', 'JPY', 'CNY'];
@@ -147,7 +172,6 @@ export default function EditGroupModal({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
 
   // Initialize form with group data when modal opens
   useEffect(() => {
@@ -224,7 +248,13 @@ export default function EditGroupModal({
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Edit Group</Text>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
+            {/* Settings Section */}
+            <Text style={styles.sectionLabel}>Group Settings</Text>
+            
             {/* Name */}
             <Text style={styles.label}>Group Name</Text>
             <TextInput
@@ -277,9 +307,29 @@ export default function EditGroupModal({
                 </TouchableOpacity>
               ))}
             </View>
+
+            {/* Divider */}
+            <View style={styles.sectionDivider} />
+            
+            {/* Members Section */}
+            <Text style={styles.sectionLabel}>👥 Manage Members</Text>
+            <Text style={styles.helpText}>
+              Click the button below to invite members to this group by email
+            </Text>
+            
+            {/* Manage Members Button - Prominent */}
+            <TouchableOpacity
+              style={[styles.button, styles.manageButton]}
+              onPress={() => setShowMemberModal(true)}
+              disabled={loading}
+            >
+              <Text style={[styles.buttonText, styles.saveButtonText]}>
+                + Add or Invite Members
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
 
-          {/* Buttons */}
+          {/* Buttons - Fixed at Bottom */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
@@ -305,17 +355,6 @@ export default function EditGroupModal({
               )}
             </TouchableOpacity>
           </View>
-
-          {/* Manage Members Button */}
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#27ae60', marginTop: 12 }]}
-            onPress={() => setShowMemberModal(true)}
-            disabled={loading}
-          >
-            <Text style={[styles.buttonText, styles.saveButtonText]}>
-              👥 Manage Members
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
