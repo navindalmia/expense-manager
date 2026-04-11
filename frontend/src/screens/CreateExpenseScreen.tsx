@@ -148,7 +148,7 @@ export default function CreateExpenseScreen({
   navigation, 
   route,
 }: CreateExpenseScreenProps) {
-  const { groupId, groupName } = route.params;
+  const { groupId, groupName } = route.params || { groupId: 0, groupName: '' };
   const { user } = useAuth();
 
   // Form state

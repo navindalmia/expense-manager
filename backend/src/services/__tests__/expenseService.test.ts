@@ -1,17 +1,19 @@
 /**
- * Unit tests for ExpenseService
- * TEMPORARILY DISABLED - Tests need updating for new groupId requirement
- * TODO: Update after database stabilization
+ * Expense Service Tests
  * 
- * Tests business logic: split calculations, validations, and error handling
- * Mocks Prisma to isolate service logic from database
+ * Validates business logic for expense creation, retrieval, and deletion
+ * Security: Tests user isolation, validation, and authorization
  */
 
-import * as expenseService from '../../services/expenseService';
+import * as expenseService from '../expenseService';
 import prisma from '../../lib/prisma';
+import { Currency, SplitType } from '@prisma/client';
 import { AppError } from '../../errors/AppError';
 
 jest.mock('../../lib/prisma');
+jest.mock('../../utils/cleanData', () => ({
+  cleanData: (data: any) => data,
+}));
 
 describe('ExpenseService', () => {
   beforeEach(() => {
