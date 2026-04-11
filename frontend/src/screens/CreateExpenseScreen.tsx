@@ -151,6 +151,14 @@ export default function CreateExpenseScreen({
   const { groupId, groupName } = route.params || { groupId: 0, groupName: '' };
   const { user } = useAuth();
 
+  // Validate required params
+  if (!groupId || groupId === 0) {
+    logger.warn('CreateExpenseScreen: Missing required groupId parameter', {
+      screen: 'CreateExpenseScreen',
+      groupId,
+    });
+  }
+
   // Form state
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');

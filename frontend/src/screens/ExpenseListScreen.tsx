@@ -39,7 +39,15 @@ import ErrorState from '../components/ErrorState';
  * - Proper accessibility labels for screen readers
  */
 function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
-  const { groupId, groupName: initialGroupName } = route.params;
+  const { groupId, groupName: initialGroupName } = route.params || { groupId: 0, groupName: '' };
+  
+  // Validate required params - warn if missing
+  if (!groupId || groupId === 0) {
+    logger.warn('ExpenseListScreen: Missing required groupId parameter', {
+      screen: 'ExpenseListScreen',
+      groupId,
+    });
+  }
   
   // State management
   const [expenses, setExpenses] = useState<Expense[]>([]);
