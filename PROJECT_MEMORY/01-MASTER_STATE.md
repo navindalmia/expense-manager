@@ -88,30 +88,31 @@
 ## 📋 IMMEDIATE NEXT STEPS (In Priority Order)
 
 1. **[URGENT]** Fix build errors
-   - Run backend diagnostics
-   - Run frontend diagnostics
-   - Identify root cause of exit code 1
+   - Run backend diagnostics: `cd backend && npm run dev 2>&1 | head -50`
+   - Run frontend diagnostics: `cd frontend && npm start 2>&1 | head -50`
+   - All terminals currently exit code 1 - identify root cause
 
 2. **[HIGH]** Complete EditExpenseScreen.tsx
-   - View expense details
-   - Edit fields (amount, category, date, split type)
-   - Save changes
-
-3. **[HIGH]** Commit & Test
-   ```bash
-   git add -A
-   git commit -m "feat: add expense create/edit/list flows - phase 2"
-   ```
+   - Add calendar date picker (replace text input)
    - Test on mobile (Expo Go)
-   - Verify all three screens work
+   - Fix edge cases
+
+3. **[HIGH]** Debug Add Member Without Registration
+   - Review git diff to see what was attempted
+   - Understand intended flow
+   - Fix the broken feature
+
+4. **[HIGH]** Commit & Test
+   - Once build fixed: `git add -A && git commit -m "feat: add expense create/edit/list flows - phase 2"`
+   - Test all three screens on mobile
    - Test split calculation logic
 
-4. **[MEDIUM]** Polish & Performance
+5. **[MEDIUM]** Polish & Performance
    - Add loading states
    - Error handling on all API calls
    - Validate data before save
 
-5. **[LOW]** Tag & Deploy
+6. **[LOW]** Tag & Deploy
    - `git tag v0.2.1`
    - Push to origin
 
