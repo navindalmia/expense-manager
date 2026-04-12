@@ -31,13 +31,17 @@ export interface Category {
 /**
  * Expense entity as returned from backend.
  * Complete expense record with relationships (User, Category, splitWith).
- * Matches backend Prisma model with includes: paidBy, category, splitWith.
+ * Matches backend Prisma model with includes: paidBy, category, splitWith, currency.
  */
 export interface Expense {
   id: number;
   title: string;
   amount: number;
-  currency: string;
+  currency: {
+    id: number;
+    code: string;
+    label: string;
+  };
   paidById: number;
   paidBy: User;
   categoryId: number;
@@ -90,15 +94,15 @@ export async function getExpenses(): Promise<Expense[]> {
  * Fetch expenses for a specific group from backend.
  * PREFERRED: Use this for group-scoped expense queries.
  * 
- * GET /api/groups/:groupId/expenses
+ * GET /api/expenses/group/:groupId
  * 
  * @param groupId - Group ID to fetch expenses for
  * @returns Promise<Expense[]> - Array of expenses for that group only (no orphans)
  * @throws AppError if request fails
  */
 export async function getGroupExpenses(groupId: number): Promise<Expense[]> {
-  const response = await http.get<Expense[]>(`/groups/${groupId}/expenses`);
-  return response.data;
+  const response = await http.get<{ statusCode: number; data: Expense[] }>(`/expenses/group/${groupId}`);
+  return response.data.data;
 }
 
 /**

@@ -17,6 +17,7 @@ import {
 import { getGroupExpenses } from '../services/expenseService';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
+import { useAuth } from '../context/AuthContext';
 import { styles } from './ExpenseListScreen.styles';
 import type { Expense } from '../services/expenseService';
 import type { ExpenseListScreenProps } from '../types/navigation';
@@ -39,10 +40,28 @@ import ErrorState from '../components/ErrorState';
  * - Proper accessibility labels for screen readers
  */
 function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
-  const { groupId, groupName: initialGroupName } = route.params || { groupId: 0, groupName: '' };
+  const params = route.params || {};
+  const groupId = params.groupId || 0;
+  const groupName = params.groupName || 'Group';
+  const { user: currentUser } = useAuth();
+  
+  // DEBUG: Log what we actually received
+  if (__DEV__) {
+    console.log('📍 ExpenseListScreen mounted', {
+      params: JSON.stringify(params),
+      groupId,
+      groupName,
+    });
+  }
   
   // Validate required params - warn if missing
   if (!groupId || groupId === 0) {
+    if (__DEV__) {
+      console.warn('⚠️ ExpenseListScreen: Missing or invalid groupId', {
+        groupId,
+        params,
+      });
+    }
     logger.warn('ExpenseListScreen: Missing required groupId parameter', {
       screen: 'ExpenseListScreen',
       groupId,
@@ -51,7 +70,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   
   // State management
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [groupName, setGroupName] = useState<string>(initialGroupName || '');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,19 +82,43 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * Sets loading state and handles errors.
    * Uses logger for centralized error tracking.
    * Fetches only expenses for this group (no orphan expenses).
+   * Wrapped in useCallback to prevent infinite render loops
+   * when included in useEffect dependency array.
    */
-  const loadExpenses = async () => {
+  const loadExpenses = useCallback(async () => {
     try {
+      if (__DEV__) {
+        console.log('🔄 loadExpenses called with groupId:', groupId);
+      }
+      
       setError(null);
       const data = await getGroupExpenses(groupId);
+      
+      if (__DEV__) {
+        console.log('✅ Expenses loaded:', {
+          count: data.length,
+          groupId,
+          data: data.map(e => ({ id: e.id, title: e.title, amount: e.amount }))
+        });
+      }
+      
       setExpenses(data);
       
       // Update currency preference from first expense
       if (data.length > 0) {
-        setCurrencyPreference(data[0].currency);
+        setCurrencyPreference(data[0].currency.code);
       }
     } catch (err) {
       const errorMessage = getErrorMessage(err);
+      
+      if (__DEV__) {
+        console.error('❌ Failed to load expenses:', {
+          error: errorMessage,
+          groupId,
+          rawError: err,
+        });
+      }
+      
       setError(errorMessage);
       logger.error('Failed to load expenses', err, {
         screen: 'ExpenseListScreen',
@@ -87,7 +129,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [groupId]);
 
   /**
    * Load expenses on component mount or when groupId changes.
@@ -121,7 +163,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         }}
         testID={`expense-item-${item.id}`}
         accessible={true}
-        accessibilityLabel={`${item.title}, ${item.currency} ${item.amount.toFixed(2)}`}
+        accessibilityLabel={`${item.title}, ${item.currency.code} ${item.amount.toFixed(2)}`}
         accessibilityRole="button"
       >
         <View style={styles.expenseHeader}>
@@ -136,7 +178,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
             style={styles.expenseAmount}
             testID={`expense-amount-${item.id}`}
           >
-            {item.currency} {item.amount.toFixed(2)}
+            {item.currency.code} {item.amount.toFixed(2)}
           </Text>
         </View>
 
@@ -169,6 +211,28 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   );
 
   /**
+   * Calculate financial summary for header.
+   * - Total: Sum of all expenses
+   * - Personal: Sum of current user's split amounts (what they owe)
+   */
+  const calculateTotals = useCallback(() => {
+    const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    
+    const personal = expenses.reduce((sum, exp) => {
+      // Find current user in the split
+      const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
+      if (userIndex !== -1 && exp.splitAmount?.[userIndex]) {
+        return sum + exp.splitAmount[userIndex];
+      }
+      return sum;
+    }, 0);
+    
+    return { total, personal };
+  }, [expenses, currentUser?.id]);
+
+  const { total, personal } = calculateTotals();
+
+  /**
    * Render empty state.
    * Wrapped in useCallback to prevent recreation on every render.
    * Includes button to add first expense.
@@ -185,7 +249,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         <Text style={styles.emptySubtext}>Add your first expense to get started</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('CreateExpense', { groupId, groupName })}
+          onPress={() => navigation.navigate('CreateExpense', { groupId, groupName, groupCurrencyCode: params.groupCurrencyCode })}
           testID="empty-state-add-button"
           accessible={true}
           accessibilityLabel="Add your first expense"
@@ -195,7 +259,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         </TouchableOpacity>
       </View>
     ),
-    [navigation]
+    [navigation, groupId, groupName]
   );
 
   /**
@@ -228,14 +292,11 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
           >
             {groupName || 'Expenses'}
           </Text>
-          <Text style={styles.headerSubtitle}>
-            Expenses
-          </Text>
         </View>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
-            navigation.navigate('CreateExpense', { groupId, groupName });
+            navigation.navigate('CreateExpense', { groupId, groupName, groupCurrencyCode: params.groupCurrencyCode });
           }}
           testID="add-expense-button"
           accessible={true}
@@ -244,22 +305,29 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         >
           <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
-        </View>
+      </View>
 
       {expenses.length > 0 && (
         <View 
           style={styles.summaryCard}
           testID="summary-card"
           accessible={true}
-          accessibilityLabel={`Total expenses: ${currencyPreference} ${expenses.reduce((sum, exp) => sum + exp.amount, 0).toFixed(2)}`}
+          accessibilityLabel={`Total: ${currencyPreference} ${total.toFixed(2)}, Your share: ${currencyPreference} ${personal.toFixed(2)}`}
         >
-          <Text style={styles.summaryLabel}>Total</Text>
-          <Text style={styles.summaryAmount}>
-            {currencyPreference}{' '}
-            {expenses
-              .reduce((sum, exp) => sum + exp.amount, 0)
-              .toFixed(2)}
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+            <View>
+              <Text style={styles.summaryLabel}>Total</Text>
+              <Text style={styles.summaryAmount}>
+                {currencyPreference} {total.toFixed(2)}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.summaryLabel}>My Personal</Text>
+              <Text style={styles.summaryAmount}>
+                {currencyPreference} {personal.toFixed(2)}
+              </Text>
+            </View>
+          </View>
         </View>
       )}
 

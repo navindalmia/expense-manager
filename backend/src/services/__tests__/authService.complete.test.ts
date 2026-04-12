@@ -185,7 +185,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
   describe('JWT HELPER UTILITIES', () => {
     describe('generateToken()', () => {
       it('TEST 15: Should generate JWT with userId in payload', () => {
-        jest.spyOn(jwt, 'sign').mockReturnValue('token_abc123');
+        (jwt.sign as jest.Mock).mockReturnValue('token_abc123');
 
         const token = jwtHelper.generateToken(42);
 
@@ -299,7 +299,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         name: 'Test User',
       });
       jest.spyOn(require('bcrypt'), 'hash').mockResolvedValue('hashed_pass');
-      jest.spyOn(jwt, 'sign').mockReturnValue('auth_token_123');
+      (jwt.sign as jest.Mock).mockReturnValue('auth_token_123');
     });
 
     it('TEST 25: Should validate email format (invalid)', () => {
@@ -545,7 +545,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         failedLoginAttempts: 0,
       });
       jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true);
-      jest.spyOn(jwt, 'sign').mockReturnValue('auth_token_xyz');
+      (jwt.sign as jest.Mock).mockReturnValue('auth_token_xyz');
     });
 
     it('TEST 40: Should successfully login with valid credentials', async () => {

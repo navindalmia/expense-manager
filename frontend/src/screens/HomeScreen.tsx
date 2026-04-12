@@ -288,7 +288,7 @@ function HomeScreen({ navigation }: Props) {
         >
           <TouchableOpacity
             onPress={() => {
-              navigation.navigate('ExpenseList', { groupId: item.id, groupName: item.name });
+              navigation.navigate('ExpenseList', { groupId: item.id, groupName: item.name, groupCurrencyCode: item.currency.code });
             }}
             accessible={true}
             accessibilityLabel={`${item.name}, ${item._count.expenses} expenses`}
@@ -307,7 +307,7 @@ function HomeScreen({ navigation }: Props) {
                   {item._count.expenses} expenses • {item._count.members} members
                 </Text>
               </View>
-              <Text style={styles.groupCurrency}>{item.currency}</Text>
+              <Text style={styles.groupCurrency}>{item.currency.code}</Text>
             </View>
 
             {item.description && (
@@ -323,7 +323,7 @@ function HomeScreen({ navigation }: Props) {
             <View style={styles.groupFooter}>
               <Text style={styles.groupDate}>{formatGroupDate(item.createdAt)}</Text>
               <Text style={styles.groupTotal}>
-                {item.totalAmount.toFixed(2)} {item.currency}
+                {item.totalAmount.toFixed(2)} {item.currency.code}
               </Text>
             </View>
           </TouchableOpacity>

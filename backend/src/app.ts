@@ -4,6 +4,8 @@ import cors from "cors";
 import expenseRoutes from "./routes/expenseRoutes";
 import groupRoutes from "./routes/groupRoutes";
 import authRoutes from "./routes/authRoutes";
+import categoryRoutes from "./routes/categoryRoutes";
+import currencyRoutes from "./routes/currencyRoutes";
 import { errorHandler } from "./middlewares/errorHandler"; 
 import { i18nMiddleware } from "./middlewares/i18nMiddleware";
 import "./types/express"; // Import JWT type extensions
@@ -19,6 +21,8 @@ app.use(i18nMiddleware); // Language detection middleware added here
 app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/currencies", currencyRoutes);
 
 // Health check
 app.get("/", (req, res) => res.send("Expense Manager API running "));

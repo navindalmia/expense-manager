@@ -1,8 +1,38 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
+const SALT_ROUNDS = 10;
+
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
+}
 
 async function main() {
+  // -------------------- Currencies --------------------
+  const currencies = [
+    { code: "GBP", label: "British Pound" },
+    { code: "USD", label: "US Dollar" },
+    { code: "EUR", label: "Euro" },
+    { code: "INR", label: "Indian Rupee" },
+    { code: "AUD", label: "Australian Dollar" },
+    { code: "CAD", label: "Canadian Dollar" },
+    { code: "JPY", label: "Japanese Yen" },
+    { code: "SGD", label: "Singapore Dollar" },
+    { code: "HKD", label: "Hong Kong Dollar" },
+    { code: "CHF", label: "Swiss Franc" },
+    { code: "NZD", label: "New Zealand Dollar" },
+    { code: "SEK", label: "Swedish Krona" },
+  ];
+
+  for (const curr of currencies) {
+    await prisma.currency.upsert({
+      where: { code: curr.code },
+      update: {},
+      create: curr,
+    });
+  }
+
   // -------------------- Categories --------------------
   const categories = [
     { code: "FOOD", label: "Food" },
@@ -23,59 +53,10 @@ async function main() {
   }
 
   // -------------------- Users --------------------
-  const users = [
-    { name: "Alice", email: "alice@example.com" },
-    { name: "Bob", email: "bob@example.com" },
-  ];
+  // Skip user seeding - let user create accounts via signup
+  console.log("✅ Skipping user seeding - create via signup flow");
 
-  for (const user of users) {
-    await prisma.user.upsert({
-      where: { email: user.email },
-      update: {},
-      create: user,
-    });
-  }
-
-  // -------------------- Groups --------------------
-  const group = await prisma.group.create({
-    data: {
-      name: "Team Dinner",
-      description: "Team bonding dinner",
-      createdBy: { connect: { email: "alice@example.com" } },
-      members: {
-        connect: [
-          { email: "alice@example.com" },
-          { email: "bob@example.com" },
-        ],
-      },
-      currency: "GBP",
-    },
-  });
-
-  // -------------------- Sample Expense --------------------
-  await prisma.expense.create({
-    data: {
-      title: "Team Lunch",
-      amount: 100,
-      paidBy: { connect: { email: "alice@example.com" } },
-      group: { connect: { id: group.id } },
-      splitWith: {
-        connect: [
-          { email: "alice@example.com" },
-          { email: "bob@example.com" },
-        ],
-      },
-      splitType: "EQUAL",
-      splitAmount: [],        // empty because equal split
-      splitPercentage: [],    // empty because equal split
-      category: { connect: { code: "FOOD" } },
-      currency: "GBP",
-      expenseDate: new Date("2025-09-29"),
-      notes: "Pizza and drinks",
-    },
-  });
-
-  console.log("✅ Database seeded successfully");
+  console.log("✅ Database seeded successfully with currencies and categories");
 }
 
 main()

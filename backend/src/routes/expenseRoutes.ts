@@ -10,6 +10,7 @@ const router = Router();
  * All routes are protected with JWT authentication
  */
 router.get("/", authMiddleware, expenseController.getExpenses);
+router.get("/group/:groupId", authMiddleware, expenseController.getGroupExpenses);
 router.post("/", authMiddleware, expenseController.createExpense);
 router.delete("/:id", authMiddleware, expenseController.deleteExpense);
 

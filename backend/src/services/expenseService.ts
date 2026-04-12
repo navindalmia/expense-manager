@@ -6,21 +6,53 @@
  */
 
 import prisma from "../lib/prisma";
-import { Currency, SplitType, Prisma } from "@prisma/client";
+import { SplitType, Prisma } from "@prisma/client";
 import { cleanData } from "../utils/cleanData";
 import { AppError } from "../errors/AppError";
 
 /**
- * Get all expenses for a group (NEW - group-scoped)
+ * Get all expenses for a specific group with permission check
+ * 
+ * @param groupId - The group ID to fetch expenses for
+ * @param userId - The current user ID (for authorization)
+ * @throws AppError if user is not a member of the group
+ * @returns Array of expenses with full relationships (currency, paidBy, category, splitWith)
  */
-export async function getGroupExpenses(groupId: number) {
+export async function getGroupExpenses(groupId: number, userId: number) {
   try {
+    // Verify group exists and user is member or creator
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      include: { members: { select: { id: true } } },
+    });
+
+    if (!group) {
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
+    }
+
+    // Check authorization: user must be member or creator
+    const isMember = group.members.some((m: any) => m.id === userId);
+    const isCreator = group.createdById === userId;
+
+    if (!isMember && !isCreator) {
+      throw new AppError(
+        'Unauthorized: You are not a member of this group',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, userId }
+      );
+    }
+
+    // Fetch expenses for this group only
     const expenses = await prisma.expense.findMany({
       where: {
         groupId,
         isSettled: false,
       },
       include: {
+        currency: {
+          select: { id: true, code: true, label: true },
+        },
         paidBy: {
           select: { id: true, name: true, email: true },
         },
@@ -33,7 +65,10 @@ export async function getGroupExpenses(groupId: number) {
     });
     return expenses;
   } catch (error) {
-    throw new Error('Failed to fetch expenses');
+    if (error instanceof AppError) {
+      throw error; // Re-throw AppError with proper context
+    }
+    throw new AppError('Failed to fetch expenses', 500, 'FETCH_ERROR', { error });
   }
 }
 
@@ -53,7 +88,7 @@ export async function getAllExpenses() {
 export async function createExpense(data: {
   title: string;
   amount: number;
-  currency?: Currency;
+  currency?: string;
   groupId: number;
   paidById: number;
   categoryId: number;
@@ -67,7 +102,7 @@ export async function createExpense(data: {
   const {
     title,
     amount,
-    currency = Currency.GBP,
+    currency = 'GBP',
     groupId,
     paidById,
     categoryId,
@@ -124,38 +159,105 @@ export async function createExpense(data: {
     });
 
     if (!group) {
-      throw new Error('Group not found');
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
     }
 
     // Verify paidById user is a member of the group
     const isPayerMember = group.members.some((m) => m.id === paidById);
     if (!isPayerMember && group.createdById !== paidById) {
-      throw new Error('Payer is not a member of this group');
+      throw new AppError(
+        'Payer is not a member of this group',
+        403,
+        'USER_NOT_GROUP_MEMBER',
+        { groupId, paidById }
+      );
+    }
+
+    // Look up category to verify it exists
+    const categoryRecord = await prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!categoryRecord) {
+      throw new AppError(
+        'Category not found',
+        404,
+        'CATEGORY_NOT_FOUND',
+        { categoryId }
+      );
+    }
+
+    // Look up currency by code to get ID
+    const currencyRecord = await prisma.currency.findUnique({
+      where: { code: currency },
+    });
+
+    if (!currencyRecord) {
+      throw new AppError(
+        `Currency ${currency} not found`,
+        404,
+        'CURRENCY_NOT_FOUND',
+        { currency }
+      );
+    }
+
+    // Build the expense data object
+    const expenseData: Prisma.ExpenseCreateInput = {
+      title,
+      amount,
+      currency: { connect: { id: currencyRecord.id } },
+      group: { connect: { id: groupId } },
+      paidBy: { connect: { id: paidById } },
+      category: { connect: { id: categoryId } },
+      splitType,
+      notes: notes || null,
+      expenseDate: new Date(expenseDate),
+    };
+
+    // Add splitWith relationship only if there are split members
+    if (splitWithIds.length > 0) {
+      expenseData.splitWith = { connect: splitWithIds.map((id) => ({ id })) };
+      expenseData.splitAmount = finalSplitAmounts;
+      if (splitType === SplitType.PERCENTAGE) {
+        expenseData.splitPercentage = splitPercentage;
+      }
     }
 
     return prisma.expense.create({
-      data: cleanData({
-        title,
-        amount,
-        currency,
-        group: { connect: { id: groupId } },
-        paidBy: { connect: { id: paidById } },
-        category: { connect: { id: categoryId } },
-        splitWith: { connect: splitWithIds.map((id) => ({ id })) },
-        splitType,
-        splitAmount: finalSplitAmounts,
-        splitPercentage: splitType === SplitType.PERCENTAGE ? splitPercentage : [],
-        notes,
-        expenseDate: new Date(expenseDate),
-      }) as unknown as Prisma.ExpenseCreateInput,
+      data: expenseData,
+      include: {
+        currency: { select: { id: true, code: true, label: true } },
+        paidBy: { select: { id: true, name: true, email: true } },
+        category: true,
+        splitWith: { select: { id: true, name: true, email: true } },
+      },
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2025') {
-        throw new Error('Related record not found');
+        throw new AppError(
+          'Related record not found',
+          404,
+          'RELATED_RECORD_NOT_FOUND',
+          { error: error.message }
+        );
       }
+      throw new AppError(
+        'Database error occurred',
+        500,
+        'DATABASE_ERROR',
+        { error: error.message }
+      );
     }
-    throw error;
+    throw new AppError(
+      'Failed to create expense',
+      500,
+      'CREATE_EXPENSE_ERROR',
+      { error: error instanceof Error ? error.message : String(error) }
+    );
   }
 }
 

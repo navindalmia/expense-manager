@@ -30,17 +30,30 @@ export async function createGroup(data: {
   }
 
   try {
+    // Look up currency by code to get ID
+    const currencyCode = data.currency || 'GBP';
+    const currencyRecord = await prisma.currency.findUnique({
+      where: { code: currencyCode },
+    });
+
+    if (!currencyRecord) {
+      throw new Error(`Currency ${currencyCode} not found`);
+    }
+
     const group = await prisma.group.create({
       data: {
         name: data.name.trim(),
         description: data.description?.trim() || undefined,
         createdById: data.createdById,
-        currency: (data.currency || 'GBP') as any,
+        currencyId: currencyRecord.id,
         members: {
           connect: { id: data.createdById }, // Add creator as member
         },
       },
       include: {
+        currency: {
+          select: { id: true, code: true, label: true },
+        },
         createdBy: {
           select: { id: true, name: true, email: true },
         },
@@ -79,6 +92,9 @@ export async function getUserGroups(userId: number) {
         ],
       },
       include: {
+        currency: {
+          select: { id: true, code: true, label: true },
+        },
         createdBy: {
           select: { id: true, name: true, email: true },
         },
@@ -119,6 +135,9 @@ export async function getGroupById(groupId: number, userId: number) {
     const group = await prisma.group.findUnique({
       where: { id: groupId },
       include: {
+        currency: {
+          select: { id: true, code: true, label: true },
+        },
         createdBy: {
           select: { id: true, name: true, email: true },
         },
@@ -256,28 +275,13 @@ export async function addMemberByEmail(
  */
 export async function addMemberToGroup(
   groupId: number,
-  memberId: number,
-  requestorId: number
+  memberName: string,
+  memberEmail?: string,
+  requestorId?: number
 ) {
   try {
-    const group = await prisma.group.findUnique({ where: { id: groupId } });
-
-    if (!group) {
-      throw new Error('Group not found');
-    }
-
-    // Only creator can add members
-    if (group.createdById !== requestorId) {
-      throw new Error('Unauthorized: Only group creator can add members');
-    }
-
-    const updated = await prisma.group.update({
+    const group = await prisma.group.findUnique({ 
       where: { id: groupId },
-      data: {
-        members: {
-          connect: { id: memberId },
-        },
-      },
       include: {
         members: {
           select: { id: true, name: true, email: true },
@@ -285,7 +289,101 @@ export async function addMemberToGroup(
       },
     });
 
-    return updated;
+    if (!group) {
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
+    }
+
+    // Only creator can add members
+    if (requestorId && group.createdById !== requestorId) {
+      throw new AppError(
+        'Unauthorized: Only group creator can add members',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, requestorId }
+      );
+    }
+
+    // Smart user lookup/creation logic:
+    // 1. If email provided: find existing user with that email OR create placeholder
+    // 2. If no email: create user with just name (no email, no password)
+    let user;
+
+    if (memberEmail) {
+      // Try to find existing user with this email
+      user = await prisma.user.findUnique({
+        where: { email: memberEmail },
+        select: { id: true, email: true, name: true },
+      });
+
+      // If doesn't exist, create placeholder user with name + email (password is null)
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            name: memberName,
+            email: memberEmail,
+            // password stays null until they signup
+          },
+          select: { id: true, email: true, name: true },
+        });
+      }
+    } else {
+      // No email provided: create user with just name
+      user = await prisma.user.create({
+        data: {
+          name: memberName,
+          // email is null, password is null
+        },
+        select: { id: true, email: true, name: true },
+      });
+    }
+
+    // Check if already a member
+    const isMember = group.members?.some((m) => m.id === user.id);
+    if (isMember) {
+      throw new AppError(
+        'User is already a member of this group',
+        400,
+        'ALREADY_MEMBER',
+        { userId: user.id, groupId }
+      );
+    }
+
+    // Add user to group
+    try {
+      const updated = await prisma.group.update({
+        where: { id: groupId },
+        data: {
+          members: {
+            connect: { id: user.id },
+          },
+        },
+        include: {
+          currency: {
+            select: { id: true, code: true, label: true },
+          },
+          members: {
+            select: { id: true, name: true, email: true },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      });
+
+      return { ...updated, addedMember: user };
+    } catch (error: any) {
+      // Handle unique constraint if this somehow wasn't caught by earlier check
+      // (defensive programming for race conditions)
+      if (error.code === 'P2025') {
+        throw new AppError(
+          'User is already a member of this group',
+          400,
+          'ALREADY_MEMBER',
+          { userId: user.id, groupId }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
     throw error;
   }
@@ -345,18 +443,47 @@ export async function updateGroup(
     }
 
     if (data.currency !== undefined && data.currency !== null) {
-      updateData.currency = data.currency;
+      // Look up currency by code to get ID
+      const currencyRecord = await prisma.currency.findUnique({
+        where: { code: data.currency },
+      });
+      if (!currencyRecord) {
+        throw new AppError(`Currency ${data.currency} not found`, 400, 'CURRENCY_NOT_FOUND');
+      }
+      updateData.currencyId = currencyRecord.id;
     }
 
-    // If no fields to update, return current group as-is
+    // If no fields to update, fetch and return group with all relationships
     if (Object.keys(updateData).length === 0) {
-      return group;
+      return await prisma.group.findUnique({
+        where: { id: groupId },
+        include: {
+          currency: {
+            select: { id: true, code: true, label: true },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true },
+          },
+          members: {
+            select: { id: true, name: true, email: true },
+          },
+          _count: {
+            select: {
+              expenses: true,
+              members: true,
+            },
+          },
+        },
+      }) as any;
     }
 
     const updated = await prisma.group.update({
       where: { id: groupId },
       data: updateData,
       include: {
+        currency: {
+          select: { id: true, code: true, label: true },
+        },
         createdBy: {
           select: { id: true, name: true, email: true },
         },

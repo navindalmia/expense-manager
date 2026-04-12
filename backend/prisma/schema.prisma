@@ -15,18 +15,6 @@ datasource db {
 }
 
 // -------------------- ENUMS --------------------
-enum Currency {
-  GBP
-  INR
-  USD
-  EUR
-  AUD
-  CAD
-  JPY
-  CNY
-  OTHER
-}
-
 enum SplitType {
   EQUAL
   AMOUNT
@@ -37,7 +25,7 @@ enum SplitType {
 model User {
   id                     Int       @id @default(autoincrement())
   name                   String
-  email                  String    @unique
+  email                  String?   @unique  // Optional - user can be invited before registering
   password               String?   // bcrypt hashed password (optional for compatibility)
   isActive               Boolean   @default(true)
   lastLogin              DateTime?
@@ -60,6 +48,15 @@ model Category {
   expenses Expense[]
 }
 
+// -------------------- CURRENCY --------------------
+model Currency {
+  id       Int       @id @default(autoincrement())
+  code     String    @unique           // e.g., GBP, USD, EUR (ISO 4217 code)
+  label    String                      // e.g., "British Pound", "US Dollar"
+  expenses Expense[]
+  groups   Group[]
+}
+
 // -------------------- GROUP (List/Trip/Month) --------------------
 model Group {
   id          Int       @id @default(autoincrement())
@@ -69,12 +66,14 @@ model Group {
   createdById Int
   members     User[]    @relation("GroupMembers") // Users in this group
   expenses    Expense[]
-  currency    Currency  @default(GBP) // Default currency for this group
+  currency    Currency  @relation(fields: [currencyId], references: [id])
+  currencyId  Int       // Foreign key to Currency
   isActive    Boolean   @default(true) // Soft delete flag
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
   @@index([createdById])
+  @@index([currencyId])
   @@index([isActive])
 }
 
@@ -83,7 +82,8 @@ model Expense {
   id           Int       @id @default(autoincrement())
   title        String
   amount       Float
-  currency     Currency  @default(GBP)
+  currency     Currency  @relation(fields: [currencyId], references: [id])
+  currencyId   Int       // Foreign key to Currency
   paidBy       User      @relation("PaidBy", fields: [paidById], references: [id], onDelete: Cascade)
   paidById     Int
   group        Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -102,6 +102,7 @@ model Expense {
   
   @@index([groupId])
   @@index([paidById])
+  @@index([currencyId])
   @@index([expenseDate])
 }
 

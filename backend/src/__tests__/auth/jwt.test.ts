@@ -84,7 +84,7 @@ describe('JWT Utilities', () => {
   });
 
   test('5. Should throw error for expired token', () => {
-    const expiredError = new jwt.TokenExpiredError('Token expired', 1234567890);
+    const expiredError = new jwt.TokenExpiredError('Token expired', new Date(1234567890 * 1000));
     (jwt.verify as jest.Mock).mockImplementation(() => {
       throw expiredError;
     });
@@ -136,7 +136,7 @@ describe('JWT Utilities', () => {
   });
 
   test('10. Should handle NotBeforeError (token not yet valid)', () => {
-    const notBeforeError = new jwt.NotBeforeError('Token not yet valid', 1234567890);
+    const notBeforeError = new jwt.NotBeforeError('Token not yet valid', new Date(1234567890 * 1000));
     (jwt.verify as jest.Mock).mockImplementation(() => {
       throw notBeforeError;
     });

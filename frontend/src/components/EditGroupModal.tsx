@@ -18,6 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { updateGroup, Group } from '../services/groupService';
+import { getCurrencies, type Currency } from '../services/currencyService';
 import AddMemberModal from './AddMemberModal';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -158,8 +159,6 @@ const styles = StyleSheet.create({
   },
 });
 
-const CURRENCIES = ['GBP', 'USD', 'EUR', 'INR', 'AUD', 'CAD', 'JPY', 'CNY'];
-
 export default function EditGroupModal({
   visible,
   group,
@@ -169,16 +168,35 @@ export default function EditGroupModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
+
+  // Fetch currencies from database on component mount
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        setLoadingCurrencies(true);
+        const data = await getCurrencies();
+        setCurrencies(data);
+      } catch (error) {
+        logger.error('Failed to load currencies', error);
+      } finally {
+        setLoadingCurrencies(false);
+      }
+    };
+    fetchCurrencies();
+  }, []);
 
   // Initialize form with group data when modal opens
   useEffect(() => {
     if (group && visible) {
       setName(group.name);
       setDescription(group.description || '');
-      setCurrency(group.currency);
+      // group.currency is now { id, code, label }
+      setCurrency(group.currency.code);
       setErrors({});
     }
   }, [group, visible]);
@@ -285,28 +303,32 @@ export default function EditGroupModal({
 
             {/* Currency */}
             <Text style={styles.label}>Currency</Text>
-            <View style={styles.currencyContainer}>
-              {CURRENCIES.map((curr) => (
-                <TouchableOpacity
-                  key={curr}
-                  style={[
-                    styles.currencyButton,
-                    currency === curr && styles.currencyButtonActive,
-                  ]}
-                  onPress={() => setCurrency(curr)}
-                  disabled={loading}
-                >
-                  <Text
+            {loadingCurrencies ? (
+              <ActivityIndicator size="small" color="#0066cc" style={{ marginVertical: 10 }} />
+            ) : (
+              <View style={styles.currencyContainer}>
+                {currencies.map((curr) => (
+                  <TouchableOpacity
+                    key={curr.id}
                     style={[
-                      styles.currencyText,
-                      currency === curr && styles.currencyTextActive,
+                      styles.currencyButton,
+                      currency === curr.code && styles.currencyButtonActive,
                     ]}
+                    onPress={() => setCurrency(curr.code)}
+                    disabled={loading}
                   >
-                    {curr}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={[
+                        styles.currencyText,
+                        currency === curr.code && styles.currencyTextActive,
+                      ]}
+                    >
+                      {curr.code}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Divider */}
             <View style={styles.sectionDivider} />

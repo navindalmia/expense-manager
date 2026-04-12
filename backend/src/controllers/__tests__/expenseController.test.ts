@@ -5,7 +5,7 @@
  * Security: Tests user isolation and authorization
  */
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { createExpense, getExpenses, deleteExpense } from '../expenseController';
 import prisma from '../../lib/prisma';
 import * as expenseService from '../../services/expenseService';

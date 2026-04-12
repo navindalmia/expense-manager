@@ -14,7 +14,11 @@ export interface Group {
   id: number;
   name: string;
   description?: string;
-  currency: string;
+  currency: {
+    id: number;
+    code: string;
+    label: string;
+  };
   totalAmount: number;
   createdBy: {
     id: number;

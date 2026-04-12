@@ -162,20 +162,20 @@ export async function addMember(
         error: 'Group ID is required',
       });
     }
-    const { memberId } = req.body;
+    const { name, email } = req.body;
     const groupId = parseInt(id, 10);
 
-    if (isNaN(groupId) || !memberId) {
+    if (isNaN(groupId) || !name || name.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid group ID or member ID',
+        error: 'Invalid group ID or member name',
       });
     }
 
     // Get userId from JWT token via auth middleware
     const userId = req.user!.id
 
-    const group = await groupService.addMemberToGroup(groupId, memberId, userId);
+    const group = await groupService.addMemberToGroup(groupId, name.trim(), email?.toLowerCase() || undefined, userId);
 
     res.status(200).json({
       success: true,

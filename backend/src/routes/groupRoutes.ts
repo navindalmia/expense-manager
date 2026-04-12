@@ -29,9 +29,8 @@ router.get('/', authMiddleware, groupController.getGroups);
 // GET /api/groups/:id/stats
 router.get('/:id/stats', authMiddleware, groupController.getStats);
 
-// Get expenses for a specific group
-// GET /api/groups/:id/expenses
-router.get('/:id/expenses', authMiddleware, groupController.getGroupExpenses);
+// NOTE: Group expenses now accessed via GET /api/expenses/group/:groupId
+// (consolidated endpoint with proper authorization checks)
 
 // Get a specific group (generic route AFTER specific ones)
 // GET /api/groups/:id

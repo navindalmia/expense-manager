@@ -2,10 +2,11 @@
  * Create Expense Screen
  * 
  * Form to create a new expense within a group.
- * Includes title, amount, category, date, and optional notes.
+ * Includes title, amount, category, date picker (for past dates), and optional notes.
+ * Currency is fixed from the group and not editable.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,12 +17,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import type { CreateExpenseScreenProps } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
 import { useAuth } from '../context/AuthContext';
+import { getCategories, type Category } from '../services/categoryService';
 
 const styles = StyleSheet.create({
   container: {
@@ -133,22 +137,57 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginBottom: 12,
   },
+  pickerModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+    maxHeight: '80%',
+  },
+  pickerHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+  },
+  pickerItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  pickerItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  readonlyInput: {
+    backgroundColor: '#f5f5f5',
+  },
 });
-
-const CATEGORIES = [
-  { id: 1, label: 'Food' },
-  { id: 2, label: 'Travel' },
-  { id: 3, label: 'Entertainment' },
-  { id: 4, label: 'Accommodation' },
-  { id: 5, label: 'Shopping' },
-  { id: 6, label: 'Other' },
-];
 
 export default function CreateExpenseScreen({ 
   navigation, 
   route,
 }: CreateExpenseScreenProps) {
-  const { groupId, groupName } = route.params || { groupId: 0, groupName: '' };
+  const { groupId, groupName, groupCurrencyCode = 'GBP' } = route.params || { 
+    groupId: 0, 
+    groupName: '', 
+    groupCurrencyCode: 'GBP' 
+  };
   const { user } = useAuth();
 
   // Validate required params
@@ -164,10 +203,46 @@ export default function CreateExpenseScreen({
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
-  const [currency, setCurrency] = useState('GBP');
+  // Currency is fixed from group - NOT editable
+  const currency = groupCurrencyCode;
+  // Date is editable - user can select past dates
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [tempDate, setTempDate] = useState(date);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Data fetching state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
+  /**
+   * Fetch categories from backend on component mount.
+   * Currency comes from group and is not editable.
+   */
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+
+        const fetchedCategories = await getCategories();
+        setCategories(fetchedCategories);
+      } catch (err) {
+        const errorMessage = getErrorMessage(err);
+        setDataError(errorMessage);
+        logger.error('Failed to load form data', err, {
+          screen: 'CreateExpenseScreen',
+          action: 'fetchData',
+        });
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
@@ -289,13 +364,10 @@ export default function CreateExpenseScreen({
             <View style={styles.flex1}>
               <Text style={styles.label}>Currency</Text>
               <TextInput
-                style={styles.input}
-                placeholder="GBP"
-                placeholderTextColor="#999"
+                style={[styles.input, styles.readonlyInput]}
                 value={currency}
-                onChangeText={setCurrency}
-                maxLength={3}
-                editable={!loading}
+                editable={false}
+                pointerEvents="none"
                 testID="expense-currency-input"
               />
             </View>
@@ -308,42 +380,54 @@ export default function CreateExpenseScreen({
             Category <Text style={styles.required}>*</Text>
           </Text>
           <View style={styles.categoryContainer}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                style={[
-                  styles.categoryButton,
-                  category === cat.id && styles.categoryButtonActive,
-                ]}
-                onPress={() => setCategory(cat.id)}
-                disabled={loading}
-              >
-                <Text
+            {isLoadingData ? (
+              <ActivityIndicator size="small" color="#0066cc" />
+            ) : (
+              categories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
                   style={[
-                    styles.categoryText,
-                    category === cat.id && styles.categoryTextActive,
+                    styles.categoryButton,
+                    category === cat.id && styles.categoryButtonActive,
                   ]}
+                  onPress={() => setCategory(cat.id)}
+                  disabled={loading || isLoadingData}
                 >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      category === cat.id && styles.categoryTextActive,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
           {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
         </View>
 
-        {/* Date */}
+        {/* Date - Editable with date picker for past dates */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Date</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#999"
-            value={date}
-            onChangeText={setDate}
-            editable={!loading}
-            testID="expense-date-input"
-          />
+          <TouchableOpacity
+            onPress={() => {
+              setTempDate(date);
+              setShowDatePicker(true);
+            }}
+            disabled={loading}
+          >
+            <TextInput
+              style={[styles.input, styles.readonlyInput]}
+              value={date}
+              editable={false}
+              pointerEvents="none"
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#999"
+              testID="expense-date-input"
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Notes */}
@@ -378,6 +462,47 @@ export default function CreateExpenseScreen({
             <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create Expense'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Date Picker Modal */}
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Select Date</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={{ fontSize: 16, color: '#0066cc', fontWeight: '600' }}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ paddingHorizontal: 16, paddingVertical: 16 }}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#999"
+                  value={tempDate}
+                  onChangeText={setTempDate}
+                  keyboardType="numbers-and-punctuation"
+                />
+                <Text style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+                  Format: YYYY-MM-DD (e.g., 2026-04-12)
+                </Text>
+                <TouchableOpacity
+                  style={[styles.button, styles.createButton, { marginTop: 16 }]}
+                  onPress={() => {
+                    setDate(tempDate);
+                    setShowDatePicker(false);
+                  }}
+                >
+                  <Text style={styles.buttonText}>Apply Date</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );

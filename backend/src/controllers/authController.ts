@@ -27,47 +27,67 @@ export async function signup(req: Request, res: Response): Promise<void> {
     // Validate input
     const { email, password, name } = validateSignup(req.body);
 
-    // Check if email already exists (don't reveal in error)
+    // Check if email already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
+    let user;
+
     if (existingUser) {
-      // Generic error message for security
-      res.status(409).json({
-        success: false,
-        message: 'Unable to create account. Please try another email.',
-        error: 'EMAIL_CONFLICT',
+      // If user exists but no password → they were invited as placeholder, activate now
+      if (!existingUser.password) {
+        // Link placeholder user: add password and update name if provided
+        const hashedPassword = await hashPassword(password);
+        user = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            password: hashedPassword,
+            name: name || existingUser.name, // Use provided name or keep existing
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        });
+      } else {
+        // User already has password → genuine duplicate
+        res.status(409).json({
+          success: false,
+          message: 'Unable to create account. Please try another email.',
+          error: 'EMAIL_CONFLICT',
+        });
+        return;
+      }
+    } else {
+      // Check if password is common
+      if (isCommonPassword(password)) {
+        res.status(400).json({
+          success: false,
+          message: 'This password is too common. Please choose a stronger password.',
+          error: 'WEAK_PASSWORD',
+        });
+        return;
+      }
+
+      // Hash password
+      const hashedPassword = await hashPassword(password);
+
+      // Create new user
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+        },
       });
-      return;
     }
-
-    // Check if password is common
-    if (isCommonPassword(password)) {
-      res.status(400).json({
-        success: false,
-        message: 'This password is too common. Please choose a stronger password.',
-        error: 'WEAK_PASSWORD',
-      });
-      return;
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-      },
-    });
 
     // Generate token
     const token = generateToken(user.id);
