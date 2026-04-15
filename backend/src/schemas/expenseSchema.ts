@@ -22,3 +22,23 @@ export const createExpenseSchema = z.object({
 });
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
+
+/**
+ * Schema for updating expenses (partial updates - all fields optional)
+ */
+export const updateExpenseSchema = z.object({
+  title: z.string().min(1, "Title is required").optional(),
+  amount: z.number().positive("Amount must be positive").optional(),
+  splitType: z.enum(Object.values(SplitType) as [string, ...string[]]).optional(),
+  paidById: z.number().int().positive("Invalid payer ID").optional(),
+  categoryId: z.number().int().positive("Invalid category ID").optional(),
+  splitWithIds: z.array(z.number().int().positive()).optional(),
+  splitAmount: z.array(z.number().positive()).optional(),
+  splitPercentage: z.array(z.number().positive()).optional(),
+  notes: z.string().optional(),
+  expenseDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid date format",
+  }).optional(),
+});
+
+export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;

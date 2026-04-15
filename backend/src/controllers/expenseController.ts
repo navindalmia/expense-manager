@@ -1,7 +1,7 @@
 // src/controllers/expenseController.ts
 import { Request, Response, NextFunction } from "express";
 import * as expenseService from "../services/expenseService";
-import { createExpenseSchema } from "../schemas/expenseSchema";
+import { createExpenseSchema, updateExpenseSchema } from "../schemas/expenseSchema";
 import { SplitType } from "@prisma/client";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
@@ -133,4 +133,147 @@ export async function deleteExpense(req: Request, res: Response) {
   await expenseService.deleteExpense(id);
   res.json({ message: "Expense deleted successfully" });
 
+}
+
+/**
+ * Get a single expense by ID
+ * GET /api/expenses/:id
+ * 
+ * Returns a single expense with full relationships.
+ * Includes authorization check to ensure user is a member of the expense's group.
+ * 
+ * Authenticated: Yes (requires JWT)
+ * Authorization: User must be member or creator of the expense's group
+ * Response: { statusCode: 200, data: Expense }
+ * 
+ * Error Codes:
+ * - 400: Invalid expense ID
+ * - 403: User not authorized to view this expense
+ * - 404: Expense not found
+ * - 500: Internal server error
+ */
+export async function getExpenseById(req: Request, res: Response, next?: NextFunction) {
+  try {
+    const expenseIdParam = req.params.id;
+
+    if (!expenseIdParam) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Expense ID is required',
+      });
+    }
+
+    const expenseId = parseInt(expenseIdParam, 10);
+
+    if (isNaN(expenseId) || expenseId <= 0) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Invalid expense ID',
+      });
+    }
+
+    const userId = req.user!.id;
+    const expense = await expenseService.getExpenseById(expenseId, userId);
+
+    res.status(200).json({
+      statusCode: 200,
+      data: expense,
+    });
+  } catch (err) {
+    if (next) {
+      next(err);
+    } else {
+      console.error(err);
+      return res.status(500).json({
+        statusCode: 500,
+        error: err instanceof Error ? err.message : 'Failed to fetch expense',
+      });
+    }
+  }
+}
+
+/**
+ * Update an existing expense
+ * PATCH /api/expenses/:id
+ * 
+ * Updates specified fields of an expense. Only the provided fields will be updated.
+ * Includes authorization check to ensure user is a member of the expense's group.
+ * 
+ * Authenticated: Yes (requires JWT)
+ * Authorization: User must be member or creator of the expense's group
+ * Response: { statusCode: 200, data: UpdatedExpense, message: "..." }
+ * 
+ * Error Codes:
+ * - 400: Invalid expense ID or validation error
+ * - 403: User not authorized to edit this expense
+ * - 404: Expense not found
+ * - 500: Internal server error
+ */
+export async function updateExpense(req: Request, res: Response, next?: NextFunction) {
+  try {
+    const expenseIdParam = req.params.id;
+
+    if (!expenseIdParam) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Expense ID is required',
+      });
+    }
+
+    const expenseId = parseInt(expenseIdParam, 10);
+
+    if (isNaN(expenseId) || expenseId <= 0) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Invalid expense ID',
+      });
+    }
+
+    // Validate input using Zod
+    const parsed = updateExpenseSchema.parse(req.body);
+
+    const userId = req.user!.id;
+
+    // Cast splitType to SplitType if present
+    const updateData = {
+      ...parsed,
+      splitType: parsed.splitType ? (parsed.splitType as SplitType) : undefined,
+    };
+
+    // Pass to service (partial update - only provided fields)
+    const updatedExpense = await expenseService.updateExpense(expenseId, userId, updateData);
+
+    res.status(200).json({
+      statusCode: 200,
+      data: updatedExpense,
+      message: 'Expense updated successfully',
+    });
+  } catch (err) {
+    if (next) {
+      if (err instanceof ZodError) {
+        return next(
+          new AppError(
+            'VALIDATION.ERROR',
+            400,
+            'VALIDATION_ERROR',
+            { fields: err.issues }
+          )
+        );
+      }
+      next(err);
+    } else {
+      if (err instanceof ZodError) {
+        return res.status(400).json({
+          statusCode: 400,
+          error: 'Validation error',
+          details: err.issues,
+        });
+      }
+      console.error(err);
+      return res.status(500).json({
+        statusCode: 500,
+        error: err instanceof Error ? err.message : 'Failed to update expense',
+      });
+    }
+  }
 }

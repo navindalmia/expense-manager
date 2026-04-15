@@ -40,6 +40,9 @@ Read **[`01-MASTER_STATE.md`](./01-MASTER_STATE.md)** first when:
 **"I'm writing a test"**
 → Read [`04-TESTING_STRATEGY.md`](./04-TESTING_STRATEGY.md) - Coverage goals, test checklist
 
+**"I need to run mobile tests NOW"**
+→ Read [`06-TESTING_CHECKPOINT.md`](./06-TESTING_CHECKPOINT.md) - Specific test cases with pass/fail checklist
+
 **"I need to review code"**
 → Read [`05-QUALITY_STANDARDS.md`](./05-QUALITY_STANDARDS.md) - SOLID, security, code review gate
 

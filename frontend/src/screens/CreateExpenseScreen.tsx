@@ -287,9 +287,12 @@ export default function CreateExpenseScreen({
         amount,
       });
 
+      // Show success alert
       Alert.alert('Success', 'Expense created successfully', [
         {
           text: 'OK',
+          // When user taps OK, navigate back to ExpenseListScreen
+          // useFocusEffect will trigger and reload the expenses
           onPress: () => {
             navigation.goBack();
           },

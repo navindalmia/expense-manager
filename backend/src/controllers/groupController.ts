@@ -138,7 +138,8 @@ export async function addMemberByEmail(
     res.status(200).json({
       success: true,
       data: result,
-      message: `${result.addedMember?.name} added to group successfully`,
+      addedMember: result.addedMember,
+      message: `${result.addedMember?.name || email} added to group successfully`,
     });
   } catch (error) {
     next(error); // Let error middleware handle all errors consistently

@@ -77,6 +77,24 @@ export interface CreateExpenseDTO {
 }
 
 /**
+ * Data Transfer Object (DTO) for updating expenses.
+ * All fields are optional - only provided fields will be updated.
+ * Allows partial updates to any field of the expense.
+ */
+export interface UpdateExpenseDTO {
+  title?: string;
+  amount?: number;
+  categoryId?: number;
+  paidById?: number;
+  splitWithIds?: number[];
+  splitType?: string;
+  splitAmount?: number[];
+  splitPercentage?: number[];
+  notes?: string;
+  expenseDate?: string;
+}
+
+/**
  * Fetch all expenses from backend.
  * DEPRECATED: Use getGroupExpenses() instead for group-scoped queries.
  * 
@@ -133,4 +151,36 @@ export async function createExpense(data: CreateExpenseDTO): Promise<Expense> {
  */
 export async function deleteExpense(id: number): Promise<void> {
   await http.delete(`/expenses/${id}`);
+}
+
+/**
+ * Fetch a single expense by ID from backend.
+ * Includes full relationships (currency, paidBy, category, splitWith).
+ * 
+ * GET /api/expenses/:id
+ * 
+ * @param expenseId - The expense ID to fetch
+ * @returns Promise<Expense> - Complete expense record with all relationships
+ * @throws AppError if expense not found or user is not authorized
+ */
+export async function getExpenseById(expenseId: number): Promise<Expense> {
+  const response = await http.get<{ statusCode: number; data: Expense }>(`/expenses/${expenseId}`);
+  return response.data.data;
+}
+
+/**
+ * Update an existing expense on backend.
+ * Partially updates the expense with provided fields only.
+ * Other fields remain unchanged.
+ * 
+ * PATCH /api/expenses/:id
+ * 
+ * @param expenseId - The expense ID to update
+ * @param data - UpdateExpenseDTO with fields to update (all optional)
+ * @returns Promise<Expense> - Updated expense record with all relationships
+ * @throws AppError if validation fails, expense not found, or user is not authorized
+ */
+export async function updateExpense(expenseId: number, data: UpdateExpenseDTO): Promise<Expense> {
+  const response = await http.patch<{ statusCode: number; data: Expense }>(`/expenses/${expenseId}`, data);
+  return response.data.data;
 }

@@ -195,7 +195,80 @@ const expense = await expenseSchema.parse(req.body);
 
 ---
 
-## 📝 GIT COMMIT PATTERNS
+## � DATE HANDLING (Mobile-Specific)
+
+### Timezone Problems with Dates
+```typescript
+// ❌ WRONG: Causes timezone issues on mobile
+const date = new Date("2026-04-13");
+// Result: May show as April 12 in some timezones
+
+// ✅ RIGHT: Use string format YYYY-MM-DD throughout
+const dateStr = "2026-04-13";
+
+// Only parse for display
+const dateObj = new Date(`${dateStr}T00:00:00Z`);
+```
+
+### Future Date Prevention
+```typescript
+// Function to check if date is in future
+const isFutureDate = (day: number, month: number, year: number) => {
+  const dateToCheck = new Date(year, month, day);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);  // Clear time
+  return dateToCheck > today;
+};
+
+// Disable in UI
+disabled={isFutureDate(day, month, year)}
+```
+
+---
+
+## 💰 SPLIT CALCULATIONS (Important!)
+
+### Personal Share Formula
+```typescript
+// EQUAL split: Divide total equally
+personalShare = amount / (numMembers + 1)  // +1 includes payer
+
+// AMOUNT split: You pay the remainder
+personalShare = amount - sum(otherAmounts)
+
+// PERCENTAGE split: You pay remaining %
+personalShare = amount * (100 - sum(otherPercentages)) / 100
+```
+
+### For PERCENTAGE Splits - Include Yourself
+```typescript
+// When user selects PERCENTAGE type, show:
+// [payer, ...selectedMembers]  <- Payer included!
+// Each person gets % input field including you
+
+// Validation: sum of all % must = 100%
+const totalPercent = Object.values(percentages).reduce((a, b) => a + b, 0);
+if (Math.abs(totalPercent - 100) > 0.01) {
+  error = 'Percentages must sum to 100%';
+}
+```
+
+### Backend Split Recalculation
+```typescript
+// Always recalculate on server, don't trust client
+if (payloadSplitType === 'EQUAL') {
+  // Auto-calculate: divide by # of people
+  const perPerson = newAmount / (splitWithIds.length + 1);
+  splitAmount = [perPerson, perPerson, ...];
+} else if (payloadSplitType === 'PERCENTAGE') {
+  // Validate: all percentages sum to 100
+  // Calculate amounts from percentages
+}
+```
+
+---
+
+## �📝 GIT COMMIT PATTERNS
 
 ```bash
 # Database changes

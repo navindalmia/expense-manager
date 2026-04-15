@@ -217,18 +217,23 @@ export async function addMemberByEmail(
       );
     }
 
-    // Find user by email
-    const user = await prisma.user.findUnique({
+    // Find user by email, OR create placeholder if doesn't exist
+    let user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       select: { id: true, email: true, name: true },
     });
 
+    // If user doesn't exist, create placeholder (email-based, no password yet)
     if (!user) {
-      throw new AppError(
-        'Unable to add member. Please verify the email address.',
-        400,
-        'ADD_MEMBER_FAILED'
-      );
+      const emailPrefix = email.toLowerCase().split('@')[0] || 'member';
+      user = await prisma.user.create({
+        data: {
+          name: emailPrefix, // Use email prefix as default name
+          email: email.toLowerCase(),
+          // password stays null until they signup
+        },
+        select: { id: true, email: true, name: true },
+      });
     }
 
     // Check if already a member

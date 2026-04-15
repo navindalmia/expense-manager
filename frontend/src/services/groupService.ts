@@ -62,8 +62,8 @@ export async function getGroups(): Promise<Group[]> {
  * GET /api/groups/:id
  */
 export async function getGroup(groupId: number): Promise<Group> {
-  const response = await http.get<Group>(`/groups/${groupId}`);
-  return response.data;
+  const response = await http.get<{ success: boolean; data: Group }>(`/groups/${groupId}`);
+  return response.data.data;
 }
 
 /**
@@ -88,11 +88,14 @@ export async function updateGroup(groupId: number, data: UpdateGroupDTO): Promis
  * @returns Updated group with new member
  */
 export async function addMemberByEmail(groupId: number, email: string): Promise<{ data: Group; addedMember: { id: number; name: string; email: string } }> {
-  const response = await http.post<{ data: Group; addedMember: { id: number; name: string; email: string } }>(
+  const response = await http.post<{ success: boolean; data: Group; addedMember: { id: number; name: string; email: string } }>(
     `/groups/${groupId}/members/email`,
     { email }
   );
-  return response.data;
+  return {
+    data: response.data.data,
+    addedMember: response.data.addedMember,
+  };
 }
 
 /**

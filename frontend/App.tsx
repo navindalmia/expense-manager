@@ -8,6 +8,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import ExpenseListScreen from './src/screens/ExpenseListScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
+import EditExpenseScreen from './src/screens/EditExpenseScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setOnUnauthorized } from './src/api/http/interceptors';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
@@ -88,6 +89,11 @@ function AppNavigator() {
               name="CreateExpense"
               component={CreateExpenseScreen}
               options={{ title: 'Add Expense' }}
+            />
+            <Stack.Screen
+              name="EditExpense"
+              component={EditExpenseScreen}
+              options={{ title: 'Edit Expense' }}
             />
             {/* TODO: Add ExpenseDetailScreen component */}
             {/* <Stack.Screen 

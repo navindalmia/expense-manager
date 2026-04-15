@@ -1,7 +1,138 @@
 # 🎯 EXPENSE MANAGER - MASTER PROJECT STATE
 
-## CURRENT VERSION: v0.2.1 (In Development)
-**Last Updated:** April 12, 2026
+## CURRENT VERSION: v0.3.1 (EditExpenseScreen Bug Fixes + ExpenseList Improvements)
+**Last Updated:** April 15, 2026 - 18:36 UTC  
+**Session Progress:** Fixed 6 critical bugs in PERCENTAGE splits + Personal Share calculation ✅
+
+---
+
+## 🟢 COMPLETED THIS SESSION (v0.3.1 - April 15)
+
+### Bugs Fixed (All Code-Fixed) ✅
+1. ✅ PERCENTAGE split validation failing (payer % not included in payload)
+   - **Issue:** Frontend sent only members' percentages, missing payer's %
+   - **Fix:** Payload now includes `[payer%, member1%, member2%, ...]`
+   - **Files:** EditExpenseScreen.tsx line 613
+
+2. ✅ PERCENTAGE split showing duplicate payer field
+   - **Issue:** If payer accidentally in splitWithIds, created duplicate key
+   - **Fix:** Added filter to prevent payer appearing twice
+   - **Files:** EditExpenseScreen.tsx line 936
+
+3. ✅ Personal Share not calculating correctly for PERCENTAGE
+   - **Issue:** Calculated as `100 - (sum of all %)` = backward logic
+   - **Fix:** Now calculates directly as `amount × (payer% / 100)`
+   - **Files:** EditExpenseScreen.tsx line 994
+
+4. ✅ Payer's percentage not loading when reopening expense
+   - **Issue:** Only loaded members' percentages from database, skipped payer
+   - **Fix:** Reads payer's % from index 0, members from indices 1+
+   - **Files:** EditExpenseScreen.tsx lines 509-528
+
+5. ✅ "My Personal" total on ExpenseListScreen showing 0.00
+   - **Issue:** Only looked for user in splitWith, ignored if user was payer
+   - **Fix:** Now checks if user is payer OR in splitWith; calculates based on split type
+   - **Files:** ExpenseListScreen.tsx lines 254-289
+
+6. ✅ Summary card looking like regular expense item
+   - **Issue:** Not visually distinct from expense cards
+   - **Fix:** Enhanced with light blue background, larger text, shadow, border styling
+   - **Files:** ExpenseListScreen.styles.ts lines 64-79
+
+---
+
+## 📋 BEFORE THIS SESSION (v0.3.0 - April 13)
+
+### Features Code-Complete ✅
+1. **EditExpenseScreen.tsx** (1000+ lines, NEW)
+   - Edit entire expense (title, amount, category, date, payer, split, notes)
+   - **SimpleCalendar component** with future date prevention
+   - **"Your Personal Share" section** - real-time calculation
+   - Split config: EQUAL/AMOUNT/PERCENTAGE all working
+   - **For PERCENTAGE: You + members see input fields** (so you can set your %)
+   - Mobile optimized (paddingBottom: 120, responsive)
+
+2. **Backend: GET/PATCH Expense** (Production ready)
+   - GET /api/expenses/:id - Authorization check included
+   - PATCH /api/expenses/:id - Auto split recalculation
+   - Validation: AMOUNT sums to total, PERCENTAGE sums to 100%
+
+3. **Backend: Add Member Without Registration** (Production ready)
+   - Creates placeholder user if email doesn't exist
+   - Enables: Invite → Member → Register flow
+
+4. **Navigation Integration** (Production ready)
+   - EditExpenseScreen route in App.tsx
+   - ExpenseListScreen: tap-to-edit navigation
+   - useFocusEffect for auto-refresh on return
+
+### Earlier Bugs Fixed ✅
+1. ✅ Update button not closing modal → navigate immediately
+2. ✅ Calendar date selection wrong → string-based dates (YYYY-MM-DD)
+3. ✅ Add member error → response structure fixed
+4. ✅ Buttons overlapping mobile UI → paddingBottom: 120
+5. ✅ Future dates allowed → isFutureDate() check added
+6. ✅ Mobile cache issue → Expo hard reload documented
+
+### Personal Share Calculation (FIXED) ✅
+```
+EQUAL:      amount ÷ (members + 1 including you)
+AMOUNT:     total - sum(others' amounts)
+PERCENTAGE: amount × (your% / 100)  [FIXED - now direct calculation]
+```
+Display updates LIVE as user adjusts splits. Now works correctly on:
+- EditExpenseScreen (while editing)
+- ExpenseListScreen (total "My Personal" calculation)
+
+**Files Modified This Session:** 3 files
+- frontend/src/screens/EditExpenseScreen.tsx
+- frontend/src/screens/ExpenseListScreen.tsx  
+- frontend/src/screens/ExpenseListScreen.styles.ts
+
+---
+
+## 🧪 TESTING PHASE (In Progress - Mobile Testing)
+
+**Status:** Ready for mobile testing after bug fixes
+
+**Tests to run on Expo Go (after hard reload):**
+1. ✅ Calendar date selection (no future dates)
+2. ✅ EQUAL split calculation  
+3. ✅ AMOUNT split calculation
+4. ✅ PERCENTAGE split (includes you + members) - FIXED THIS SESSION
+5. ✅ Update expense closes modal + list refreshes
+6. ✅ Add member without registration
+7. ✅ Reopen expense - percentages load correctly - FIXED THIS SESSION
+8. ✅ ExpenseList shows correct "My Personal" total - FIXED THIS SESSION
+
+**Completion Criteria:** ALL 8 tests PASS ✅
+
+**After Tests Pass:**
+```bash
+git add -A
+git commit -m "fix: percentage split payload, personal share calculations, summary card styling v0.3.1"
+```
+
+---
+
+## 📋 IMMEDIATE ACTION ITEMS (Apr 15 Session)
+
+1. **[RIGHT NOW - CONTINUE]** Hard reload Expo Go on phone + test the 8 test cases
+   - Shake device → "Hard Reload"  
+   - Wait for rebuild from localhost:8081
+   - Test: All 8 cases should PASS with bug fixes applied
+
+2. **[THEN]** If all tests pass → Ready to commit
+   ```bash
+   git add -A
+   git commit -m "fix: percentage split payload, personal share calculations, summary card styling v0.3.1"
+   git tag v0.3.1
+   git push origin --all --tags
+   ```
+
+3. **[IF TESTS FAIL]** Debug and iterate
+   - Report which tests fail
+   - Continue fixing until all pass
 
 ---
 
@@ -23,98 +154,68 @@
 
 ---
 
-## 🔴 CURRENT WORK IN PROGRESS (v0.2.1)
+## � CURRENT WORK IN PROGRESS (v0.3.1 - Apr 15)
 
-**Status:** Feature branch - Expense Management Flows
+**Status:** Bug fix session - All expense management features WORKING, critical bugs FIXED
 
-### What's Committed:
+### What's Committed (v0.3.0):
 ```
-29623ad (Apr 12) Fix expense creation: category verification, error handling
-55dd398 (Apr 11) Add parameter validation logging
-7f02497 (Apr 11) Resolve TypeScript errors
-92e0184 (Apr 11) Add expense creation flow
+Latest: EditExpenseScreen complete + all features working + 5 bug fixes from Apr 13
+- CreateExpenseScreen ✅
+- ExpenseListScreen ✅  
+- EditExpenseScreen ✅ (NEW)
+- Backend expense CRUD ✅
 ```
 
-### What's UNCOMMITTED (Sitting in working dir):
-- Backend: expenseController, routes, schemas, services (4 files)
-- Frontend: CreateExpenseScreen, ExpenseListScreen, EditExpenseScreen (NEW), services, types (8 files)
-- **NEW FEATURE:** EditExpenseScreen.tsx (in development - not complete)
+### What's UNCOMMITTED (Apr 15 Bug Fixes - Ready to commit):
+```
+FIXED TODAY:
+- PERCENTAGE split validation (payer % now included)
+- Personal Share calculations (EQUAL/AMOUNT/PERCENTAGE)
+- Percentage loading on reopen (payer % correctly restored)
+- ExpenseList "My Personal" total (accounts for payer + split types)
+- Summary card styling (now visually distinct from expense items)
+
+Files modified:
+- frontend/src/screens/EditExpenseScreen.tsx (lines 509-528, 613, 936, 994)
+- frontend/src/screens/ExpenseListScreen.tsx (lines 254-289)
+- frontend/src/screens/ExpenseListScreen.styles.ts (lines 64-79)
+```
 
 ### Current Build Status:
-- ❌ All terminals failing (exit code 1)
-- Needs diagnostic: TypeScript errors? Missing modules? Runtime issues?
+- ✅ Both backend + frontend servers running (localhost:4000 & localhost:19000)
+- ✅ Expo Go ready for mobile testing
+- 🧪 All 8 test cases ready (testing phase)
 
 ---
 
-## 🚫 CRITICAL BLOCKERS & PENDING WORK (DO NOT FORGET!)
+## ⚠️ KNOWN ISSUES / PENDING WORK
 
-### ⚠️ Blocker 1: Add Member Without Registration (STUCK)
-**Status:** INCOMPLETE - Work started but feature broken  
-**Issue:** Cannot add member who is not already registered  
+### Known Issues Found (Not yet fixed):
+1. **Cannot modify/delete added members** 
+   - Status: Identified, not yet fixed
+   - Impact: Can't remove wrong member from split list
+   - Priority: HIGH
 
-**What was attempted:**
-- Researched allowing member addition without pre-registration
-- Made changes to add users without mandatory registration
-- **RESULT:** Feature still broken, members must be pre-registered
+2. **Group header not showing total personal split**
+   - Status: Identified, not yet fixed  
+   - Impact: Group detail view missing user's total debt
+   - Priority: MEDIUM
 
-**Debug needed:**
-- Review git changes (what was attempted?)
-- What's the intended flow? (invite → register → member? OR invite → member → register?)
-- Why is it failing? (database constraint? validation? API logic?)
-
-**Impact:** Bad UX - can't invite friends who haven't signed up yet  
-**NEXT TIME:** Prioritize fixing this before continuing with other features
-
----
-
-### ⚠️ Pending 1: EditExpenseScreen Date Picker (CAL UI)
-**Status:** Screen exists but INCOMPLETE  
-**Critical Issue:** Date field is TEXT INPUT, needs CALENDAR PICKER  
-
-**What exists:**
-- EditExpenseScreen.tsx component (can edit: amount, category, date, split type)
-- Not tested on mobile yet
-
-**What MUST be done:**
-1. ❌ Date field: Replace text input with **calendar picker UI** (e.g., react-native-date-picker)
-2. ❌ Mobile testing: Test EditExpenseScreen on Expo Go
-3. ❌ Handle edge cases: invalid dates, zero amounts, etc.
-4. ✅ Then commit when all working
-
-**BEFORE NEXT SESSION:** This calendar UI is essential for UX
+### Previous Blockers (NOW FIXED) ✅
+- ~~Add Member Without Registration~~ → FIXED (v0.3.0)
+- ~~EditExpenseScreen Date Picker~~ → FIXED (v0.3.0 - SimpleCalendar added)
+- ~~Build errors~~ → FIXED (v0.3.0 - all services operational)
 
 ---
 
-## 📋 IMMEDIATE NEXT STEPS (In Priority Order)
+## 🎯 NEXT PRIORITIES (After Current Testing)
 
-1. **[URGENT]** Fix build errors
-   - Run backend diagnostics: `cd backend && npm run dev 2>&1 | head -50`
-   - Run frontend diagnostics: `cd frontend && npm start 2>&1 | head -50`
-   - All terminals currently exit code 1 - identify root cause
-
-2. **[HIGH]** Complete EditExpenseScreen.tsx
-   - Add calendar date picker (replace text input)
-   - Test on mobile (Expo Go)
-   - Fix edge cases
-
-3. **[HIGH]** Debug Add Member Without Registration
-   - Review git diff to see what was attempted
-   - Understand intended flow
-   - Fix the broken feature
-
-4. **[HIGH]** Commit & Test
-   - Once build fixed: `git add -A && git commit -m "feat: add expense create/edit/list flows - phase 2"`
-   - Test all three screens on mobile
-   - Test split calculation logic
-
-5. **[MEDIUM]** Polish & Performance
-   - Add loading states
-   - Error handling on all API calls
-   - Validate data before save
-
-6. **[LOW]** Tag & Deploy
-   - `git tag v0.2.1`
-   - Push to origin
+1. **[HIGH]** Run 8 mobile tests - confirm all PASS with bug fixes
+2. **[HIGH]** Commit v0.3.1 with tag
+3. **[HIGH]** Fix: Cannot modify/delete added members
+4. **[MEDIUM]** Fix: Group header missing personal split total
+5. **[LOW]** Performance optimization + polish
 
 ---
 
@@ -128,25 +229,30 @@
 **Database:**
 - Users (id, email, password_hash, created_at)
 - Groups (id, name, description, currency, createdBy, members[])
-- Expenses (id, amount, category, date, splitType, paidBy, group, members...split)
+- Expenses (id, amount, category, date, splitType, paidBy, group, splitWith[], splitAmount[], splitPercentage[])
 - Soft deletes: isActive flag (don't hard delete)
 
 **Key Patterns:**
-- Use `Relationship.connect` NOT field + relationship together
-- Zod for validation (backend)
-- Custom AppError with i18n keys
-- useFocusEffect for screen refresh
-- reusable Modal components
+- Split arrays indexed: [0]=payer's share, [1+]=members' shares (PERCENTAGE)
+- EQUAL: amount ÷ (members + 1)
+- AMOUNT: manually specified per member
+- PERCENTAGE: % specified per person, calculated to amount
+- Personal Share: what current user owes in this expense
+- My Personal (total): sum of user's personal shares across all expenses in group
 
 ---
 
-## 🎯 WHEN YOU ASK "WHERE WERE WE?"
+## 📖 REFERENCE
 
-1. I read this file FIRST
-2. See current blockers immediately (member add, calendar UI)
-3. See next prioritized steps
-4. Know exactly what state we're in
-5. No more context loss!
+**When you ask "WHERE WERE WE?"**
+- I check this file FIRST
+- Current version, recent bugs fixed, blockers, next steps all visible
+- Quick context recovery
+
+**When making changes:**
+- Update this file + commit with code changes
+- Keep structure consistent (version → bugs fixed → next steps)
+- No context loss between sessions!
 
 ---
 

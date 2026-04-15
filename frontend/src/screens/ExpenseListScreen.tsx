@@ -6,7 +6,7 @@
  * Provides navigation to create and manage expenses.
  */
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getGroupExpenses } from '../services/expenseService';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
@@ -141,9 +142,39 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   }, [groupId, loadExpenses]); // ✓ Include groupId to reload on change
 
   /**
+   * Track if this is the first focus event (on mount).
+   * useFocusEffect runs on mount, but we want initial load from useEffect only.
+   * On subsequent navigation back, useFocusEffect refreshes the list.
+   */
+  const isInitialRenderRef = useRef(true);
+
+  /**
+   * Refresh expenses when screen is focused (e.g., returning from CreateExpenseScreen).
+   * Skip the first render to avoid double-loading (useEffect handles first load).
+   * This ensures the list always shows the latest expenses when user navigates back.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      // Skip first render - let useEffect handle initial load
+      if (isInitialRenderRef.current) {
+        isInitialRenderRef.current = false;
+        return;
+      }
+      
+      if (__DEV__) {
+        console.log('🔄 ExpenseListScreen focused - reloading expenses for groupId:', groupId);
+      }
+      loadExpenses();
+    }, [loadExpenses, groupId])
+  );
+
+  /**
    * Handle pull-to-refresh gesture.
    */
   const handleRefresh = () => {
+    if (__DEV__) {
+      console.log('🔄 Pull-to-refresh triggered');
+    }
     setRefreshing(true);
     loadExpenses();
   };
@@ -158,8 +189,13 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       <TouchableOpacity
         style={styles.expenseItem}
         onPress={() => {
-          // Proper navigation using typed navigation prop
-          navigation.navigate('ExpenseDetail', { expenseId: item.id });
+          // Tap to edit expense
+          navigation.navigate('EditExpense', { 
+            expenseId: item.id,
+            groupId,
+            groupName,
+            groupCurrencyCode: params.groupCurrencyCode,
+          });
         }}
         testID={`expense-item-${item.id}`}
         accessible={true}
@@ -207,7 +243,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         )}
       </TouchableOpacity>
     ),
-    [navigation]
+    [navigation, groupId, groupName, params.groupCurrencyCode]
   );
 
   /**
@@ -219,12 +255,40 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
     const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
     
     const personal = expenses.reduce((sum, exp) => {
-      // Find current user in the split
-      const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
-      if (userIndex !== -1 && exp.splitAmount?.[userIndex]) {
-        return sum + exp.splitAmount[userIndex];
+      let userShare = 0;
+
+      // Check if user is the payer
+      if (exp.paidBy?.id === currentUser?.id) {
+        // User is the payer - calculate their share based on split type
+        if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+          // Equal split: amount ÷ (splitWith.length + 1) including payer
+          userShare = exp.amount / (exp.splitWith.length + 1);
+        } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+          // Percentage split: payer's % is at index 0
+          userShare = (exp.amount * exp.splitPercentage[0]) / 100;
+        } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+          // Amount split: total - sum of others' amounts
+          userShare = exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
+        } else if (!exp.splitWith || exp.splitWith.length === 0) {
+          // No split - user pays full amount
+          userShare = exp.amount;
+        }
+      } else {
+        // User is in splitWith - find their share
+        const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
+        if (userIndex !== -1) {
+          if (exp.splitType === 'EQUAL') {
+            userShare = exp.amount / (exp.splitWith!.length + 1);
+          } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex + 1]) {
+            // Members' percentages start at index 1
+            userShare = (exp.amount * exp.splitPercentage[userIndex + 1]) / 100;
+          } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+            userShare = exp.splitAmount[userIndex];
+          }
+        }
       }
-      return sum;
+
+      return sum + userShare;
     }, 0);
     
     return { total, personal };
