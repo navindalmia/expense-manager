@@ -20,6 +20,7 @@ export interface Group {
     label: string;
   };
   totalAmount: number;
+  userPersonalTotal: number;
   createdBy: {
     id: number;
     name: string;

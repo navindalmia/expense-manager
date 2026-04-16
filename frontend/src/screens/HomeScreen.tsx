@@ -322,9 +322,14 @@ function HomeScreen({ navigation }: Props) {
 
             <View style={styles.groupFooter}>
               <Text style={styles.groupDate}>{formatGroupDate(item.createdAt)}</Text>
-              <Text style={styles.groupTotal}>
-                {item.totalAmount.toFixed(2)} {item.currency.code}
-              </Text>
+              <View>
+                <Text style={styles.groupTotal}>
+                  {item.totalAmount.toFixed(2)} {item.currency.code}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#0066cc', textAlign: 'right' }}>
+                  Your share: {item.userPersonalTotal.toFixed(2)}
+                </Text>
+              </View>
             </View>
           </TouchableOpacity>
 

@@ -8,6 +8,19 @@
 import prisma from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
+import { logger } from '../utils/logger';
+
+/**
+ * Expense data from database with required fields for split calculations
+ */
+interface ExpenseWithSplit {
+  amount: number;
+  paidById: number;
+  splitType: 'EQUAL' | 'AMOUNT' | 'PERCENTAGE';
+  splitWith: { id: number }[];
+  splitAmount?: number[] | null;
+  splitPercentage?: number[] | null;
+}
 
 /**
  * Create a new expense group
@@ -102,7 +115,16 @@ export async function getUserGroups(userId: number) {
           select: { id: true, name: true, email: true },
         },
         expenses: {
-          select: { amount: true },
+          select: {
+            amount: true,
+            paidById: true,
+            splitType: true,
+            splitAmount: true,
+            splitPercentage: true,
+            splitWith: {
+              select: { id: true },
+            },
+          },
         },
         _count: {
           select: { expenses: true, members: true },
@@ -111,16 +133,79 @@ export async function getUserGroups(userId: number) {
       orderBy: { updatedAt: 'desc' },
     });
 
-    // Calculate total amount for each group and keep expenses array for reuse
-    return groups.map((group: any) => {
-      const totalAmount = group.expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+    // Calculate total amount and user's personal split for each group
+    return groups.map((group) => {
+      const totalAmount = group.expenses.reduce((sum: number, exp: ExpenseWithSplit) => sum + exp.amount, 0);
+      
+      // Calculate user's personal split total
+      const userPersonalTotal = group.expenses.reduce((sum: number, exp: ExpenseWithSplit) => {
+        let userShare = 0;
+        
+        // Check if user is the payer
+        if (exp.paidById === userId) {
+          // User is payer - calculate their share based on split type
+          if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+            userShare = exp.amount / (exp.splitWith.length + 1);
+          } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage && exp.splitPercentage.length > 0 && typeof exp.splitPercentage[0] === 'number') {
+            // Payer's % is at index 0
+            userShare = (exp.amount * exp.splitPercentage[0]) / 100;
+          } else if (
+            exp.splitType === 'AMOUNT' &&
+            exp.splitAmount &&
+            exp.splitAmount.length > 0
+          ) {
+            // Amount split: total - sum of others' amounts
+            const othersTotal = exp.splitAmount.reduce((a: number, b: number) => a + b, 0);
+            userShare = Math.max(0, exp.amount - othersTotal);
+          } else if (!exp.splitWith || exp.splitWith.length === 0) {
+            // No split - user pays full amount
+            userShare = exp.amount;
+          }
+        } else {
+          // User is in splitWith - find their share
+          const userIndex = exp.splitWith?.findIndex((u) => u.id === userId) ?? -1;
+          if (userIndex !== -1) {
+            if (exp.splitType === 'EQUAL') {
+              userShare = exp.amount / (exp.splitWith.length + 1);
+            } else if (
+              exp.splitType === 'PERCENTAGE' &&
+              exp.splitPercentage &&
+              exp.splitPercentage.length > userIndex + 1 &&
+              typeof exp.splitPercentage[userIndex + 1] === 'number'
+            ) {
+              // Members' percentages start at index 1
+              const percentage = exp.splitPercentage[userIndex + 1];
+              if (typeof percentage === 'number' && !isNaN(percentage)) {
+                userShare = (exp.amount * percentage) / 100;
+              }
+            } else if (
+              exp.splitType === 'AMOUNT' &&
+              exp.splitAmount &&
+              exp.splitAmount.length > userIndex &&
+              typeof exp.splitAmount[userIndex] === 'number'
+            ) {
+              userShare = Math.max(0, exp.splitAmount[userIndex]);
+            }
+          }
+        }
+        
+        return sum + userShare;
+      }, 0);
+      
       return {
         ...group,
         totalAmount,
+        userPersonalTotal,
       };
     });
   } catch (error) {
-    throw new Error('Failed to fetch groups');
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      logger.error('Database error fetching groups', error, { userId });
+      throw new AppError('Failed to fetch groups', 500, 'DB_ERROR');
+    }
+    if (error instanceof AppError) throw error;
+    logger.error('Unexpected error fetching groups', error, { userId });
+    throw new AppError('Failed to fetch groups', 500, 'UNKNOWN_ERROR');
   }
 }
 
@@ -175,8 +260,11 @@ export async function getGroupById(groupId: number, userId: number) {
     return group;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      throw new Error('Group not found');
+      logger.error('Database error fetching group', error, { groupId, userId });
+      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND');
     }
+    if (error instanceof AppError) throw error;
+    logger.error('Unexpected error fetching group', error, { groupId, userId });
     throw error;
   }
 }
@@ -230,10 +318,11 @@ export async function addMemberByEmail(
         data: {
           name: emailPrefix, // Use email prefix as default name
           email: email.toLowerCase(),
-          // password stays null until they signup
+          // password stays null until they signup - auth middleware MUST validate this
         },
         select: { id: true, email: true, name: true },
       });
+      logger.info('Created placeholder user from group invite', { email: user.email, userId: user.id });
     }
 
     // Check if already a member
