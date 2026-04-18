@@ -357,7 +357,13 @@ export default function CreateExpenseScreen({
                 placeholder="0.00"
                 placeholderTextColor="#999"
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={val => {
+                  // Reject negative amounts
+                  if (val.startsWith('-')) {
+                    return;
+                  }
+                  setAmount(val);
+                }}
                 keyboardType="decimal-pad"
                 editable={!loading}
                 testID="expense-amount-input"

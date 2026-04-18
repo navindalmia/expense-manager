@@ -79,11 +79,46 @@ export function useSplitCalculator(
     }
   }, [splitState.splitType, splitState.splitWithIds.length, expenseAmount, paidById]);
 
+  // Clear old payer from split amounts when paidById changes
+  useEffect(() => {
+    setSplitState(prev => {
+      const newSplitAmount: Record<number, string> = {};
+      const newSplitPercentage: Record<number, string> = {};
+      
+      // Keep only current payer and members
+      Object.entries(prev.splitAmount).forEach(([id, val]) => {
+        const memberId = parseInt(id);
+        if (memberId === paidById || prev.splitWithIds.includes(memberId)) {
+          newSplitAmount[memberId] = val;
+        }
+      });
+      
+      Object.entries(prev.splitPercentage).forEach(([id, val]) => {
+        const memberId = parseInt(id);
+        if (memberId === paidById || prev.splitWithIds.includes(memberId)) {
+          newSplitPercentage[memberId] = val;
+        }
+      });
+      
+      return {
+        ...prev,
+        splitAmount: newSplitAmount,
+        splitPercentage: newSplitPercentage,
+      };
+    });
+  }, [paidById]);
+
   const addMember = useCallback((memberId: number) => {
-    setSplitState(prev => ({
-      ...prev,
-      splitWithIds: [...prev.splitWithIds, memberId],
-    }));
+    setSplitState(prev => {
+      // Prevent duplicate members
+      if (prev.splitWithIds.includes(memberId)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        splitWithIds: [...prev.splitWithIds, memberId],
+      };
+    });
   }, []);
 
   const removeMember = useCallback((memberId: number) => {
@@ -161,9 +196,10 @@ export function useSplitCalculator(
         splitWithIds: splitState.splitWithIds,
       };
 
-      if (splitState.splitType === 'AMOUNT') {
-        // Convert map to array: [member1_amt, member2_amt, ...]
-        payload.splitAmount = splitState.splitWithIds.map(
+      if (splitState.splitType === 'AMOUNT' && paidById !== null) {
+        // Convert to array: [payer_amt, member1_amt, member2_amt, ...]
+        const allIds = [paidById, ...splitState.splitWithIds];
+        payload.splitAmount = allIds.map(
           id => parseFloat(splitState.splitAmount[id] || '0')
         );
       } else if (splitState.splitType === 'PERCENTAGE' && paidById !== null) {

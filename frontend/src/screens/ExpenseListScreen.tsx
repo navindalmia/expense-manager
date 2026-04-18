@@ -103,11 +103,19 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         });
       }
       
-      setExpenses(data);
+      // Sort by expenseDate (descending = newest first), then by id (descending for deterministic order)
+      const sorted = data.sort((a, b) => {
+        const dateA = new Date(a.expenseDate).getTime();
+        const dateB = new Date(b.expenseDate).getTime();
+        if (dateB !== dateA) return dateB - dateA; // Most recent first
+        return b.id - a.id; // Tie-breaker: newer id first
+      });
+      
+      setExpenses(sorted);
       
       // Update currency preference from first expense
-      if (data.length > 0) {
-        setCurrencyPreference(data[0].currency.code);
+      if (sorted.length > 0) {
+        setCurrencyPreference(sorted[0].currency.code);
       }
     } catch (err) {
       const errorMessage = getErrorMessage(err);
@@ -183,67 +191,155 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * Render individual expense list item.
    * Wrapped in useCallback to prevent recreation on every render.
    * Only recreated if navigation dependency changes.
+   * Also calculates and displays user's share and running balance.
    */
   const renderExpenseItem = useCallback(
-    ({ item }: { item: Expense }) => (
-      <TouchableOpacity
-        style={styles.expenseItem}
-        onPress={() => {
-          // Tap to edit expense
-          navigation.navigate('EditExpense', { 
-            expenseId: item.id,
-            groupId,
-            groupName,
-            groupCurrencyCode: params.groupCurrencyCode,
-          });
-        }}
-        testID={`expense-item-${item.id}`}
-        accessible={true}
-        accessibilityLabel={`${item.title}, ${item.currency.code} ${item.amount.toFixed(2)}`}
-        accessibilityRole="button"
-      >
-        <View style={styles.expenseHeader}>
-          <Text 
-            style={styles.expenseTitle}
-            numberOfLines={1}
-            testID={`expense-title-${item.id}`}
-          >
-            {item.title}
-          </Text>
-          <Text 
-            style={styles.expenseAmount}
-            testID={`expense-amount-${item.id}`}
-          >
-            {item.currency.code} {item.amount.toFixed(2)}
-          </Text>
-        </View>
+    ({ item, index }: { item: Expense; index: number }) => {
+      // Calculate user's share for this expense
+      let userShare = 0;
 
-        <View style={styles.expenseFooter}>
-          <Text 
-            style={styles.expenseDate}
-            testID={`expense-date-${item.id}`}
-          >
-            {new Date(item.expenseDate).toLocaleDateString()}
-          </Text>
-          <Text 
-            style={styles.expenseCategory}
-            testID={`expense-category-${item.id}`}
-          >
-            {item.category?.label || 'N/A'}
-          </Text>
-        </View>
+      if (item.paidBy?.id === currentUser?.id) {
+        // User is the payer - calculate their share based on split type
+        if (item.splitType === 'EQUAL' && item.splitWith && item.splitWith.length > 0) {
+          userShare = item.amount / (item.splitWith.length + 1);
+        } else if (item.splitType === 'PERCENTAGE' && item.splitPercentage) {
+          userShare = (item.amount * item.splitPercentage[0]) / 100;
+        } else if (item.splitType === 'AMOUNT' && item.splitAmount) {
+          userShare = item.amount - item.splitAmount.reduce((a, b) => a + b, 0);
+        } else if (!item.splitWith || item.splitWith.length === 0) {
+          userShare = item.amount;
+        }
+      } else {
+        // User is in splitWith - find their share
+        const userIndex = item.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
+        if (userIndex !== -1) {
+          if (item.splitType === 'EQUAL') {
+            userShare = item.amount / (item.splitWith!.length + 1);
+          } else if (item.splitType === 'PERCENTAGE' && item.splitPercentage?.[userIndex + 1]) {
+            userShare = (item.amount * item.splitPercentage[userIndex + 1]) / 100;
+          } else if (item.splitType === 'AMOUNT' && item.splitAmount?.[userIndex]) {
+            userShare = item.splitAmount[userIndex];
+          }
+        }
+      }
 
-        {item.notes && (
-          <Text 
-            style={styles.expenseNotes}
-            testID={`expense-notes-${item.id}`}
-          >
-            {item.notes}
-          </Text>
-        )}
-      </TouchableOpacity>
-    ),
-    [navigation, groupId, groupName, params.groupCurrencyCode]
+      // Calculate running balance and user share based on CHRONOLOGICAL order (oldest to newest)
+      // even though display is newest to oldest
+      const runningBalance = expenses
+        .filter(exp => new Date(exp.expenseDate).getTime() <= new Date(item.expenseDate).getTime())
+        .reduce((sum, exp) => sum + exp.amount, 0);
+
+      // Calculate cumulative user share up to this item (chronologically)
+      let cumulativeUserShare = 0;
+      for (const exp of expenses) {
+        if (new Date(exp.expenseDate).getTime() > new Date(item.expenseDate).getTime()) {
+          continue; // Skip expenses after this one chronologically
+        }
+        
+        let userShare = 0;
+
+        if (exp.paidBy?.id === currentUser?.id) {
+          if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+            userShare = exp.amount / (exp.splitWith.length + 1);
+          } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+            userShare = (exp.amount * exp.splitPercentage[0]) / 100;
+          } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+            userShare = exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
+          } else if (!exp.splitWith || exp.splitWith.length === 0) {
+            userShare = exp.amount;
+          }
+        } else {
+          const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
+          if (userIndex !== -1) {
+            if (exp.splitType === 'EQUAL') {
+              userShare = exp.amount / (exp.splitWith!.length + 1);
+            } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex + 1]) {
+              userShare = (exp.amount * exp.splitPercentage[userIndex + 1]) / 100;
+            } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+              userShare = exp.splitAmount[userIndex];
+            }
+          }
+        }
+        cumulativeUserShare += userShare;
+      }
+
+      return (
+        <TouchableOpacity
+          style={styles.expenseItem}
+          onPress={() => {
+            // Tap to edit expense
+            navigation.navigate('EditExpense', { 
+              expenseId: item.id,
+              groupId,
+              groupName,
+              groupCurrencyCode: params.groupCurrencyCode,
+            });
+          }}
+          testID={`expense-item-${item.id}`}
+          accessible={true}
+          accessibilityLabel={`${item.title}, ${item.currency.code} ${item.amount.toFixed(2)}, your share: ${item.currency.code} ${userShare.toFixed(2)}`}
+          accessibilityRole="button"
+        >
+          <View style={styles.expenseHeader}>
+            <Text 
+              style={styles.expenseTitle}
+              numberOfLines={1}
+              testID={`expense-title-${item.id}`}
+            >
+              {item.title}
+            </Text>
+            <Text 
+              style={styles.expenseAmount}
+              testID={`expense-amount-${item.id}`}
+            >
+              {item.currency.code} {item.amount.toFixed(2)}
+            </Text>
+          </View>
+
+          <View style={styles.expenseFooter}>
+            <Text 
+              style={styles.expenseDate}
+              testID={`expense-date-${item.id}`}
+            >
+              {new Date(item.expenseDate).toLocaleDateString()}
+            </Text>
+            <Text 
+              style={styles.expenseCategory}
+              testID={`expense-category-${item.id}`}
+            >
+              {item.category?.label || 'N/A'}
+            </Text>
+          </View>
+
+          {/* User's Share and Running Totals */}
+          <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>
+                Your share: {item.currency.code} {userShare.toFixed(2)}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 11, color: '#666' }}>
+                Your running total: {item.currency.code} {cumulativeUserShare.toFixed(2)}
+              </Text>
+              <Text style={{ fontSize: 11, color: '#999' }}>
+                Total so far: {item.currency.code} {runningBalance.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+
+          {item.notes && (
+            <Text 
+              style={styles.expenseNotes}
+              testID={`expense-notes-${item.id}`}
+            >
+              {item.notes}
+            </Text>
+          )}
+        </TouchableOpacity>
+      );
+    },
+    [navigation, groupId, groupName, params.groupCurrencyCode, expenses, currentUser?.id]
   );
 
   /**

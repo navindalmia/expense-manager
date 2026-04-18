@@ -10,6 +10,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import type { SplitType } from '../../../types/common';
 import type { GroupMember } from '../hooks/useExpenseData';
+import { calculateMemberShare } from '../utils/splitValidation';
 
 interface SplitMembersInputProps {
   members: GroupMember[];
@@ -18,6 +19,7 @@ interface SplitMembersInputProps {
   splitType: SplitType;
   splitAmount: Record<number, string>;
   splitPercentage: Record<number, string>;
+  totalAmount?: string;
   onAddMember: (id: number) => void;
   onRemoveMember: (id: number) => void;
   onUpdateAmount: (id: number, amount: string) => void;
@@ -179,6 +181,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
     splitType,
     splitAmount,
     splitPercentage,
+    totalAmount = '0',
     onAddMember,
     onRemoveMember,
     onUpdateAmount,
@@ -299,6 +302,10 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                       placeholder={isAmount ? '0.00' : '0'}
                       value={value || ''}
                       onChangeText={newValue => {
+                        // Reject negative numbers
+                        if (newValue.startsWith('-')) {
+                          return;
+                        }
                         if (isAmount) {
                           onUpdateAmount(memberId, newValue);
                         } else {
@@ -311,6 +318,26 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                 );
               })}
 
+              {/* Payer amount for AMOUNT split */}
+              {splitType === 'AMOUNT' && paidById !== null && (
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>You (Payer) Amount</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0.00"
+                    value={splitAmount[paidById] || ''}
+                    onChangeText={newValue => {
+                      // Reject negative numbers
+                      if (newValue.startsWith('-')) {
+                        return;
+                      }
+                      onUpdateAmount(paidById, newValue);
+                    }}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              )}
+
               {/* Payer percentage for PERCENTAGE split */}
               {splitType === 'PERCENTAGE' && paidById !== null && (
                 <View style={styles.inputContainer}>
@@ -319,13 +346,57 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                     style={styles.input}
                     placeholder="0"
                     value={splitPercentage[paidById] || ''}
-                    onChangeText={newValue => onUpdatePercentage(paidById, newValue)}
+                    onChangeText={newValue => {
+                      // Reject negative numbers
+                      if (newValue.startsWith('-')) {
+                        return;
+                      }
+                      onUpdatePercentage(paidById, newValue);
+                    }}
                     keyboardType="decimal-pad"
                   />
                 </View>
               )}
             </View>
           )}
+
+          {/* Display Calculated Amounts - Added to show split breakdown */}
+          <View style={{ marginTop: 16, backgroundColor: '#f9f9f9', padding: 12, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: '#0066cc' }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 8 }}>Split Breakdown</Text>
+            
+            {/* Payer amount */}
+            {paidById !== null && (
+              <Text style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
+                <Text style={{ fontWeight: '500' }}>You (Payer): </Text>
+                {calculateMemberShare(
+                  splitType,
+                  parseFloat(totalAmount || '0'),
+                  splitAmount[paidById],
+                  splitPercentage[paidById],
+                  splitWithIds.length + 1
+                )}
+              </Text>
+            )}
+            
+            {/* Member amounts */}
+            {splitWithIds.map(memberId => {
+              const member = members.find(m => m.id === memberId);
+              const displayAmount = calculateMemberShare(
+                splitType,
+                parseFloat(totalAmount || '0'),
+                splitAmount[memberId],
+                splitPercentage[memberId],
+                splitWithIds.length + 1
+              );
+              
+              return (
+                <Text key={memberId} style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+                  <Text style={{ fontWeight: '500' }}>{member?.name || 'Unknown Member'}: </Text>
+                  {displayAmount}
+                </Text>
+              );
+            })}
+          </View>
 
           {/* Error Message */}
           {errors.split && <Text style={styles.errorText}>{errors.split}</Text>}

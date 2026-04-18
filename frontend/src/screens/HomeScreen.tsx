@@ -220,7 +220,17 @@ function HomeScreen({ navigation }: Props) {
       setError(null);
       const response = await http.get('/groups');
       setGroups(response.data.data || []);
-    } catch (err) {
+    } catch (err: any) {
+      // Handle expired token - logout and redirect to login
+      if (err?.status === 401 || err?.data?.error === 'AUTH_FAILED') {
+        logger.info('Token expired, logging out', {
+          screen: 'HomeScreen',
+          status: err?.status,
+        });
+        await logout();
+        return;
+      }
+
       const errorMessage = getErrorMessage(err);
       setError(errorMessage);
       logger.error('Failed to load groups', err, {
@@ -231,7 +241,7 @@ function HomeScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [logout]);
 
   /**
    * Load groups when screen comes into focus
@@ -281,6 +291,10 @@ function HomeScreen({ navigation }: Props) {
    */
   const renderGroupItem = useCallback(
     ({ item }: { item: Group }) => {
+      // Defensive checks for _count field
+      const expenseCount = item._count?.expenses ?? 0;
+      const memberCount = item._count?.members ?? 0;
+      
       return (
         <View
           style={styles.groupCard}
@@ -291,7 +305,7 @@ function HomeScreen({ navigation }: Props) {
               navigation.navigate('ExpenseList', { groupId: item.id, groupName: item.name, groupCurrencyCode: item.currency.code });
             }}
             accessible={true}
-            accessibilityLabel={`${item.name}, ${item._count.expenses} expenses`}
+            accessibilityLabel={`${item.name}, ${expenseCount} expenses`}
             accessibilityRole="button"
           >
             <View style={styles.groupHeader}>
@@ -304,7 +318,7 @@ function HomeScreen({ navigation }: Props) {
                   {item.name}
                 </Text>
                 <Text style={styles.groupMeta}>
-                  {item._count.expenses} expenses • {item._count.members} members
+                  {expenseCount} expenses • {memberCount} members
                 </Text>
               </View>
               <Text style={styles.groupCurrency}>{item.currency.code}</Text>
@@ -324,10 +338,10 @@ function HomeScreen({ navigation }: Props) {
               <Text style={styles.groupDate}>{formatGroupDate(item.createdAt)}</Text>
               <View>
                 <Text style={styles.groupTotal}>
-                  {item.totalAmount.toFixed(2)} {item.currency.code}
+                  {(item.totalAmount ?? 0).toFixed(2)} {item.currency.code}
                 </Text>
                 <Text style={{ fontSize: 11, color: '#0066cc', textAlign: 'right' }}>
-                  Your share: {item.userPersonalTotal.toFixed(2)}
+                  Your share: {(item.userPersonalTotal ?? 0).toFixed(2)}
                 </Text>
               </View>
             </View>

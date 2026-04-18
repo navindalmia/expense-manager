@@ -1,12 +1,64 @@
 # 🎯 EXPENSE MANAGER - MASTER PROJECT STATE
 
-## CURRENT VERSION: v0.3.1 (EditExpenseScreen Bug Fixes + ExpenseList Improvements)
-**Last Updated:** April 15, 2026 - 18:36 UTC  
-**Session Progress:** Fixed 6 critical bugs in PERCENTAGE splits + Personal Share calculation ✅
+## CURRENT VERSION: v0.3.2 (EditExpenseScreen Refactoring + 6 Modular Hooks)
+**Last Updated:** April 16, 2026 - 20:30 UTC  
+**Status:** Code-complete, committed, deployed. Ready for mobile testing.
+**Session Progress:** Refactored 1,050-line monolith → 125-line orchestrator + 6 modular hooks ✅
 
 ---
 
-## 🟢 COMPLETED THIS SESSION (v0.3.1 - April 15)
+## 🟢 COMPLETED THIS SESSION (v0.3.2 - April 16)
+
+### Backend Fixes ✅
+1. **groupService.ts**: Added bounds checking for `splitPercentage[idx]` array access
+2. **tsconfig.json**: Removed invalid `ignoreDeprecations` flag
+3. **Result**: Zero TypeScript errors, clean build
+
+### Frontend Refactoring ✅
+**EditExpenseScreen.tsx Transformation:**
+- **Before**: 1,050 lines, 18 useState hooks, 4 useEffect hooks, monolithic
+- **After**: 125 lines, 3 custom hooks, clean separation of concerns
+- **Reduction**: 88% fewer lines of code
+- **Maintainability**: From untestable to fully modular
+
+### 6 New Modular Files Created ✅
+Location: `frontend/src/screens/EditExpenseScreen/`
+
+1. **hooks/useExpenseData.ts** (80 lines)
+   - Atomic loading (expense, categories, members in parallel)
+   - Issue #1 fixed: Guarantees all 3 complete before setting loading=false
+   
+2. **hooks/useExpenseForm.ts** (87 lines)
+   - Form input state management (title, amount, category, date, notes, paidById)
+   - Replaces 6 separate useState hooks
+
+3. **hooks/useSplitCalculator.ts** (172 lines)
+   - Split logic: add/remove members, update amounts/percentages, validate
+   - Issue #2 fixed: Receives paidById so getSplitPayload constructs correct array
+   - Issue #4 fixed: Uses shared validateSplitConfig (DRY)
+   - Issue #5 fixed: Auto-recalculates EQUAL splits when amount changes
+
+4. **components/DatePickerModal.tsx** (298 lines)
+   - Calendar extracted from main screen
+   - Prevents future dates, YYYY-MM-DD format
+
+5. **components/SplitMembersInput.tsx** (336 lines)
+   - React.memo wrapped (Issue #3 fixed)
+   - Prevents re-renders on parent keystroke
+   - Member selector, split type buttons, amount/% inputs
+
+6. **utils/splitValidation.ts** (72 lines)
+   - DRY validation helpers (Issue #4)
+   - No duplication between form validation and hook validation
+
+### Commit Details ✅
+- **Commit**: 0bba102
+- **Message**: v0.3.2 + detailed changelog
+- **Pushed**: ✅ To origin/master
+
+---
+
+## 🟢 COMPLETED PREVIOUS SESSION (v0.3.1 - April 15)
 
 ### Bugs Fixed (All Code-Fixed) ✅
 1. ✅ PERCENTAGE split validation failing (payer % not included in payload)
