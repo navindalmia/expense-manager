@@ -128,7 +128,8 @@ export async function createExpense(data: {
   if (splitWithIds.length > 0) {
     switch (splitType) {
       case SplitType.EQUAL:
-        const perPerson = parseFloat((amount / (splitWithIds.length + 1)).toFixed(2));
+        // Payer is now optional in split - only divide by actual split member count
+        const perPerson = parseFloat((amount / splitWithIds.length).toFixed(2));
         finalSplitAmounts = new Array(splitWithIds.length).fill(perPerson);
         break;
 
@@ -426,7 +427,8 @@ export async function updateExpense(
 
         switch (effectiveSplitType) {
           case SplitType.EQUAL:
-            const perPerson = parseFloat((finalAmount / (finalSplitIds.length + 1)).toFixed(2));
+            // Payer is now optional in split - only divide by actual split member count
+            const perPerson = parseFloat((finalAmount / finalSplitIds.length).toFixed(2));
             finalSplitAmounts = new Array(finalSplitIds.length).fill(perPerson);
             break;
 

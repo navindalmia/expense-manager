@@ -223,14 +223,14 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         }
       }
 
-      // Calculate running balance and user share based on CHRONOLOGICAL order (oldest to newest)
-      // even though display is newest to oldest
+      // Calculate cumulative user share up to this item (chronologically)
+      // Only from oldest to this expense date
+      let cumulativeUserShare = 0;
+      
+      // Calculate running total of all expenses (for comparison)
       const runningBalance = expenses
         .filter(exp => new Date(exp.expenseDate).getTime() <= new Date(item.expenseDate).getTime())
         .reduce((sum, exp) => sum + exp.amount, 0);
-
-      // Calculate cumulative user share up to this item (chronologically)
-      let cumulativeUserShare = 0;
       for (const exp of expenses) {
         if (new Date(exp.expenseDate).getTime() > new Date(item.expenseDate).getTime()) {
           continue; // Skip expenses after this one chronologically
@@ -320,10 +320,10 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontSize: 11, color: '#666' }}>
-                Your running total: {item.currency.code} {cumulativeUserShare.toFixed(2)}
+                Your total: {item.currency.code} {cumulativeUserShare.toFixed(2)}
               </Text>
               <Text style={{ fontSize: 11, color: '#999' }}>
-                Total so far: {item.currency.code} {runningBalance.toFixed(2)}
+                Total: {item.currency.code} {runningBalance.toFixed(2)}
               </Text>
             </View>
           </View>
@@ -349,6 +349,11 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    */
   const calculateTotals = useCallback(() => {
     const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    
+    // Calculate what current user paid
+    const userPaid = expenses
+      .filter(exp => exp.paidBy?.id === currentUser?.id)
+      .reduce((sum, exp) => sum + exp.amount, 0);
     
     const personal = expenses.reduce((sum, exp) => {
       let userShare = 0;
@@ -387,10 +392,13 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       return sum + userShare;
     }, 0);
     
-    return { total, personal };
+    // Balance: positive if user is owed, negative if user owes
+    const balance = userPaid - personal;
+    
+    return { total, personal, balance };
   }, [expenses, currentUser?.id]);
 
-  const { total, personal } = calculateTotals();
+  const { total, personal, balance } = calculateTotals();
 
   /**
    * Render empty state.
@@ -472,19 +480,25 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
           style={styles.summaryCard}
           testID="summary-card"
           accessible={true}
-          accessibilityLabel={`Total: ${currencyPreference} ${total.toFixed(2)}, Your share: ${currencyPreference} ${personal.toFixed(2)}`}
+          accessibilityLabel={`Total: ${currencyPreference} ${total.toFixed(2)}, Your share: ${currencyPreference} ${personal.toFixed(2)}, Balance: ${balance > 0 ? 'owed' : 'owe'} ${currencyPreference} ${Math.abs(balance).toFixed(2)}`}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.summaryLabel}>Total</Text>
               <Text style={styles.summaryAmount}>
                 {currencyPreference} {total.toFixed(2)}
               </Text>
             </View>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.summaryLabel}>My Personal</Text>
               <Text style={styles.summaryAmount}>
                 {currencyPreference} {personal.toFixed(2)}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>Balance</Text>
+              <Text style={[styles.summaryAmount, { color: balance >= 0 ? '#28a745' : '#dc3545' }]}>
+                {balance >= 0 ? 'Owed' : 'Owe'} {currencyPreference} {Math.abs(balance).toFixed(2)}
               </Text>
             </View>
           </View>

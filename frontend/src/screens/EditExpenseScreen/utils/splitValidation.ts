@@ -87,7 +87,8 @@ export function validateSplitConfig(
     }
     
     const total = calculateSplitTotal(splitType, splitAmount, splitPercentage);
-    if (Math.abs(total - target) > 0.01) {
+    // Increased tolerance from 0.01 to 0.05 to account for rounding in auto-calculations
+    if (Math.abs(total - target) > 0.05) {
       return `Split amounts must sum to ${expenseAmount} (currently ${total.toFixed(2)})`;
     }
   } else if (splitType === 'PERCENTAGE') {
@@ -100,7 +101,8 @@ export function validateSplitConfig(
     }
     
     const total = calculateSplitTotal(splitType, splitAmount, splitPercentage);
-    if (Math.abs(total - 100) > 0.01) {
+    // Increased tolerance from 0.01 to 0.05 to account for rounding in auto-calculations
+    if (Math.abs(total - 100) > 0.05) {
       return `Split percentages must sum to 100% (currently ${total.toFixed(2)}%)`;
     }
   }

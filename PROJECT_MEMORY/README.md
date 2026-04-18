@@ -28,6 +28,9 @@ Read **[`01-MASTER_STATE.md`](./01-MASTER_STATE.md)** first when:
 **"What's the current project state?"**
 → Read [`01-MASTER_STATE.md`](./01-MASTER_STATE.md) - Current blockers, version, next steps
 
+**"What bugs were just fixed?"**
+→ Read [`07-CHECKPOINT_APR18_ARRAY_FIXES.md`](./07-CHECKPOINT_APR18_ARRAY_FIXES.md) - Array indexing fixes for split persistence (v0.3.4)
+
 **"What's the workflow? How do I commit?"**  
 → Read [`02-WORKFLOW.md`](./02-WORKFLOW.md) - **Code → Tests → Code Review → Test Mobile → Commit**
 

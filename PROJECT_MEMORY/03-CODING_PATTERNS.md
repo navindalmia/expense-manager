@@ -228,6 +228,105 @@ disabled={isFutureDate(day, month, year)}
 
 ## 💰 SPLIT CALCULATIONS (Important!)
 
+### Split Array Storage Format (Backend → Frontend)
+
+**CRITICAL: Array storage does NOT include payer**
+
+```typescript
+// Backend Storage (expenseService.ts):
+// splitWithIds = [1, 2]               // Member IDs ONLY (not payer)
+// splitAmount = [25, 25]              // INDEXED by member: [member0_amt, member1_amt]
+// splitPercentage = [50, 50]          // INDEXED by member: [member0_%, member1_%]
+// paidById = 3                        // Payer is SEPARATE
+
+// Frontend State (useSplitCalculator):
+// splitWithIds: [1, 2]
+// splitAmount: { 1: '25', 2: '25' }           // Map for manipulation
+// splitPercentage: { 1: '50', 2: '50' }       // Map for manipulation
+// paidById: 3
+
+// Frontend Loading (EditExpenseScreen.tsx prefillFromExpense):
+expense.splitWith.forEach((user, idx) => {
+  // user = expense.splitWith[idx]           // Get member object
+  // expense.splitAmount[idx]                // Direct array index
+  updateAmount(user.id, expense.splitAmount[idx].toString());
+});
+// ✅ Result: { 1: '25', 2: '25' } in state
+
+// ❌ OLD (WRONG - caused NaN):
+expense.splitWith.forEach((user, idx) => {
+  if (expense.splitPercentage?.[idx + 1]) {  // ← Offset by 1 = wrong index!
+    updatePercentage(user.id, expense.splitPercentage[idx + 1].toString());
+  }
+});
+```
+
+**Why this matters:**
+- Backend divides by `splitWithIds.length` (members only)
+- If payer was included in array, payer would be counted twice (once in split, once as payer)
+- Frontend loading must use DIRECT indexing: `[0, 1, 2, ...]` for members, NOT `[1, 2, 3, ...]`
+
+### Initialization Sequence (MUST NOT REORDER)
+
+```typescript
+// EditExpenseScreen.tsx:
+
+// STEP 1: Load data (parallel)
+const { expense, categories, groupMembers, loading } = useExpenseData(expenseId, groupId);
+
+// STEP 2: Create hooks (expense causes rerender → paidById changes)
+const { formState, prefillFromExpense } = useExpenseForm(expense);
+const { splitState, addMember, ... } = useSplitCalculator(
+  formState.amount,
+  formState.paidById,  // ← Sets when prefillFromExpense runs
+  groupMembers,
+  expense              // ← NEW: Prevents override on load
+);
+
+// STEP 3: Effects that populate state
+useEffect(() => {
+  if (expense) {
+    prefillFromExpense(expense);  // ← Sets paidById (rerender trigger)
+    
+    if (expense.splitWith?.length > 0) {
+      const uniqueMemberIds = [...new Set(expense.splitWith.map(u => u.id))];
+      uniqueMemberIds.forEach(userId => addMember(userId));  // ← Populate
+      
+      // Load values with DIRECT indexing
+      expense.splitWith.forEach((user, idx) => {
+        if (expense.splitPercentage?.[idx]) {
+          updatePercentage(user.id, expense.splitPercentage[idx].toString());
+        }
+      });
+    }
+  }
+}, [expense]);
+
+// useSplitCalculator.ts - CRITICAL EFFECT:
+useEffect(() => {
+  setSplitState(prev => {
+    // PROTECTION: Check if loading saved expense
+    if (savedExpense?.splitWith && savedExpense.splitWith.length > 0) {
+      return prev;  // ← Skip reinitialization!
+    }
+    
+    // Only reinitialize for NEW expenses
+    const newMembers = groupMembers.filter(m => m.id !== paidById).map(m => m.id);
+    // ... populate with all members
+  });
+}, [paidById, groupMembers.length, savedExpense?.splitWith?.length]);
+```
+
+**Key Protection:**
+- If loading saved expense: `if (savedExpense?.splitWith?.length > 0)` → EXIT
+- Allows addMember() calls to populate saved members
+- Only reinitializes on NEW expenses
+
+**Common Mistake:**
+- Passing NEW expense data resets splitWithIds to all members
+- Then addMember() calls don't override the reset
+- Result: Shows split with all members instead of saved subset
+
 ### Personal Share Formula
 ```typescript
 // EQUAL split: Divide total equally
