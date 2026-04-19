@@ -1,4 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { Expense } from '../services/expenseService';
 
 /**
  * Root Stack Parameter List
@@ -13,6 +14,7 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   CreateExpense: { groupId: number; groupName?: string; groupCurrencyCode?: string };
   EditExpense: { expenseId: number; groupId: number; groupName?: string; groupCurrencyCode?: string };
   CreateGroup: undefined;
+  Settlement: { groupId: number; groupName?: string; expenses: Expense[] };
 }
 
 /**
@@ -45,3 +47,8 @@ export type EditExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 
  * Props for CreateGroupScreen
  */
 export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
+
+/**
+ * Props for SettlementScreen
+ */
+export type SettlementScreenProps = NativeStackScreenProps<RootStackParamList, 'Settlement'>;

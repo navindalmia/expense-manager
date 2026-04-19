@@ -1,53 +1,54 @@
 # 🎯 EXPENSE MANAGER - MASTER PROJECT STATE
 
-## CURRENT VERSION: v0.3.4 (Critical Array Indexing Fixes)
-**Last Updated:** April 18, 2026 - CURRENT SESSION  
-**Status:** Fixed 2 critical split loading bugs. All split type persistence issues resolved.
-**Session Focus:** Array indexing mismatch between backend storage and frontend loading
+## 🚨 BLOCKER - Settlement Rent Missing (Apr 19)
+**Rent 450.50 not in settlement calculations for srabani (shows 34.45 only)**
+- Rent visible on Expense List but NOT in Settlement totals
+- Error fixed: `e.category?.toLowerCase is not a function`
+- **Debug**: Browser console → navigate Settlement → check "🔍 SettlementScreen mounted" log → is rent in array?
+- **Files**: SettlementScreen.tsx + ExpenseListScreen.tsx (logging added)
 
 ---
 
-## 🟢 COMPLETED THIS SESSION (v0.3.4 - April 18 - Part 2)
+## CURRENT VERSION: v0.3.5 (Settlement Screen Development)
+**Last Updated:** April 19, 2026
+**Files Involved:**
+- `frontend/src/screens/SettlementScreen.tsx` - memberSettlements calculation
+- `frontend/src/screens/ExpenseListScreen.tsx` - navigation logging
+- `frontend/src/services/expenseService.ts` - API call
 
-### Critical Bugs Fixed (2 total) ✅
-
-#### Bug #1: NaN Display on Reopened Expenses ✅
-**Problem:**
-- User saved expense with AMOUNT/PERCENTAGE split
-- Reopened expense: split values showed as NaN
-- Root cause: Array indexing mismatch between backend storage and frontend loading
-
-**Root Cause Analysis:**
-- Backend stores splits as: `[member0_value, member1_value, ...]` (length = splitWithIds.length, NO payer)
-- Frontend was trying to load: Looking for payer at [0], members at [1+] (old format from when payer was always included)
-- Result: Accessing wrong indices → undefined → NaN when displayed
-
-**Solution:**
-- Changed prefillFromExpense in EditExpenseScreen.tsx (lines 69-91) to use direct array indexing
-- Removed the `+1` offset that was skipping index 0
-- Now: `expense.splitWith.forEach((user, idx) => { if (expense.splitPercentage?.[idx]) { ... } })`
-- Direct index mapping [0, 1, 2, ...] for members matches backend [0, 1, 2, ...]
-
-**Files Updated:**
-- `frontend/src/screens/EditExpenseScreen.tsx` - prefillFromExpense useEffect
-
-**Verification:**
-- ✅ No TypeScript errors
-- ✅ Awaiting user test on Expo (R,R reload)
+**Next Step:** Check browser console logs for "🔍 SettlementScreen mounted" to confirm if rent expense is in the array
 
 ---
 
-#### Bug #2: Split Members Override on Load ✅
-**Problem:**
-- Paid by: Person 3, Split among: Person 1 & 2 (50% each)
-- Saved correctly
-- Reopened: Split showing 33% on all 3 members (not 50/50)
-- Root cause: Split members being reset during load sequence
+## 🟢 COMPLETED THIS SESSION (v0.3.5 - April 19)
 
-**Root Cause Analysis:**
-1. User clicks "Edit Expense"
-2. `prefillFromExpense()` sets `paidById` (Person 3)
-3. State update triggers re-render
+### Settlement Screen Implementation ✅
+**Status:** Partially working - basic structure done, calculation bug pending
+
+**Completed:**
+1. ✅ Settlement navigation route and params passing
+2. ✅ Detailed breakdown display showing "A owes B" relationships
+3. ✅ Fixed bread expense showing 0.45 instead of 0.90
+4. ✅ Payer-in-split detection logic verified
+5. ✅ Comprehensive logging added for debugging
+6. ✅ Fixed render error: `e.category?.toLowerCase is not a function`
+
+**Outstanding:**
+1. ❌ Rent expense not appearing in settlement calculations
+2. ❌ Need to verify data flow: API → ExpenseListScreen → Navigation → Settlement
+
+---
+
+## 🟡 IN PROGRESS (Paused - Waiting on Investigation)
+
+### Settlement Screen Debug Logging
+**Purpose:** Trace where rent expense is lost
+**Logs Added:**
+- ExpenseListScreen: "📤 Navigating to Settlement with:" - shows exact array being passed
+- SettlementScreen: "🔍 SettlementScreen mounted" - searches for rent expense
+- SettlementScreen: memberSettlements calculation debug logs
+
+---
 4. `useSplitCalculator` reinitialize effect fires with new `paidById`
 5. Effect resets `splitWithIds` to ALL members (except paidById)
 6. Then `addMember()` calls run to populate saved members, but override already happened

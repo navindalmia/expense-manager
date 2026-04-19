@@ -172,36 +172,29 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
               <Text style={styles.checkboxLabel}>{member.name}</Text>
               {member.id === paidById && <Text style={styles.payerBadge}>Payer</Text>}
               {isSelected && splitType === 'AMOUNT' ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                  <TextInput
-                    style={[styles.memberAmount, { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 8, paddingVertical: 6, fontSize: 14, flex: 0.5 }]}
-                    value={splitAmount[member.id] || ''}
-                    onChangeText={val => onUpdateAmount(member.id, val)}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                  />
-                  <Text style={{ fontSize: 12, color: '#666', minWidth: 40 }}>{currency}</Text>
-                </View>
+                <TextInput
+                  style={[styles.memberAmount, { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 8, paddingVertical: 6, fontSize: 14, width: 80, textAlign: 'right', marginLeft: 'auto' }]}
+                  value={splitAmount[member.id] || ''}
+                  onChangeText={val => onUpdateAmount(member.id, val)}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                />
               ) : isSelected && splitType === 'PERCENTAGE' ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
                   <TextInput
-                    style={[styles.memberAmount, { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 8, paddingVertical: 6, fontSize: 14, flex: 0.3 }]}
+                    style={[styles.memberAmount, { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 6, paddingVertical: 6, fontSize: 14, width: 50, textAlign: 'right' }]}
                     value={splitPercentage[member.id] || ''}
                     onChangeText={val => onUpdatePercentage(member.id, val)}
                     keyboardType="decimal-pad"
                     placeholder="0"
                   />
-                  <Text style={{ fontSize: 11, color: '#999' }}>%</Text>
-                  <Text style={{ fontSize: 12, color: '#666', minWidth: 35 }}>{currency}</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', minWidth: 50, textAlign: 'right' }}>
+                  <Text style={{ fontSize: 12, color: '#999', fontWeight: '500' }}>%</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', width: 50, textAlign: 'right' }}>
                     {calculatePercentageAmount(splitPercentage[member.id] || '', totalAmount || '0')}
                   </Text>
                 </View>
               ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={styles.memberAmount}>{memberShare}</Text>
-                  <Text style={{ fontSize: 12, color: '#666', minWidth: 40 }}>{currency}</Text>
-                </View>
+                <Text style={[styles.memberAmount, { marginLeft: 'auto', width: 50, textAlign: 'right' }]}>{memberShare}</Text>
               )}
             </TouchableOpacity>
           );

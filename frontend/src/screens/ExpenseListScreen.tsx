@@ -79,6 +79,49 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   const [currencyPreference, setCurrencyPreference] = useState<string>('GBP');
 
   /**
+   * Calculate user's share of an expense based on split type and their role.
+   * Single source of truth - used by both renderExpenseItem and calculateTotals.
+   * Handles payer inclusion detection for accurate calculations.
+   * EXPORTED for reuse in SettlementScreen.
+   */
+  const calculateUserShare = useCallback((exp: Expense): number => {
+    if (exp.paidBy?.id === currentUser?.id) {
+      // User is the payer
+      if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+        const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
+        const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
+        return exp.amount / totalPeople;
+      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+        const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidBy?.id) ?? -1;
+        if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
+          return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
+        } else if (exp.splitPercentage?.[0]) {
+          return (exp.amount * exp.splitPercentage[0]) / 100;
+        }
+      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+        return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
+      } else if (!exp.splitWith || exp.splitWith.length === 0) {
+        return exp.amount;
+      }
+    } else {
+      // User is in splitWith
+      const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
+      if (userIndex !== -1) {
+        if (exp.splitType === 'EQUAL') {
+          const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
+          const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
+          return exp.amount / totalPeople;
+        } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
+          return (exp.amount * exp.splitPercentage[userIndex]) / 100;
+        } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+          return exp.splitAmount[userIndex];
+        }
+      }
+    }
+    return 0;
+  }, [currentUser?.id]);
+
+  /**
    * Fetch expenses from backend.
    * Sets loading state and handles errors.
    * Uses logger for centralized error tracking.
@@ -191,77 +234,54 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * Render individual expense list item.
    * Wrapped in useCallback to prevent recreation on every render.
    * Only recreated if navigation dependency changes.
-   * Also calculates and displays user's share and running balance.
+   * Calculates and displays:
+   * 1. Your spend this expense
+   * 2. You owe/are owed on this expense
+   * 3. Your total spend till now (cumulative from oldest)
+   * 4. You owe/are owed till now (cumulative from oldest)
+   * 5. Your share
    */
   const renderExpenseItem = useCallback(
     ({ item, index }: { item: Expense; index: number }) => {
-      // Calculate user's share for this expense
-      let userShare = 0;
-
-      if (item.paidBy?.id === currentUser?.id) {
-        // User is the payer - calculate their share based on split type
-        if (item.splitType === 'EQUAL' && item.splitWith && item.splitWith.length > 0) {
-          userShare = item.amount / (item.splitWith.length + 1);
-        } else if (item.splitType === 'PERCENTAGE' && item.splitPercentage) {
-          userShare = (item.amount * item.splitPercentage[0]) / 100;
-        } else if (item.splitType === 'AMOUNT' && item.splitAmount) {
-          userShare = item.amount - item.splitAmount.reduce((a, b) => a + b, 0);
-        } else if (!item.splitWith || item.splitWith.length === 0) {
-          userShare = item.amount;
-        }
-      } else {
-        // User is in splitWith - find their share
-        const userIndex = item.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
-        if (userIndex !== -1) {
-          if (item.splitType === 'EQUAL') {
-            userShare = item.amount / (item.splitWith!.length + 1);
-          } else if (item.splitType === 'PERCENTAGE' && item.splitPercentage?.[userIndex + 1]) {
-            userShare = (item.amount * item.splitPercentage[userIndex + 1]) / 100;
-          } else if (item.splitType === 'AMOUNT' && item.splitAmount?.[userIndex]) {
-            userShare = item.splitAmount[userIndex];
-          }
-        }
-      }
-
-      // Calculate cumulative user share up to this item (chronologically)
-      // Only from oldest to this expense date
-      let cumulativeUserShare = 0;
+      // Calculate user's share for THIS expense
+      const userShare = calculateUserShare(item);
       
-      // Calculate running total of all expenses (for comparison)
-      const runningBalance = expenses
-        .filter(exp => new Date(exp.expenseDate).getTime() <= new Date(item.expenseDate).getTime())
-        .reduce((sum, exp) => sum + exp.amount, 0);
-      for (const exp of expenses) {
-        if (new Date(exp.expenseDate).getTime() > new Date(item.expenseDate).getTime()) {
-          continue; // Skip expenses after this one chronologically
+      // Calculate what user paid for THIS expense (0 if they didn't pay it)
+      const userPaidThisExpense = item.paidBy?.id === currentUser?.id ? item.amount : 0;
+      
+      // Balance on this expense: positive = owed to user, negative = user owes
+      const balanceThisExpense = userPaidThisExpense - userShare;
+
+      // Calculate cumulative (from oldest to this expense chronologically)
+      // Sort expenses deterministically: by date (ascending), then by id (ascending)
+      let cumulativeUserShare = 0;
+      let cumulativeUserPaid = 0;
+
+      const sortedExpenses = [...expenses].sort((a, b) => {
+        const dateA = new Date(a.expenseDate).getTime();
+        const dateB = new Date(b.expenseDate).getTime();
+        if (dateA !== dateB) return dateA - dateB; // Older first
+        return a.id - b.id; // Older ID first if same date
+      });
+
+      for (const exp of sortedExpenses) {
+        // Stop after reaching current expense
+        if (exp.id === item.id) {
+          cumulativeUserShare += calculateUserShare(exp);
+          if (exp.paidBy?.id === currentUser?.id) {
+            cumulativeUserPaid += exp.amount;
+          }
+          break; // Inclusive - include current expense, then stop
         }
         
-        let userShare = 0;
-
+        cumulativeUserShare += calculateUserShare(exp);
         if (exp.paidBy?.id === currentUser?.id) {
-          if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-            userShare = exp.amount / (exp.splitWith.length + 1);
-          } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
-            userShare = (exp.amount * exp.splitPercentage[0]) / 100;
-          } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
-            userShare = exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
-          } else if (!exp.splitWith || exp.splitWith.length === 0) {
-            userShare = exp.amount;
-          }
-        } else {
-          const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
-          if (userIndex !== -1) {
-            if (exp.splitType === 'EQUAL') {
-              userShare = exp.amount / (exp.splitWith!.length + 1);
-            } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex + 1]) {
-              userShare = (exp.amount * exp.splitPercentage[userIndex + 1]) / 100;
-            } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-              userShare = exp.splitAmount[userIndex];
-            }
-          }
+          cumulativeUserPaid += exp.amount;
         }
-        cumulativeUserShare += userShare;
       }
+
+      // Cumulative balance: positive = owed to user, negative = user owes
+      const cumulativeBalance = cumulativeUserPaid - cumulativeUserShare;
 
       return (
         <TouchableOpacity
@@ -311,20 +331,54 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
             </Text>
           </View>
 
-          {/* User's Share and Running Totals */}
+          {/* 5 Required Metrics Section - 2 Column Layout */}
           <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>
-                Your share: {item.currency.code} {userShare.toFixed(2)}
-              </Text>
+            {/* Column Headers - Centered */}
+            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <View style={{ flex: 1, paddingRight: 8, alignItems: 'center' }}>
+                <Text style={{ fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase' }}>
+                  This Expense
+                </Text>
+              </View>
+              <View style={{ flex: 1, paddingLeft: 8, alignItems: 'center' }}>
+                <Text style={{ fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase' }}>
+                  Total Till Now
+                </Text>
+              </View>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 11, color: '#666' }}>
-                Your total: {item.currency.code} {cumulativeUserShare.toFixed(2)}
-              </Text>
-              <Text style={{ fontSize: 11, color: '#999' }}>
-                Total: {item.currency.code} {runningBalance.toFixed(2)}
-              </Text>
+
+            {/* Row 1: Your Spend */}
+            <View style={{ flexDirection: 'row', marginBottom: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 6 }}>
+              <View style={{ flex: 1, paddingRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Spend:</Text>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>{item.currency.code} {userShare.toFixed(2)}</Text>
+              </View>
+              <View style={{ flex: 1, paddingLeft: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Spend:</Text>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>{item.currency.code} {cumulativeUserShare.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            {/* Row 2: Owe/Owed Status */}
+            <View style={{ flexDirection: 'row', marginBottom: 6, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', paddingBottom: 6 }}>
+              <View style={{ flex: 1, paddingRight: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Status:</Text>
+                <Text style={{ fontSize: 12, color: balanceThisExpense > 0 ? '#28a745' : balanceThisExpense < -0.01 ? '#dc3545' : '#999', fontWeight: '500' }}>
+                  {balanceThisExpense > 0.01 ? `Owed ${item.currency.code} ${balanceThisExpense.toFixed(2)}` : balanceThisExpense < -0.01 ? `Owe ${item.currency.code} ${Math.abs(balanceThisExpense).toFixed(2)}` : `Even ${item.currency.code} 0.00`}
+                </Text>
+              </View>
+              <View style={{ flex: 1, paddingLeft: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Status:</Text>
+                <Text style={{ fontSize: 12, color: cumulativeBalance > 0 ? '#28a745' : cumulativeBalance < -0.01 ? '#dc3545' : '#999', fontWeight: '500' }}>
+                  {cumulativeBalance > 0.01 ? `Owed ${item.currency.code} ${cumulativeBalance.toFixed(2)}` : cumulativeBalance < -0.01 ? `Owe ${item.currency.code} ${Math.abs(cumulativeBalance).toFixed(2)}` : `Even ${item.currency.code} 0.00`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Row 3: Your Share (spans full width, left-aligned label, right-aligned amount) */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
+              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>Your share:</Text>
+              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>{item.currency.code} {userShare.toFixed(2)}</Text>
             </View>
           </View>
 
@@ -339,7 +393,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         </TouchableOpacity>
       );
     },
-    [navigation, groupId, groupName, params.groupCurrencyCode, expenses, currentUser?.id]
+    [navigation, groupId, groupName, params.groupCurrencyCode, expenses, currentUser?.id, calculateUserShare]
   );
 
   /**
@@ -355,48 +409,14 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       .filter(exp => exp.paidBy?.id === currentUser?.id)
       .reduce((sum, exp) => sum + exp.amount, 0);
     
-    const personal = expenses.reduce((sum, exp) => {
-      let userShare = 0;
-
-      // Check if user is the payer
-      if (exp.paidBy?.id === currentUser?.id) {
-        // User is the payer - calculate their share based on split type
-        if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-          // Equal split: amount ÷ (splitWith.length + 1) including payer
-          userShare = exp.amount / (exp.splitWith.length + 1);
-        } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
-          // Percentage split: payer's % is at index 0
-          userShare = (exp.amount * exp.splitPercentage[0]) / 100;
-        } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
-          // Amount split: total - sum of others' amounts
-          userShare = exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
-        } else if (!exp.splitWith || exp.splitWith.length === 0) {
-          // No split - user pays full amount
-          userShare = exp.amount;
-        }
-      } else {
-        // User is in splitWith - find their share
-        const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
-        if (userIndex !== -1) {
-          if (exp.splitType === 'EQUAL') {
-            userShare = exp.amount / (exp.splitWith!.length + 1);
-          } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex + 1]) {
-            // Members' percentages start at index 1
-            userShare = (exp.amount * exp.splitPercentage[userIndex + 1]) / 100;
-          } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-            userShare = exp.splitAmount[userIndex];
-          }
-        }
-      }
-
-      return sum + userShare;
-    }, 0);
+    // Use the same calculateUserShare function to avoid duplication
+    const personal = expenses.reduce((sum, exp) => sum + calculateUserShare(exp), 0);
     
     // Balance: positive if user is owed, negative if user owes
     const balance = userPaid - personal;
     
     return { total, personal, balance };
-  }, [expenses, currentUser?.id]);
+  }, [expenses, currentUser?.id, calculateUserShare]);
 
   const { total, personal, balance } = calculateTotals();
 
@@ -476,11 +496,30 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       </View>
 
       {expenses.length > 0 && (
-        <View 
+        <TouchableOpacity
           style={styles.summaryCard}
           testID="summary-card"
           accessible={true}
           accessibilityLabel={`Total: ${currencyPreference} ${total.toFixed(2)}, Your share: ${currencyPreference} ${personal.toFixed(2)}, Balance: ${balance > 0 ? 'owed' : 'owe'} ${currencyPreference} ${Math.abs(balance).toFixed(2)}`}
+          onPress={() => {
+            console.log('📤 Navigating to Settlement with:', {
+              groupId,
+              groupName,
+              expenseCount: expenses.length,
+              expenseList: expenses.map(e => ({
+                id: e.id,
+                category: e.category,
+                amount: e.amount,
+                paidBy: e.paidBy?.name,
+              })),
+            });
+            navigation.navigate('Settlement', { 
+              groupId, 
+              groupName,
+              expenses 
+            });
+          }}
+          activeOpacity={0.7}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
             <View style={{ flex: 1 }}>
@@ -502,7 +541,13 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
               </Text>
             </View>
           </View>
-        </View>
+          
+          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}>
+            <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '500', textAlign: 'center' }}>
+              Tap to see settlement breakdown →
+            </Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       <FlatList

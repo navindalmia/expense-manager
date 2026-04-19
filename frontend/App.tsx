@@ -9,6 +9,7 @@ import ExpenseListScreen from './src/screens/ExpenseListScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 import EditExpenseScreen from './src/screens/EditExpenseScreen';
+import { SettlementScreen } from './src/screens/SettlementScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setOnUnauthorized } from './src/api/http/interceptors';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
@@ -94,6 +95,11 @@ function AppNavigator() {
               name="EditExpense"
               component={EditExpenseScreen}
               options={{ title: 'Edit Expense' }}
+            />
+            <Stack.Screen
+              name="Settlement"
+              component={SettlementScreen}
+              options={{ title: 'Settlement Breakdown' }}
             />
             {/* TODO: Add ExpenseDetailScreen component */}
             {/* <Stack.Screen 

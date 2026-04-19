@@ -23,6 +23,55 @@ interface ExpenseWithSplit {
 }
 
 /**
+ * Calculate user's share of an expense based on split type and their role.
+ * Single source of truth for share calculations.
+ * Handles payer inclusion detection for accurate calculations.
+ */
+function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): number {
+  // Check if user is the payer
+  if (exp.paidById === userId) {
+    // User is the payer - calculate their share based on split type
+    if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+      // Check if payer is in the split
+      const payerInSplit = exp.splitWith.some(m => m.id === exp.paidById);
+      const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
+      return exp.amount / totalPeople;
+    } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+      // Find payer's index in splitWith
+      const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidById) ?? -1;
+      if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
+        return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
+      } else if (exp.splitPercentage?.[0]) {
+        // Fallback: payer is not in split
+        return (exp.amount * exp.splitPercentage[0]) / 100;
+      }
+    } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+      // Amount split: total - sum of others' amounts
+      return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
+    } else if (!exp.splitWith || exp.splitWith.length === 0) {
+      // No split - user pays full amount
+      return exp.amount;
+    }
+  } else {
+    // User is in splitWith - find their share
+    const userIndex = exp.splitWith?.findIndex(u => u.id === userId) ?? -1;
+    if (userIndex !== -1) {
+      if (exp.splitType === 'EQUAL') {
+        // Check if payer is in the split
+        const payerInSplit = exp.splitWith.some(m => m.id === exp.paidById);
+        const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
+        return exp.amount / totalPeople;
+      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
+        return (exp.amount * exp.splitPercentage[userIndex]) / 100;
+      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+        return exp.splitAmount[userIndex];
+      }
+    }
+  }
+  return 0;
+}
+
+/**
  * Create a new expense group
  * @param data Group creation data
  * @returns Created group with creator info
@@ -137,59 +186,9 @@ export async function getUserGroups(userId: number) {
     return groups.map((group) => {
       const totalAmount = group.expenses.reduce((sum: number, exp: ExpenseWithSplit) => sum + exp.amount, 0);
       
-      // Calculate user's personal split total
+      // Calculate user's personal split total using shared helper function
       const userPersonalTotal = group.expenses.reduce((sum: number, exp: ExpenseWithSplit) => {
-        let userShare = 0;
-        
-        // Check if user is the payer
-        if (exp.paidById === userId) {
-          // User is payer - calculate their share based on split type
-          if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-            userShare = exp.amount / (exp.splitWith.length + 1);
-          } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage && exp.splitPercentage.length > 0 && typeof exp.splitPercentage[0] === 'number') {
-            // Payer's % is at index 0
-            userShare = (exp.amount * exp.splitPercentage[0]) / 100;
-          } else if (
-            exp.splitType === 'AMOUNT' &&
-            exp.splitAmount &&
-            exp.splitAmount.length > 0
-          ) {
-            // Amount split: total - sum of others' amounts
-            const othersTotal = exp.splitAmount.reduce((a: number, b: number) => a + b, 0);
-            userShare = Math.max(0, exp.amount - othersTotal);
-          } else if (!exp.splitWith || exp.splitWith.length === 0) {
-            // No split - user pays full amount
-            userShare = exp.amount;
-          }
-        } else {
-          // User is in splitWith - find their share
-          const userIndex = exp.splitWith?.findIndex((u) => u.id === userId) ?? -1;
-          if (userIndex !== -1) {
-            if (exp.splitType === 'EQUAL') {
-              userShare = exp.amount / (exp.splitWith.length + 1);
-            } else if (
-              exp.splitType === 'PERCENTAGE' &&
-              exp.splitPercentage &&
-              exp.splitPercentage.length > userIndex + 1 &&
-              typeof exp.splitPercentage[userIndex + 1] === 'number'
-            ) {
-              // Members' percentages start at index 1
-              const percentage = exp.splitPercentage[userIndex + 1];
-              if (typeof percentage === 'number' && !isNaN(percentage)) {
-                userShare = (exp.amount * percentage) / 100;
-              }
-            } else if (
-              exp.splitType === 'AMOUNT' &&
-              exp.splitAmount &&
-              exp.splitAmount.length > userIndex &&
-              typeof exp.splitAmount[userIndex] === 'number'
-            ) {
-              userShare = Math.max(0, exp.splitAmount[userIndex]);
-            }
-          }
-        }
-        
-        return sum + userShare;
+        return sum + calculateUserExpenseShare(exp, userId);
       }, 0);
       
       return {

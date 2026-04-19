@@ -35,19 +35,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  headerTagline: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0066cc',
+    marginBottom: 4,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#333',
+    marginBottom: 12,
+  },
+  headerAction: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
   addButton: {
     backgroundColor: '#0066cc',
@@ -63,6 +71,14 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   groupCard: {
     backgroundColor: '#fff',
@@ -410,12 +426,20 @@ function HomeScreen({ navigation }: Props) {
       testID="home-screen"
     >
       <View style={styles.header}>
-        <Text 
-          style={styles.headerTitle}
-          testID="header-title"
-        >
-          Expense Groups
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text 
+            style={styles.headerTagline}
+            testID="header-tagline"
+          >
+            ExpenseShare
+          </Text>
+          <Text 
+            style={styles.headerTitle}
+            testID="header-title"
+          >
+            Track personal expenses or split Group ones!
+          </Text>
+        </View>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('CreateGroup')}
@@ -427,6 +451,10 @@ function HomeScreen({ navigation }: Props) {
           <Text style={styles.addButtonText}>+ New</Text>
         </TouchableOpacity>
       </View>
+
+      {groups.length > 0 && (
+        <Text style={styles.sectionTitle}>Expense Groups</Text>
+      )}
 
       <FlatList
         data={groups}
