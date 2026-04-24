@@ -1,22 +1,88 @@
 # 🎯 EXPENSE MANAGER - MASTER PROJECT STATE
 
-## 🚨 BLOCKER - Settlement Rent Missing (Apr 19)
+## 🚨 BLOCKER - Settlement Rent Missing (Apr 24)
 **Rent 450.50 not in settlement calculations for srabani (shows 34.45 only)**
 - Rent visible on Expense List but NOT in Settlement totals
-- Error fixed: `e.category?.toLowerCase is not a function`
-- **Debug**: Browser console → navigate Settlement → check "🔍 SettlementScreen mounted" log → is rent in array?
-- **Files**: SettlementScreen.tsx + ExpenseListScreen.tsx (logging added)
+- Error fixed: `e.category?.toLowerCase is not a function` ✅
+- **Next Action**: Test on Expo Go → browser console → navigate Settlement → check "🔍 SettlementScreen mounted" log → is rent in array?
+- **Files**: SettlementScreen.tsx (bottom padding fixed), ExpenseListScreen.tsx (refactored with SummaryCard)
 
 ---
 
-## CURRENT VERSION: v0.3.5 (Settlement Screen Development)
-**Last Updated:** April 19, 2026
-**Files Involved:**
-- `frontend/src/screens/SettlementScreen.tsx` - memberSettlements calculation
-- `frontend/src/screens/ExpenseListScreen.tsx` - navigation logging
-- `frontend/src/services/expenseService.ts` - API call
+## CURRENT VERSION: v0.3.5 (Expense Flows - UI Polish Phase)
+**Last Updated:** April 24, 2026  
+**Latest Commit:** `03776c4` - "fix: optimize summary card spacing and complete split calculation refactoring"  
+**Status:** ✅ COMMITTED & PUSHED to origin/master
 
-**Next Step:** Check browser console logs for "🔍 SettlementScreen mounted" to confirm if rent expense is in the array
+**Files Involved:**
+- `frontend/src/screens/ExpenseListScreen.tsx` - refactored to use SummaryCard
+- `frontend/src/screens/ExpenseListScreen/SummaryCard.tsx` - extracted component
+- `frontend/src/screens/ExpenseListScreen.styles.ts` - spacing optimization
+- `frontend/src/screens/SettlementScreen.tsx` - padding fix (100px bottom)
+- `frontend/src/screens/EditExpenseScreen/utils/__tests__/splitValidation.test.ts` - 34 unit tests
+
+**Next Step:** Test on Expo Go to verify spacing optimization and settlement bug
+
+---
+
+## 🟢 COMPLETED THIS SESSION (v0.3.5 - April 24)
+
+### Split Calculation Bug Fix & UI Polish ✅
+**Commit:** `03776c4` | **Status:** COMMITTED & PUSHED ✅
+
+#### Part 1: Bug Fix - Split Calculation (CRITICAL)
+**Problem:** Dinner with only test.5 in split showed "Your share: 11.50" instead of 23.00
+**Root Cause:** `calculateUserShare()` incorrectly added +1 to divisor when payer wasn't in split
+**Solution:** 
+- Check if user in splitWith FIRST → return 0 if not
+- Only divide by actual splitWith.length (no +1)
+- Single source of truth: `calculateMemberShare()` handles all split types
+**Result:** ✅ All calculations now match database reality
+**Testing:** 34 unit tests added with regression coverage
+
+#### Part 2: Code Refactoring - DRY Principle
+**Problem:** Duplicate split logic in calculateUserShare() and calculateMemberShare()
+**Solution:** Consolidated to single function, used everywhere
+**Result:** ✅ Easier maintenance, consistent logic across app
+
+#### Part 3: Component Extraction
+**Problem:** ExpenseListScreen.tsx too large with inline SummaryCard JSX
+**Solution:** Extract to `frontend/src/screens/ExpenseListScreen/SummaryCard.tsx`
+**Result:** ✅ Better organization, reusable component, cleaner file structure
+
+#### Part 4: UI Whitespace Optimization
+**Problem:** User feedback "card is huge for 3 items, lots of white space"
+**Changes:**
+- Header padding: 16px → 10px (vertical)
+- Summary card padding: 16px → 8-14px
+- headerRow margins: 8px → 4px
+- amountRow gaps: 12px → 8px
+- Font sizes: 16px → 15px (amounts)
+**Result:** ✅ Compact, proportional card appearance
+
+#### Part 5: Additional Fixes
+- ✅ Settlement screen bottom padding: 100px (prevents last card overlap)
+- ✅ Verified paidBy data consistency (paidById matches paidBy.id)
+- ✅ All TypeScript errors resolved
+- ✅ No build errors
+
+#### Testing Added
+- 34 unit tests: Happy path (13), Error cases (6), Edge cases (5), Regression (8), Integration (2)
+- 8 manual test scenarios documented: Payer variants, split types, real-world data
+- All tests focused on regression prevention for original bug
+
+#### Files Changed (21 total)
+**Created:**
+- `frontend/src/screens/ExpenseListScreen/SummaryCard.tsx`
+- `frontend/src/screens/EditExpenseScreen/utils/__tests__/splitValidation.test.ts`
+- `frontend/src/screens/__tests__/ExpenseListScreen.MANUAL_TESTS.md`
+
+**Modified:**
+- `frontend/src/screens/ExpenseListScreen.tsx` (refactored to use SummaryCard)
+- `frontend/src/screens/ExpenseListScreen.styles.ts` (spacing optimization)
+- `frontend/src/screens/SettlementScreen.tsx` (bottom padding fix)
+- `backend/src/controllers/expenseController.ts` (bug fixes)
+- 14 additional supporting files
 
 ---
 
@@ -47,8 +113,6 @@
 - ExpenseListScreen: "📤 Navigating to Settlement with:" - shows exact array being passed
 - SettlementScreen: "🔍 SettlementScreen mounted" - searches for rent expense
 - SettlementScreen: memberSettlements calculation debug logs
-
----
 4. `useSplitCalculator` reinitialize effect fires with new `paidById`
 5. Effect resets `splitWithIds` to ALL members (except paidById)
 6. Then `addMember()` calls run to populate saved members, but override already happened
@@ -446,13 +510,41 @@ Files modified:
 
 ---
 
-## 🎯 NEXT PRIORITIES (After Current Testing)
+## 🎯 NEXT PRIORITIES (Apr 24 - Session Complete, Ready for Testing)
 
-1. **[HIGH]** Run 8 mobile tests - confirm all PASS with bug fixes
-2. **[HIGH]** Commit v0.3.1 with tag
-3. **[HIGH]** Fix: Cannot modify/delete added members
-4. **[MEDIUM]** Fix: Group header missing personal split total
-5. **[LOW]** Performance optimization + polish
+**PHASE 1: Mobile Testing (THIS WEEK)**
+1. **[URGENT]** Test on Expo Go
+   - Hard reload and verify spacing optimization looks good
+   - Test ExpenseListScreen + SummaryCard (compact layout)
+   - Test EditExpenseScreen add/edit flows
+   - Verify SettlementScreen calculations (esp. rent expense bug)
+
+2. **[HIGH]** Debug Settlement Rent Bug
+   - Rent (450.50) missing from settlement totals
+   - Console logs show it's being passed but not calculated
+   - useEffect logging in SettlementScreen needed
+   - Verify paidBy relationships are correct
+
+3. **[HIGH]** Auto-focus Amount Field
+   - After category/date selection → focus amount input
+   - Requires: useRef on TextInput, .focus() call after modal closes
+   - File: `frontend/src/screens/EditExpenseScreen.tsx`
+   - TODO item in list
+
+**PHASE 2: Complete Remaining Features (AFTER TESTING PASSES)**
+4. **[MEDIUM]** Complete Missing UIs
+   - Delete expense button (backend ready, frontend todo)
+   - Remove member from group (backend ready, frontend todo)
+   - Test all flows end-to-end
+
+5. **[MEDIUM]** Code Review & Documentation
+   - Review `CODE_REVIEW_EXPENSE_FLOWS_APR24.md`
+   - Update IMPLEMENTATION_ROADMAP.md with latest progress
+
+6. **[LOW]** Git Tags & Release Planning
+   - Tag: `git tag v0.3.5-rc1` (release candidate)
+   - Plan v0.3.5 final after mobile testing passes
+   - Tag: `git tag v0.3.5` when ready
 
 ---
 
