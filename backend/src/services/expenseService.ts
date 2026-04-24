@@ -262,8 +262,56 @@ export async function createExpense(data: {
   }
 }
 
-export async function deleteExpense(id: number) {
-  return prisma.expense.delete({ where: { id } });
+/**
+ * Delete an expense with authorization check
+ * 
+ * @param expenseId - The expense ID to delete
+ * @param userId - The current user ID (for authorization)
+ * @throws AppError if expense not found or user is not a member of the group
+ * @returns void
+ */
+export async function deleteExpense(expenseId: number, userId: number) {
+  try {
+    // Fetch expense to verify group membership
+    const expense = await prisma.expense.findUnique({
+      where: { id: expenseId },
+      include: {
+        group: {
+          select: { id: true, members: { select: { id: true } }, createdById: true },
+        },
+      },
+    });
+
+    if (!expense) {
+      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+    }
+
+    // Check authorization: user must be member or creator of the group
+    const isMember = expense.group.members.some((m) => m.id === userId);
+    const isCreator = expense.group.createdById === userId;
+
+    if (!isMember && !isCreator) {
+      throw new AppError(
+        'Unauthorized: You are not a member of this group',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { expenseId, userId }
+      );
+    }
+
+    // Delete the expense
+    return prisma.expense.delete({ where: { id: expenseId } });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      'Failed to delete expense',
+      500,
+      'DELETE_ERROR',
+      { expenseId, error }
+    );
+  }
 }
 
 /**

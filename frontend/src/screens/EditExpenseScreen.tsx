@@ -13,7 +13,7 @@ import type { EditExpenseScreenProps } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { useAuth } from '../context/AuthContext';
-import { updateExpense } from '../services/expenseService';
+import { updateExpense, createExpense } from '../services/expenseService';
 import { getCategories } from '../services/categoryService';
 import { useExpenseData, useExpenseForm, useSplitCalculator, DatePickerModal, SplitMembersInput } from './EditExpenseScreen/index';
 import { AccordionSection } from '../components/AccordionSection';
@@ -49,12 +49,17 @@ const styles = StyleSheet.create({
   pickerItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   pickerItemText: { fontSize: 15, color: '#333' },
   readonlyInput: { backgroundColor: '#f5f5f5' },
+  interactiveInput: { backgroundColor: '#fff', borderColor: '#0066cc', borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 10 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
 });
 
 export default function EditExpenseScreen({ navigation, route }: EditExpenseScreenProps) {
   const { expenseId, groupId, groupName, groupCurrencyCode = 'GBP' } = route.params || {};
   const { user } = useAuth();
+  
+  // Determine if CREATE or EDIT mode
+  const isCreateMode = !expenseId;
+  const screenTitle = isCreateMode ? 'Create Expense' : 'Edit Expense';
 
   const { expense, categories, groupMembers, loading: dataLoading, error: dataError } = useExpenseData(expenseId, groupId);
   const { formState, updateField, setError, clearErrors, prefillFromExpense } = useExpenseForm(expense);
@@ -66,16 +71,17 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const [showSplitTypeModal, setShowSplitTypeModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Set header with group name on the right
+  // Set header with group name on the right and title
   useEffect(() => {
     navigation.setOptions({
+      headerTitle: screenTitle,
       headerRight: () => (
         <Text style={{ fontSize: 14, fontWeight: '700', color: '#0066cc', marginRight: 16 }}>
           {groupName}
         </Text>
       ),
     });
-  }, [navigation, groupName]);
+  }, [navigation, groupName, screenTitle]);
 
   useEffect(() => {
     if (expense) {
@@ -122,6 +128,14 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // Validate form FIRST, show errors if any
     if (!validateForm()) {
       logger.warn('Form validation failed', { errors: formState.errors });
+      console.log('❌ VALIDATION FAILED - Form errors:', formState);
+      console.log('   Title:', formState.title);
+      console.log('   Amount:', formState.amount);
+      console.log('   Category:', formState.category);
+      console.log('   Payer:', formState.paidById);
+      console.log('   Date:', formState.date);
+      console.log('   Split IDs:', splitState.splitWithIds);
+      
       // Check which field failed
       const firstError = Object.values(formState.errors).find(e => e);
       if (firstError) {
@@ -130,40 +144,75 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
       return;
     }
 
-    if (!expense) {
+    // For EDIT mode, expense must be loaded
+    if (!isCreateMode && !expense) {
       logger.warn('Expense not loaded yet');
+      console.log('❌ EDIT MODE: Expense not loaded');
       return;
     }
 
     setSubmitting(true);
     try {
-      logger.info('Attempting update', { expenseId, paidById: formState.paidById, splitType: splitState.splitType });
       const splitPayload = getSplitPayload();
-      logger.info('Split payload', splitPayload);
+      
+      console.log('📤 SUBMITTING EXPENSE');
+      console.log('   Mode:', isCreateMode ? 'CREATE' : 'EDIT');
+      console.log('   Title:', formState.title);
+      console.log('   Amount:', formState.amount);
+      console.log('   Category ID:', formState.category);
+      console.log('   Paid By ID:', formState.paidById);
+      console.log('   Date:', formState.date);
+      console.log('   Currency:', currency);
+      console.log('   Split Type:', splitState.splitType);
+      console.log('   Split Members:', splitState.splitWithIds);
+      console.log('   Split Payload:', splitPayload);
       
       const payload: any = { 
         title: formState.title.trim(), 
         amount: parseFloat(formState.amount), 
         categoryId: formState.category, 
         paidById: formState.paidById, 
-        expenseDate: formState.date, 
+        expenseDate: formState.date,
+        currency: currency,  // ← ADD CURRENCY!
         notes: formState.notes.trim() || undefined, 
         ...splitPayload 
       };
       
-      logger.info('Update payload', payload);
-      await updateExpense(expenseId, payload);
-      logger.info('Expense updated successfully', { expenseId, title: formState.title });
-      Alert.alert('Success', 'Expense updated');
+      console.log('📦 FULL PAYLOAD:', JSON.stringify(payload, null, 2));
+      
+      if (isCreateMode) {
+        // CREATE mode
+        logger.info('Creating expense', { groupId, paidById: formState.paidById, splitType: splitState.splitType });
+        payload.groupId = groupId;
+        console.log('🆕 CREATE MODE - Calling createExpense with:', payload);
+        await createExpense(payload);
+        logger.info('Expense created successfully', { groupId, title: formState.title });
+        console.log('✅ Expense created successfully!');
+        Alert.alert('Success', 'Expense created');
+      } else {
+        // EDIT mode
+        logger.info('Attempting update', { expenseId, paidById: formState.paidById, splitType: splitState.splitType });
+        console.log('✏️ EDIT MODE - Calling updateExpense with:', payload);
+        await updateExpense(expenseId, payload);
+        logger.info('Expense updated successfully', { expenseId, title: formState.title });
+        console.log('✅ Expense updated successfully!');
+        Alert.alert('Success', 'Expense updated');
+      }
+      
       navigation.goBack();
     } catch (err: any) {
       const msg = getErrorMessage(err);
-      logger.error('Update failed', err, { expenseId, errorMsg: msg });
-      Alert.alert('Error', msg || 'Failed to update expense');
+      console.log('❌ API ERROR:', msg);
+      console.log('   Full error:', err);
+      logger.error(isCreateMode ? 'Create failed' : 'Update failed', err, { 
+        [isCreateMode ? 'groupId' : 'expenseId']: isCreateMode ? groupId : expenseId, 
+        errorMsg: msg 
+      });
+      Alert.alert('Error', msg || `Failed to ${isCreateMode ? 'create' : 'update'} expense`);
     } finally {
       setSubmitting(false);
     }
-  }, [formState, expense, validateForm, getSplitPayload, expenseId, navigation]);
+  }, [formState, expense, validateForm, getSplitPayload, expenseId, groupId, isCreateMode, navigation, splitState.splitType]);
 
   if (dataLoading) return (<View style={styles.loadingContainer}><ActivityIndicator size="large" color="#0066cc" /><Text style={{ marginTop: 12, color: '#666' }}>Loading...</Text></View>);
   if (dataError) return (<View style={styles.loadingContainer}><Text style={{ color: '#cc0000', fontSize: 16, marginBottom: 16 }}>{dataError}</Text><TouchableOpacity style={[styles.button, styles.updateButton]} onPress={() => navigation.goBack()}><Text style={styles.buttonText}>Go Back</Text></TouchableOpacity></View>);
@@ -187,15 +236,15 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <View style={styles.row}>
           <View style={styles.flex1}>
             <Text style={styles.label}>Category <Text style={styles.required}>*</Text></Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowCategoryPicker(true)} disabled={submitting}>
-              <Text style={{ color: formState.category ? '#333' : '#999' }}>{categories.find(c => c.id === formState.category)?.label || 'Select...'}</Text>
+            <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowCategoryPicker(true)} disabled={submitting}>
+              <Text style={{ color: formState.category ? '#333' : '#666', fontSize: 14, fontWeight: '500' }}>{categories.find(c => c.id === formState.category)?.label || 'Select category...'}</Text>
             </TouchableOpacity>
             {formState.errors.category && <Text style={styles.errorText}>{formState.errors.category}</Text>}
           </View>
           <View style={styles.flex1}>
             <Text style={styles.label}>When</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowDatePicker(true)} disabled={submitting}>
-              <Text style={{ color: '#333' }}>{formState.date}</Text>
+            <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowDatePicker(true)} disabled={submitting}>
+              <Text style={{ color: '#333', fontSize: 14, fontWeight: '500' }}>{formState.date}</Text>
             </TouchableOpacity>
           </View>
         </View>

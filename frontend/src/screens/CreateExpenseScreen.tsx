@@ -26,6 +26,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
 import { useAuth } from '../context/AuthContext';
 import { getCategories, type Category } from '../services/categoryService';
+import { useSplitCalculator, SplitMembersInput, DatePickerModal } from './EditExpenseScreen/index';
 
 const styles = StyleSheet.create({
   container: {
@@ -209,17 +210,24 @@ export default function CreateExpenseScreen({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [tempDate, setTempDate] = useState(date);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [paidBy, setPaidBy] = useState<number | null>(user?.id || null);
+  const [showPayerModal, setShowPayerModal] = useState(false);
+  const [showSplitTypeModal, setShowSplitTypeModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Data fetching state
   const [categories, setCategories] = useState<Category[]>([]);
+  const [groupMembers, setGroupMembers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
 
+  // Split calculator - same as EditExpenseScreen
+  const { splitState, addMember, removeMember, updateAmount: updateSplitAmount, updatePercentage, setSplitType, getValidationError, getSplitPayload } = useSplitCalculator(amount, paidBy || 0, groupMembers, null);
+
   /**
-   * Fetch categories from backend on component mount.
-   * Currency comes from group and is not editable.
+   * Fetch categories and group members from backend on component mount.
    */
   useEffect(() => {
     const fetchData = async () => {
@@ -229,6 +237,12 @@ export default function CreateExpenseScreen({
 
         const fetchedCategories = await getCategories();
         setCategories(fetchedCategories);
+
+        // Fetch group members for payer selection
+        const groupResponse = await http.get<{ data: any }>(`/groups/${groupId}`);
+        if (groupResponse.data.data && groupResponse.data.data.members) {
+          setGroupMembers(groupResponse.data.data.members);
+        }
       } catch (err) {
         const errorMessage = getErrorMessage(err);
         setDataError(errorMessage);
@@ -242,7 +256,7 @@ export default function CreateExpenseScreen({
     };
 
     fetchData();
-  }, []);
+  }, [groupId]);
 
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {};
@@ -259,24 +273,30 @@ export default function CreateExpenseScreen({
       newErrors.category = 'Please select a category';
     }
 
+    if (!paidBy) {
+      newErrors.paidBy = 'Please select who paid';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [title, amount, category]);
+  }, [title, amount, category, paidBy]);
 
   const handleCreate = useCallback(async () => {
-    if (!validateForm() || !user) return;
+    if (!validateForm() || !user || !paidBy) return;
 
     setLoading(true);
     try {
+      const splitPayload = getSplitPayload();
       const payload = {
         groupId,
         title: title.trim(),
         amount: parseFloat(amount),
         currency,
         categoryId: category,
-        paidById: user.id,
+        paidById: paidBy,
         expenseDate: date,
         notes: notes.trim() || undefined,
+        ...splitPayload, // Includes splitWithIds, splitType, splitPercentage, splitAmount
       };
 
       await http.post('/expenses', payload);
@@ -309,7 +329,7 @@ export default function CreateExpenseScreen({
     } finally {
       setLoading(false);
     }
-  }, [title, amount, category, notes, currency, date, groupId, user, validateForm, navigation]);
+  }, [title, amount, category, notes, currency, date, groupId, user, paidBy, validateForm, getSplitPayload, navigation]);
 
   return (
     <KeyboardAvoidingView
@@ -388,34 +408,189 @@ export default function CreateExpenseScreen({
           <Text style={styles.label}>
             Category <Text style={styles.required}>*</Text>
           </Text>
-          <View style={styles.categoryContainer}>
-            {isLoadingData ? (
-              <ActivityIndicator size="small" color="#0066cc" />
-            ) : (
-              categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[
-                    styles.categoryButton,
-                    category === cat.id && styles.categoryButtonActive,
-                  ]}
-                  onPress={() => setCategory(cat.id)}
-                  disabled={loading || isLoadingData}
-                >
-                  <Text
-                    style={[
-                      styles.categoryText,
-                      category === cat.id && styles.categoryTextActive,
-                    ]}
-                  >
-                    {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
+          <TouchableOpacity 
+            style={[styles.input, { justifyContent: 'center' }]}
+            onPress={() => setShowCategoryModal(true)}
+            disabled={loading || isLoadingData}
+          >
+            <Text style={{ color: category ? '#333' : '#999', fontSize: 14 }}>
+              {categories.find(c => c.id === category)?.label || 'Select...'}
+            </Text>
+          </TouchableOpacity>
           {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
         </View>
+
+        {/* Category Modal */}
+        <Modal
+          visible={showCategoryModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowCategoryModal(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Select Category</Text>
+                <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                  <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView>
+                {categories.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.pickerItem, category === cat.id && { backgroundColor: '#e6f0ff' }]}
+                    onPress={() => {
+                      setCategory(cat.id);
+                      setShowCategoryModal(false);
+                    }}
+                  >
+                    <Text style={[styles.pickerItemText, category === cat.id && { color: '#0066cc', fontWeight: '600' }]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Split Type - EQUAL / PERCENTAGE / AMOUNT */}
+        <View style={styles.formSection}>
+          <View style={styles.row}>
+            <View style={styles.flex1}>
+              <Text style={styles.label}>Split Type</Text>
+              <TouchableOpacity 
+                style={[styles.input, { justifyContent: 'center' }]} 
+                onPress={() => setShowSplitTypeModal(true)}
+                disabled={loading}
+              >
+                <Text style={{ color: '#333' }}>
+                  {splitState.splitType === 'EQUAL' ? 'Equal' : splitState.splitType === 'AMOUNT' ? 'Amount' : 'Percentage'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Split Type Modal */}
+        <Modal
+          visible={showSplitTypeModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowSplitTypeModal(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Split Type</Text>
+                <TouchableOpacity onPress={() => setShowSplitTypeModal(false)}>
+                  <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView>
+                {[
+                  { value: 'EQUAL', label: 'Equal - Divide equally' },
+                  { value: 'AMOUNT', label: 'Amount - Each person\'s share' },
+                  { value: 'PERCENTAGE', label: 'Percentage - By percentage' },
+                ].map(option => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.pickerItem, splitState.splitType === option.value && { backgroundColor: '#e6f0ff' }]}
+                    onPress={() => {
+                      setSplitType(option.value as 'EQUAL' | 'AMOUNT' | 'PERCENTAGE');
+                      setShowSplitTypeModal(false);
+                    }}
+                  >
+                    <Text style={[styles.pickerItemText, splitState.splitType === option.value && { color: '#0066cc', fontWeight: '600' }]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Split Members */}
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Split (Optional)</Text>
+          <SplitMembersInput
+            members={groupMembers}
+            paidById={paidBy || 0}
+            splitWithIds={splitState.splitWithIds}
+            splitAmount={splitState.splitAmount}
+            splitPercentage={splitState.splitPercentage}
+            splitType={splitState.splitType}
+            totalAmount={amount}
+            currency={currency}
+            onAddMember={addMember}
+            onRemoveMember={removeMember}
+            onUpdateAmount={updateSplitAmount}
+            onUpdatePercentage={updatePercentage}
+            errors={errors}
+          />
+        </View>
+
+        {/* Paid By - Who paid for this expense */}
+        <View style={styles.formSection}>
+          <Text style={styles.label}>
+            Paid By <Text style={styles.required}>*</Text>
+          </Text>
+          <TouchableOpacity
+            style={[styles.input, { justifyContent: 'center' }]}
+            onPress={() => setShowPayerModal(true)}
+            disabled={loading || isLoadingData}
+          >
+            <Text style={{ color: paidBy ? '#333' : '#999', fontSize: 14 }}>
+              {groupMembers.find(m => m.id === paidBy)?.name || 'Select who paid...'}
+            </Text>
+          </TouchableOpacity>
+          {errors.paidBy && <Text style={styles.errorText}>{errors.paidBy}</Text>}
+        </View>
+
+        {/* Payer Modal */}
+        <Modal
+          visible={showPayerModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowPayerModal(false)}
+        >
+          <View style={styles.pickerModal}>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Who Paid?</Text>
+                <TouchableOpacity onPress={() => setShowPayerModal(false)}>
+                  <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView>
+                {groupMembers.map(member => (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={[
+                      styles.pickerItem,
+                      paidBy === member.id && { backgroundColor: '#e6f0ff' },
+                    ]}
+                    onPress={() => {
+                      setPaidBy(member.id);
+                      setShowPayerModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        paidBy === member.id && { color: '#0066cc', fontWeight: '600' },
+                      ]}
+                    >
+                      {member.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* Date - Editable with date picker for past dates */}
         <View style={styles.formSection}>

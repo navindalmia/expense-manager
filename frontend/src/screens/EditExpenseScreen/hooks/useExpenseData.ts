@@ -28,14 +28,14 @@ interface UseExpenseDataReturn {
 
 /**
  * Fetch expense data, categories, and group members in parallel
- * @param expenseId - ID of expense to fetch
+ * @param expenseId - ID of expense to fetch (optional - if null, skips expense fetch for CREATE mode)
  * @param groupId - ID of group to fetch members from
  * @returns Object with all fetched data + loading/error states
  * 
- * GUARANTEE: If loading=false, then expense/categories/groupMembers are ALL populated (not null/empty)
- * This prevents race conditions and incomplete data rendering
+ * GUARANTEE: If loading=false, then categories/groupMembers are populated
+ * expense will be null if expenseId was not provided (CREATE mode)
  */
-export function useExpenseData(expenseId: number, groupId: number): UseExpenseDataReturn {
+export function useExpenseData(expenseId: number | null | undefined, groupId: number): UseExpenseDataReturn {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
@@ -48,20 +48,27 @@ export function useExpenseData(expenseId: number, groupId: number): UseExpenseDa
         setLoading(true);
         setError(null);
 
-        // ✅ Fetch all 3 data sources IN PARALLEL (not sequential)
-        // Only proceed when ALL 3 complete successfully
+        // ✅ For CREATE mode: expenseId is null/undefined, skip expense fetch
+        const expensePromise = expenseId ? getExpenseById(expenseId) : Promise.resolve(null);
+
+        // ✅ Fetch all data sources IN PARALLEL
         const [fetchedExpense, fetchedCategories, group] = await Promise.all([
-          getExpenseById(expenseId),
+          expensePromise,
           getCategories(),
           getGroup(groupId),
         ]);
 
-        // ✅ ATOMIC UPDATE: Set all 3 at once, then set loading=false
-        // Guarantees: If loading=false, all three are populated
+        // ✅ ATOMIC UPDATE: Set all at once, then set loading=false
+        // For CREATE mode: expense will be null
         setExpense(fetchedExpense);
         setCategories(fetchedCategories);
         setGroupMembers(group.members);
         setLoading(false);
+
+        // DEBUG: Log paidBy details
+        if (fetchedExpense) {
+          console.log(`💳 EditExpenseScreen loaded expense "${fetchedExpense.title}" - paidById: ${fetchedExpense.paidById}, paidBy.id: ${fetchedExpense.paidBy?.id}, paidBy.name: ${fetchedExpense.paidBy?.name}`);
+        }
 
         logger.info('Expense data loaded successfully', {
           screen: 'EditExpenseScreen',

@@ -33,14 +33,23 @@ interface UseExpenseFormReturn {
  * @returns Form state and update functions
  */
 export function useExpenseForm(initialExpense?: Expense | null): UseExpenseFormReturn {
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [formState, setFormState] = useState<FormState>({
     title: initialExpense?.title || '',
     amount: initialExpense?.amount.toString() || '',
     category: initialExpense?.categoryId || null,
     paidById: initialExpense?.paidById || null,
     notes: initialExpense?.notes || '',
-    date: initialExpense?.expenseDate.split('T')[0] || '',
-    tempDate: initialExpense?.expenseDate.split('T')[0] || '',
+    date: initialExpense?.expenseDate.split('T')[0] || getTodayDate(),
+    tempDate: initialExpense?.expenseDate.split('T')[0] || getTodayDate(),
     loading: false,
     errors: {},
   });

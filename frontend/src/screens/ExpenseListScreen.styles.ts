@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
@@ -77,23 +77,24 @@ export const styles = StyleSheet.create({
   },
 
   summaryLabel: {
-    fontSize: 11,
-    color: '#666',
-    marginBottom: 6,
+    fontSize: 9,
+    color: '#999',
     fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 
   summaryAmount: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#0066cc',
+    marginTop: 2,
   },
 
   listContent: {
     paddingHorizontal: 20,
     paddingVertical: 8,
+    paddingBottom: 80,
   },
 
   expenseItem: {

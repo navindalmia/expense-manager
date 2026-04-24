@@ -127,12 +127,58 @@ export async function createExpense(req: Request, res: Response, next?: NextFunc
   }
 }
 
-export async function deleteExpense(req: Request, res: Response) {
-  // try {
-  const id = Number(req.params.id);
-  await expenseService.deleteExpense(id);
-  res.json({ message: "Expense deleted successfully" });
+/**
+ * Delete an expense
+ * DELETE /api/expenses/:id
+ * 
+ * Deletes an expense if the user is a member of the expense's group.
+ * Includes authorization check to ensure user is a member of the expense's group.
+ * 
+ * Authenticated: Yes (requires JWT)
+ * Authorization: User must be member or creator of the expense's group
+ * Response: { statusCode: 204 }
+ * 
+ * Error Codes:
+ * - 400: Invalid expense ID
+ * - 403: User not authorized to delete this expense
+ * - 404: Expense not found
+ * - 500: Internal server error
+ */
+export async function deleteExpense(req: Request, res: Response, next?: NextFunction) {
+  try {
+    const expenseIdParam = req.params.id;
 
+    if (!expenseIdParam) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Expense ID is required',
+      });
+    }
+
+    const expenseId = parseInt(expenseIdParam, 10);
+
+    if (isNaN(expenseId) || expenseId <= 0) {
+      return res.status(400).json({
+        statusCode: 400,
+        error: 'Invalid expense ID',
+      });
+    }
+
+    const userId = req.user!.id;
+    await expenseService.deleteExpense(expenseId, userId);
+
+    res.status(204).send();
+  } catch (err) {
+    if (next) {
+      next(err);
+    } else {
+      console.error(err);
+      return res.status(500).json({
+        statusCode: 500,
+        error: err instanceof Error ? err.message : 'Failed to delete expense',
+      });
+    }
+  }
 }
 
 /**

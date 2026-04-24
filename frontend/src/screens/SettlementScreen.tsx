@@ -111,6 +111,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingVertical: 8,
     paddingHorizontal: 16,
+    paddingBottom: 100,
   },
   memberCard: {
     backgroundColor: '#fafafa',
@@ -209,6 +210,8 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
   const params = route.params || {};
   const groupId = params.groupId || 0;
   const groupName = params.groupName || 'Group';
+  const currency = params.currency || { code: 'USD' };
+  const currencyCode = currency?.code || 'USD';
   const expenses = params.expenses as Expense[] || [];
   const { user: currentUser } = useAuth();
 
@@ -218,20 +221,21 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
     console.log('  Expenses received:', expenses.length);
     console.log('  Looking for rent expense...');
     const rentExpense = expenses.find(e => 
-      (e.category && e.category.toLowerCase().includes('rent')) || 
+      (e.category?.code && e.category.code.toLowerCase().includes('rent')) || 
+      (e.category?.label && e.category.label.toLowerCase().includes('rent')) || 
       (e.title && e.title.toLowerCase().includes('rent'))
     );
     if (rentExpense) {
       console.log('  ✅ Found rent:', {
         id: rentExpense.id,
-        category: rentExpense.category,
+        category: rentExpense.category?.label || rentExpense.category?.code,
         amount: rentExpense.amount,
         paidBy: rentExpense.paidBy?.name,
         splitWith: rentExpense.splitWith?.map(m => m.name),
       });
     } else {
       console.log('  ❌ Rent expense NOT found in array');
-      console.log('  All expenses:', expenses.map(e => ({ category: e.category, amount: e.amount })));
+      console.log('  All expenses:', expenses.map(e => ({ category: e.category?.code, amount: e.amount })));
     }
   }, [expenses]);
 
@@ -239,12 +243,13 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
   // For each pair of members: find all expenses they both participated in, 
   // calculate net balance between them
   const memberSettlements = useMemo((): MemberSettlement[] => {
-    if (!expenses.length) return [];
+    try {
+      if (!expenses.length) return [];
 
-    console.log('🔍 Settlement - Received expenses:', expenses.length);
-    expenses.forEach((e, idx) => {
-      console.log(`  [${idx}] ${e.category || 'Unknown'} - Amount: ${e.amount}, Paid by: ${e.paidBy?.name || 'MISSING'}, Split with: ${e.splitWith?.map(m => m.name).join(', ')}`);
-    });
+      console.log('🔍 Settlement - Received expenses:', expenses.length);
+      expenses.forEach((e, idx) => {
+        console.log(`  [${idx}] ${e.category?.code || 'Unknown'} - Amount: ${e.amount}, Paid by: ${e.paidBy?.name || 'MISSING'}, Split with: ${e.splitWith?.map(m => m.name).join(', ')}`);
+      });
 
     // Collect all unique members involved in any expense
     const memberSet = new Set<number>();
@@ -280,45 +285,70 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
         isOwedBy: [],
       };
 
-      // Go through all expenses
+      // Go through all expenses and calculate per-person balance
       for (const exp of expenses) {
-        // If this member is the payer, add to totalPaid
-        if (exp.paidBy?.id === memberId) {
-          member.totalPaid += exp.amount;
-          console.log(`  ${member.memberName} paid ${exp.amount} (${exp.category})`);
-        }
+        // Step 1: Calculate what this member PAID (full amount if they are paidBy)
+        const isPayer = exp.paidBy?.id === memberId;
+        const paidAmount = isPayer ? exp.amount : 0;
 
-        // If this member is in the split, calculate their share and add to totalOwes
+        // Step 2: Calculate what this member OWES (their share if in split)
+        let owedAmount = 0;
         const memberInSplit = exp.splitWith?.findIndex(m => m.id === memberId);
-        if (memberInSplit !== undefined && memberInSplit >= 0) {
-          let share = 0;
+        const isInSplit = memberInSplit !== undefined && memberInSplit >= 0;
 
+        if (isInSplit) {
           if (exp.splitType === 'EQUAL') {
             const payerInSplit = exp.splitWith?.some(m => m.id === exp.paidBy?.id);
             const totalPeople = payerInSplit ? exp.splitWith!.length : exp.splitWith!.length + 1;
-            share = exp.amount / totalPeople;
+            owedAmount = exp.amount / totalPeople;
           } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[memberInSplit]) {
-            share = (exp.amount * exp.splitPercentage[memberInSplit]) / 100;
+            owedAmount = (exp.amount * exp.splitPercentage[memberInSplit]) / 100;
           } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[memberInSplit]) {
-            share = exp.splitAmount[memberInSplit];
+            owedAmount = exp.splitAmount[memberInSplit];
+          }
+        }
+
+        // Step 3: Add to running totals (paid and owed independently)
+        if (paidAmount > 0) {
+          member.totalPaid += paidAmount;
+          console.log(`  ${member.memberName} paid ${paidAmount} (${exp.category?.code || 'Unknown'})`);
+        }
+
+        if (owedAmount > 0) {
+          member.totalOwes += owedAmount;
+          console.log(`  ${member.memberName} owes share ${owedAmount} (${exp.category?.code || 'Unknown'})`);
+        }
+
+        // Step 4: Track debt relationships (only if NOT the payer)
+        if (isInSplit && !isPayer && owedAmount > 0) {
+          // Record who they owe to
+          const existing = member.owesTo.find(d => d.otherMemberId === exp.paidBy?.id);
+          if (existing) {
+            existing.amount += owedAmount;
+          } else {
+            member.owesTo.push({
+              otherMemberId: exp.paidBy?.id || 0,
+              otherMemberName: exp.paidBy?.name || 'Unknown',
+              amount: owedAmount,
+              expenseName: exp.category?.label || exp.title || 'Expense',
+            });
           }
 
-          // If this member paid, they don't owe themselves
-          if (exp.paidBy?.id !== memberId) {
-            member.totalOwes += share;
-            console.log(`  ${member.memberName} owes ${share} for ${exp.category} (paid by ${exp.paidBy?.name})`);
-
-            // Record who they owe to
-            const existing = member.owesTo.find(d => d.otherMemberId === exp.paidBy?.id);
-            if (existing) {
-              existing.amount += share;
-            } else {
-              member.owesTo.push({
-                otherMemberId: exp.paidBy?.id || 0,
-                otherMemberName: exp.paidBy?.name || 'Unknown',
-                amount: share,
-                expenseName: exp.category,
-              });
+          // Also record the reverse: payer is owed by this member
+          if (exp.paidBy?.id) {
+            const payer = settlements.get(exp.paidBy.id);
+            if (payer) {
+              const existingReverse = payer.isOwedBy.find(d => d.otherMemberId === memberId);
+              if (existingReverse) {
+                existingReverse.amount += owedAmount;
+              } else {
+                payer.isOwedBy.push({
+                  otherMemberId: memberId,
+                  otherMemberName: member.memberName,
+                  amount: owedAmount,
+                  expenseName: exp.category?.label || exp.title || 'Expense',
+                });
+              }
             }
           }
         }
@@ -334,19 +364,26 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
 
     console.log('📊 Final Settlement:', result);
     return result;
+    } catch (error) {
+      console.error('❌ Error calculating settlements:', error);
+      return [];
+    }
   }, [expenses, currentUser?.id]);
 
   const renderMemberCard = useCallback(({ item }: { item: MemberSettlement }) => {
-    const isUserOwes = item.netBalance > 0.01;
-    const isOwedToUser = item.netBalance < -0.01;
+    // netBalance = totalPaid - totalOwes
+    // POSITIVE = they paid MORE than their share = THEY WILL GET MONEY BACK
+    // NEGATIVE = they paid LESS than their share = THEY NEED TO PAY
+    const isWillGet = item.netBalance > 0.01;        // Will get money back (GREEN)
+    const isNeedsToPay = item.netBalance < -0.01;    // Needs to pay (RED)
     const isEven = Math.abs(item.netBalance) <= 0.01;
 
     return (
       <View
         style={[
           styles.memberCard,
-          isOwedToUser && styles.memberCardOwedToUser,
-          isUserOwes && styles.memberCardUserOwes,
+          isWillGet && styles.memberCardOwedToUser,
+          isNeedsToPay && styles.memberCardUserOwes,
           isEven && styles.memberCardEven,
         ]}
       >
@@ -354,12 +391,12 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
 
         <View style={styles.memberRow}>
           <Text style={styles.memberLabel}>Paid:</Text>
-          <Text style={styles.memberAmount}>GBP {item.totalPaid.toFixed(2)}</Text>
+          <Text style={styles.memberAmount}>{currencyCode} {item.totalPaid.toFixed(2)}</Text>
         </View>
 
         <View style={styles.memberRow}>
           <Text style={styles.memberLabel}>Owes in splits:</Text>
-          <Text style={styles.memberAmount}>GBP {item.totalOwes.toFixed(2)}</Text>
+          <Text style={styles.memberAmount}>{currencyCode} {item.totalOwes.toFixed(2)}</Text>
         </View>
 
         {/* Show detailed debt breakdown */}
@@ -370,7 +407,7 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
                 <Text style={styles.debtSectionTitle}>Owes to:</Text>
                 {item.owesTo.map((debt, idx) => (
                   <Text key={`owes-${idx}`} style={styles.debtItem}>
-                    • {item.memberName} owes {debt.otherMemberName} GBP {debt.amount.toFixed(2)}
+                    • {item.memberName} owes {debt.otherMemberName} {currencyCode} {debt.amount.toFixed(2)}
                   </Text>
                 ))}
               </>
@@ -382,7 +419,7 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
                 </Text>
                 {item.isOwedBy.map((debt, idx) => (
                   <Text key={`owed-${idx}`} style={styles.debtItem}>
-                    • {debt.otherMemberName} owes {item.memberName} GBP {debt.amount.toFixed(2)}
+                    • {debt.otherMemberName} owes {item.memberName} {currencyCode} {debt.amount.toFixed(2)}
                   </Text>
                 ))}
               </>
@@ -393,13 +430,13 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
         <Text
           style={[
             styles.memberNet,
-            isOwedToUser && styles.memberNetOwedToUser,
-            isUserOwes && styles.memberNetUserOwes,
+            isWillGet && styles.memberNetOwedToUser,
+            isNeedsToPay && styles.memberNetUserOwes,
             isEven && styles.memberNetEven,
           ]}
         >
-          {isUserOwes && `You owe GBP ${item.netBalance.toFixed(2)}`}
-          {isOwedToUser && `Owes you GBP ${Math.abs(item.netBalance).toFixed(2)}`}
+          {isNeedsToPay && `${item.memberName} needs to pay ${currencyCode} ${Math.abs(item.netBalance).toFixed(2)}`}
+          {isWillGet && `${item.memberName} will get ${currencyCode} ${item.netBalance.toFixed(2)}`}
           {isEven && `Settled`}
         </Text>
       </View>

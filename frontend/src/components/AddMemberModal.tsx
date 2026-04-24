@@ -17,8 +17,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
 } from 'react-native';
-import { addMemberByEmail, Group } from '../services/groupService';
+import { addMemberByEmail, removeMemberFromGroup, Group } from '../services/groupService';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 
@@ -179,6 +180,7 @@ export default function AddMemberModal({
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleAddMember = async () => {
     if (!email.trim()) {
@@ -203,13 +205,16 @@ export default function AddMemberModal({
         memberEmail: email,
       });
 
-      Alert.alert(
-        'Success',
-        `${result.addedMember.name} has been added to the group!`
-      );
-
+      // Show success state briefly
+      setSuccess(true);
       onMemberAdded(result.data);
-      setEmail('');
+      
+      // Close modal after 1.5 seconds
+      setTimeout(() => {
+        setEmail('');
+        setSuccess(false);
+        onClose();
+      }, 1500);
     } catch (err) {
       const errorMessage = getErrorMessage(err);
       setError(errorMessage);
@@ -219,17 +224,62 @@ export default function AddMemberModal({
     }
   };
 
-  const handleShareViaWhatsApp = () => {
+  const handleRemoveMember = async (memberId: number, memberName: string) => {
     if (!group) return;
 
-    // Generate shareable link
-    const shareMessage = `Join my expense group "${group.name}" in Expense Manager! Group ID: ${group.id}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
+    Alert.alert(
+      'Remove Member',
+      `Remove ${memberName} from the group?`,
+      [
+        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+        {
+          text: 'Remove',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const updatedGroup = await removeMemberFromGroup(group.id, memberId);
+              onMemberAdded(updatedGroup);
+              logger.info('Member removed successfully', {
+                groupId: group.id,
+                memberId,
+              });
+            } catch (err) {
+              const errorMessage = getErrorMessage(err);
+              Alert.alert('Error', `Failed to remove member: ${errorMessage}`);
+              logger.error('Failed to remove member', err);
+            } finally {
+              setLoading(false);
+            }
+          },
+          style: 'destructive',
+        },
+      ]
+    );
+  };
 
-    // In a real app, we'd use react-native-linking, but for now show it
-    Alert.alert('Share Group', shareMessage, [
-      { text: 'Close' },
-    ]);
+  const handleShareViaWhatsApp = async () => {
+    if (!group) {
+      Alert.alert('Error', 'No group selected');
+      return;
+    }
+
+    try {
+      // Create invitation message
+      const message = `Hey! 👋 I've invited you to join "${group.name}" in Expense Manager. It's a great app for splitting expenses with friends and family. Check it out!`;
+      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+        logger.info('WhatsApp share opened', { groupId: group.id });
+      } else {
+        Alert.alert('Error', 'WhatsApp is not installed on this device');
+        logger.warn('WhatsApp not available');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to open WhatsApp');
+      logger.error('WhatsApp share failed', err);
+    }
   };
 
   return (
@@ -252,10 +302,13 @@ export default function AddMemberModal({
                 style={styles.input}
                 placeholder="member@example.com"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError(''); // Clear error when user types
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                editable={!loading}
+                editable={!loading && !success}
               />
               <TouchableOpacity
                 style={styles.addButton}
@@ -269,7 +322,36 @@ export default function AddMemberModal({
                 )}
               </TouchableOpacity>
             </View>
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            
+            {success && (
+              <View style={{ 
+                backgroundColor: '#d4edda', 
+                padding: 10, 
+                borderRadius: 6, 
+                marginBottom: 12,
+                borderLeftWidth: 4,
+                borderLeftColor: '#28a745'
+              }}>
+                <Text style={{ color: '#155724', fontWeight: '600', fontSize: 13 }}>
+                  ✓ Member added successfully!
+                </Text>
+              </View>
+            )}
+            
+            {error && (
+              <View style={{ 
+                backgroundColor: '#f8d7da', 
+                padding: 10, 
+                borderRadius: 6, 
+                marginBottom: 12,
+                borderLeftWidth: 4,
+                borderLeftColor: '#f5222d'
+              }}>
+                <Text style={{ color: '#721c24', fontWeight: '600', fontSize: 13 }}>
+                  ✕ {error}
+                </Text>
+              </View>
+            )}
 
             {/* Members List */}
             {group && group.members && group.members.length > 0 && (
@@ -283,9 +365,18 @@ export default function AddMemberModal({
                       <Text style={styles.memberName}>{member.name}</Text>
                       <Text style={styles.memberEmail}>{member.email}</Text>
                     </View>
-                    <View style={styles.memberBadge}>
-                      <Text style={styles.memberBadgeText}>Member</Text>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveMember(member.id, member.name)}
+                      disabled={loading}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                      }}
+                    >
+                      <Text style={{ color: '#dc3545', fontSize: 12, fontWeight: '600' }}>
+                        Remove
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>

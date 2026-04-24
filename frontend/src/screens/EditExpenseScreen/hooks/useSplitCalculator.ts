@@ -295,13 +295,21 @@ export function useSplitCalculator(
   // ✅ Issue #2: Construct payload with paidById baked in
   const getSplitPayload = useCallback(
     () => {
+      console.log('🔀 getSplitPayload called');
+      console.log('   splitWithIds:', splitState.splitWithIds);
+      console.log('   splitType:', splitState.splitType);
+      console.log('   splitAmount:', splitState.splitAmount);
+      console.log('   splitPercentage:', splitState.splitPercentage);
+      
       if (splitState.splitWithIds.length === 0) {
+        console.log('   ✅ No split members - returning empty');
         return { splitWithIds: [] };
       }
 
       // Validate before constructing payload
       const error = getValidationError();
       if (error) {
+        console.log('   ❌ Validation error:', error);
         throw new Error(error);
       }
 
@@ -315,13 +323,18 @@ export function useSplitCalculator(
         payload.splitAmount = splitState.splitWithIds.map(
           id => parseFloat(splitState.splitAmount[id] || '0')
         );
+        console.log('   💰 AMOUNT mode - splitAmount:', payload.splitAmount);
       } else if (splitState.splitType === 'PERCENTAGE' && splitState.splitWithIds.length > 0) {
         // Convert to array of percentages for all members in split (including payer if checked)
         payload.splitPercentage = splitState.splitWithIds.map(
           id => parseFloat(splitState.splitPercentage[id] || '0')
         );
+        console.log('   📊 PERCENTAGE mode - splitPercentage:', payload.splitPercentage);
+      } else {
+        console.log('   ➗ EQUAL mode');
       }
 
+      console.log('   ✅ Payload ready:', payload);
       return payload;
     },
     [splitState, paidById, getValidationError]

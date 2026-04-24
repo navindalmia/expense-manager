@@ -100,6 +100,19 @@ export async function addMemberByEmail(groupId: number, email: string): Promise<
 }
 
 /**
+ * Remove a member from a group
+ * DELETE /api/groups/:groupId/members/:memberId
+ *
+ * @param groupId - Group ID
+ * @param memberId - Member ID to remove
+ * @returns Updated group
+ */
+export async function removeMemberFromGroup(groupId: number, memberId: number): Promise<Group> {
+  const response = await http.delete<{ data: Group }>(`/groups/${groupId}/members/${memberId}`);
+  return response.data.data;
+}
+
+/**
  * Delete/deactivate a group
  * DELETE /api/groups/:id
  

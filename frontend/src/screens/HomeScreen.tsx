@@ -318,7 +318,7 @@ function HomeScreen({ navigation }: Props) {
         >
           <TouchableOpacity
             onPress={() => {
-              navigation.navigate('ExpenseList', { groupId: item.id, groupName: item.name, groupCurrencyCode: item.currency.code });
+              navigation.navigate('ExpenseList', { groupId: item.id, groupName: item.name, groupCurrencyCode: item.currency?.code ?? 'USD' });
             }}
             accessible={true}
             accessibilityLabel={`${item.name}, ${expenseCount} expenses`}
@@ -337,7 +337,7 @@ function HomeScreen({ navigation }: Props) {
                   {expenseCount} expenses • {memberCount} members
                 </Text>
               </View>
-              <Text style={styles.groupCurrency}>{item.currency.code}</Text>
+              <Text style={styles.groupCurrency}>{item.currency?.code ?? 'USD'}</Text>
             </View>
 
             {item.description && (
@@ -354,7 +354,7 @@ function HomeScreen({ navigation }: Props) {
               <Text style={styles.groupDate}>{formatGroupDate(item.createdAt)}</Text>
               <View>
                 <Text style={styles.groupTotal}>
-                  {(item.totalAmount ?? 0).toFixed(2)} {item.currency.code}
+                  {(item.totalAmount ?? 0).toFixed(2)} {item.currency?.code ?? 'USD'}
                 </Text>
                 <Text style={{ fontSize: 11, color: '#0066cc', textAlign: 'right' }}>
                   Your share: {(item.userPersonalTotal ?? 0).toFixed(2)}

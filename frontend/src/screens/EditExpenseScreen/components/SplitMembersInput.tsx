@@ -124,6 +124,29 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
   // Get payer's name
   const payerName = members.find(m => m.id === paidById)?.name || 'Payer';
 
+  // Calculate if all non-payer members are selected
+  const selectableMembers = members.filter(m => m.id !== paidById);
+  const allSelected = selectableMembers.length > 0 && selectableMembers.every(m => splitWithIds.includes(m.id));
+
+  // Handle select/deselect all
+  const handleSelectAll = () => {
+    if (allSelected) {
+      // Deselect all
+      selectableMembers.forEach(m => {
+        if (splitWithIds.includes(m.id)) {
+          onRemoveMember(m.id);
+        }
+      });
+    } else {
+      // Select all non-payer members
+      selectableMembers.forEach(m => {
+        if (!splitWithIds.includes(m.id)) {
+          onAddMember(m.id);
+        }
+      });
+    }
+  };
+
   // Helper to safely calculate percentage-based amount
   const calculatePercentageAmount = (percentStr: string, totalStr: string): string => {
     const total = parseFloat(totalStr || '0') || 0;
@@ -138,6 +161,21 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
 
   return (
     <View style={styles.container}>
+      {/* Select/Deselect All Button */}
+      {selectableMembers.length > 1 && (
+        <TouchableOpacity
+          style={[styles.checkboxRow, { backgroundColor: '#f9f9f9', borderBottomWidth: 1, borderBottomColor: '#e0e0e0', marginBottom: 4 }]}
+          onPress={handleSelectAll}
+        >
+          <View style={[styles.checkbox, allSelected && styles.checkboxChecked]}>
+            {allSelected && <Text style={styles.checkboxMark}>✓</Text>}
+          </View>
+          <Text style={[styles.checkboxLabel, { fontWeight: '600', color: '#0066cc' }]}>
+            {allSelected ? 'Deselect All' : 'Select All'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Compact Member Selection with Checkboxes and Real-time Amounts - TRICOUNT STYLE */}
       <View style={styles.checkboxContainer}>
         {members.map(member => {

@@ -196,7 +196,7 @@ export default function EditGroupModal({
       setName(group.name);
       setDescription(group.description || '');
       // group.currency is now { id, code, label }
-      setCurrency(group.currency.code);
+      setCurrency(group.currency?.code || 'USD');
       setErrors({});
     }
   }, [group, visible]);
