@@ -1,6 +1,9 @@
 # 🧪 TESTING CHECKPOINT - v0.3.1 EditExpenseScreen (Bug Fixes)
 
 **Date:** April 15, 2026  
+**Status:** 🟡 CONTEXT-ONLY (April 25, 2026) - Historical reference, stale for current work  
+**Use When:** Working on EditExpenseScreen bugs or understanding past fixes  
+**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) to decide if you need this  
 **Feature:** EditExpenseScreen with split calculations & personal share - BUG FIX SESSION
 **Status:** BUGS IDENTIFIED & FIXED ✅
 

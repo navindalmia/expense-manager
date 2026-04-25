@@ -1,6 +1,10 @@
 # 🎨 EditExpenseScreen UX Redesign - Implementation Spec
 
 **Expert Review Date**: April 18, 2026  
+**Status:** 📅 FUTURE WORK (April 25, 2026) - Not started yet  
+**Use When:** Ready to implement Phase 1 UI redesign (Accordion component)  
+**Priority:** MEDIUM - Improves UX but not blocking  
+**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) - READ when doing UI work  
 **Requested By**: User (excessive scrolling complaint)  
 **Priority**: HIGH - Impacts mobile UX significantly  
 **Estimated Implementation**: 3 hours total (3 phases)

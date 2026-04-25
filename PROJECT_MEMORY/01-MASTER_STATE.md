@@ -25,7 +25,106 @@
 
 ---
 
-## 🟢 COMPLETED THIS SESSION (v0.3.5 - April 24)
+## � DOCUMENTATION NAVIGATION
+
+**🔴 CRITICAL (Read Every Session):**
+- ✅ **[01-MASTER_STATE.md](#)** ← You are here
+  - Current blockers, version, next priorities
+  - Updated with every session (last: April 24)
+  - START HERE when beginning work
+
+- ✅ **[02-WORKFLOW.md](./02-WORKFLOW.md)** | Code Review → Test → Commit
+  - MANDATORY workflow: Write code → Code review → Fix issues → Test mobile → Commit
+  - DON'T SKIP code review gate
+  - 5-step process + checklist
+
+- ✅ **[03-CODING_PATTERNS.md](./03-CODING_PATTERNS.md)** | DB, API, Frontend conventions
+  - Database patterns (Prisma, soft deletes, migrations)
+  - API patterns (error handling, validation, responses)
+  - Frontend patterns (hooks, modals, comments)
+  - Testing patterns (mock setup, AAA pattern)
+
+- ✅ **[05-QUALITY_STANDARDS.md](./05-QUALITY_STANDARDS.md)** | SOLID, Security, Code Review Gate
+  - SOLID principles checklist
+  - Security checklist (OWASP)
+  - Code review pass/fail criteria
+  - Test structure standards
+
+---
+
+**🟡 CONTEXT (Read When Working on Specific Features):**
+
+- **EditExpenseScreen Bugs?**
+  → [06-TESTING_CHECKPOINT.md](./06-TESTING_CHECKPOINT.md) (April 15, v0.3.1)
+  - 6 bugs fixed with details (PERCENTAGE, payer duplication, personal share, etc.)
+  - 8 mobile test cases with pass/fail checklist
+  - How to hard reload Expo Go
+
+- **Array Indexing Issues?**
+  → [07-CHECKPOINT_APR18_ARRAY_FIXES.md](./07-CHECKPOINT_APR18_ARRAY_FIXES.md) (April 18, v0.3.4)
+  - **CRITICAL KNOWLEDGE:** Array format: `[payer_value, member1_value, member2_value, ...]`
+  - NaN bug fix (wrong index offset)
+  - Split members override on load (reinitialize effect guard)
+  - **DO NOT FORGET THIS** when editing split logic
+
+- **Testing Strategy?**
+  → [04-TESTING_STRATEGY.md](./04-TESTING_STRATEGY.md)
+  - Code-first philosophy (not TDD)
+  - Testing checklist by component type
+  - Security testing for auth endpoints
+  - Coverage goals by area (80%+ backend, 70%+ frontend)
+
+---
+
+**🟢 REFERENCE (Read When Planning UI Work):**
+
+- **EditExpenseScreen UX Too Scrolly?**
+  → [08-UX_REDESIGN_SPEC.md](./08-UX_REDESIGN_SPEC.md) (April 18, Future work)
+  - Phase 1: Create AccordionSection component (1 hour, 40-50% scroll reduction)
+  - Phase 2: Category horizontal scroll (1.5 hours, 65-70% total reduction)
+  - Phase 3: Additional optimizations
+  - Detailed implementation specs for each phase
+
+- **Quick Reminders?**
+  → [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) (April 18)
+  - Array indexing pattern at a glance
+  - 10 bugs fixed in v0.3.3 summary
+  - Key files to review before UI redesign
+  - Testing checklist
+
+---
+
+**📋 SESSION SUMMARIES (Historical, Low Priority):**
+
+- [07-SESSION_APR18_UX_REVIEW.md](./07-SESSION_APR18_UX_REVIEW.md) (April 18, v0.3.3)
+  - Full session record: 10 bugs fixed + UX review completed
+  - Useful for understanding how bugs were found/fixed
+  - Code quality metrics before/after modularization
+  - Reference only (not updated frequently)
+
+---
+
+## ⚡ SESSION QUICKSTART
+
+**Every new session, do this:**
+1. Read THIS FILE (01-MASTER_STATE.md) - **2 min**
+   - Current version, blocker, next priorities
+   
+2. Read **02-WORKFLOW.md** - **3 min**
+   - How to code + commit correctly
+   
+3. Check relevant CONTEXT files if:
+   - Working on EditExpenseScreen bugs → Read 06-TESTING_CHECKPOINT.md
+   - Dealing with array indexing → Read 07-CHECKPOINT_APR18_ARRAY_FIXES.md
+   - Building tests → Read 04-TESTING_STRATEGY.md
+   
+4. If fixing code: Always follow patterns in **03-CODING_PATTERNS.md**
+
+5. Before committing: Check standards in **05-QUALITY_STANDARDS.md**
+
+---
+
+## �🟢 COMPLETED THIS SESSION (v0.3.5 - April 24)
 
 ### Split Calculation Bug Fix & UI Polish ✅
 **Commit:** `03776c4` | **Status:** COMMITTED & PUSHED ✅

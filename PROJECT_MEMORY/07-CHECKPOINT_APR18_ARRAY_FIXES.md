@@ -1,6 +1,9 @@
 # 🔧 CHECKPOINT: April 18, 2026 - Array Indexing Fixes (v0.3.4)
 
-**Timestamp:** April 18, 2026 - Current Session  
+**Timestamp:** April 18, 2026  
+**Status:** 🔴 CRITICAL KNOWLEDGE (April 25, 2026) - DON'T FORGET THIS!  
+**Do NOT edit split arrays without reading this first**  
+**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) - READ when dealing with array indexing  
 **Focus:** Fixed 2 critical bugs blocking split type persistence  
 **Session Type:** Bug fix sprint (array indexing architecture)
 

@@ -1,5 +1,9 @@
 # ⚡ Quick Reference - v0.3.3 Changes
 
+**Status:** 🟡 PARTIALLY STALE (April 25, 2026) - Some patterns still valid, some outdated  
+**Use For:** Quick pattern reminders (array indexing, bug summary)  
+**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) for index
+
 ## What Was Done (April 18, 2026)
 ✅ Fixed 10 bugs discovered in mobile testing  
 ✅ Added expense list sorting (newest first) + running balance  
