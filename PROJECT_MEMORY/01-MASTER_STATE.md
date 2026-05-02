@@ -9,19 +9,28 @@
 
 ---
 
-## CURRENT VERSION: v0.3.5 (Expense Flows - UI Polish Phase)
-**Last Updated:** April 24, 2026  
+## CURRENT VERSION: v0.3.5 (Expense Flows & Member Sharing Phase)
+**Last Updated:** May 2, 2026  
 **Latest Commit:** `03776c4` - "fix: optimize summary card spacing and complete split calculation refactoring"  
-**Status:** ✅ COMMITTED & PUSHED to origin/master
+**Status:** ✅ RUNNING (Backend: localhost:4000, Frontend: Expo dev server)
 
-**Files Involved:**
-- `frontend/src/screens/ExpenseListScreen.tsx` - refactored to use SummaryCard
-- `frontend/src/screens/ExpenseListScreen/SummaryCard.tsx` - extracted component
-- `frontend/src/screens/ExpenseListScreen.styles.ts` - spacing optimization
-- `frontend/src/screens/SettlementScreen.tsx` - padding fix (100px bottom)
-- `frontend/src/screens/EditExpenseScreen/utils/__tests__/splitValidation.test.ts` - 34 unit tests
+### May 2, 2026 Progress
+**Fixed This Session:**
+- ✅ EditGroupModal cancel button now responsive (`disabled={false}`, `activeOpacity={0.6}`, `hitSlop`)
+- ✅ Test file fix: 3 deleteExpense() calls missing userId parameter (lines 322, 333, 344)
+- ✅ Backend TypeScript compilation clean
 
-**Next Step:** Test on Expo Go to verify spacing optimization and settlement bug
+**Pending Work:**
+- ⏳ **WhatsApp share feature** (generate invite links, share button, join flow)
+- 🟡 Mobile testing on Expo Go (3 expense screens: Create, Edit, Settlement)
+- 🟡 Auto-focus amount field after category selection
+- 🟡 Settlement bug: Rent 450.50 not showing in calculations
+
+**Files Modified This Session:**
+- `frontend/src/components/EditGroupModal.tsx` - Cancel button fix
+- `backend/src/services/__tests__/expenseService.test.ts` - deleteExpense test calls
+
+**Next Priority:** Implement WhatsApp share feature (group invite links + share UI)
 
 ---
 

@@ -319,7 +319,7 @@ describe('ExpenseService', () => {
     it('should delete expense with correct ID', async () => {
       (prisma.expense.delete as jest.Mock).mockResolvedValue({ id: 1 });
 
-      await expenseService.deleteExpense(1);
+      await expenseService.deleteExpense(1, 1);
 
       // ✅ TEST: Prisma.delete called with correct where clause
       expect(prisma.expense.delete).toHaveBeenCalledWith({
@@ -330,7 +330,7 @@ describe('ExpenseService', () => {
     it('should delete expense with ID 99', async () => {
       (prisma.expense.delete as jest.Mock).mockResolvedValue({ id: 99 });
 
-      await expenseService.deleteExpense(99);
+      await expenseService.deleteExpense(99, 1);
 
       // ✅ TEST: Prisma called with correct ID
       expect(prisma.expense.delete).toHaveBeenCalledWith({
@@ -341,7 +341,7 @@ describe('ExpenseService', () => {
     it('should call delete only once per request', async () => {
       (prisma.expense.delete as jest.Mock).mockResolvedValue({ id: 1 });
 
-      await expenseService.deleteExpense(1);
+      await expenseService.deleteExpense(1, 1);
 
       // ✅ TEST: Ensure no duplicate deletes
       expect(prisma.expense.delete).toHaveBeenCalledTimes(1);

@@ -226,6 +226,53 @@ export async function updateGroup(
 }
 
 /**
+ * Remove a member from a group
+ * DELETE /api/groups/:id/members/:memberId
+ */
+export async function removeMember(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id, memberId } = req.params;
+    
+    if (!id || !memberId) {
+      throw new AppError(
+        'Group ID and member ID are required',
+        400,
+        'MISSING_PARAMS'
+      );
+    }
+    
+    const groupId = parseInt(id, 10);
+    const memberIdNum = parseInt(memberId, 10);
+
+    if (isNaN(groupId) || isNaN(memberIdNum)) {
+      throw new AppError(
+        'Invalid group ID or member ID',
+        400,
+        'INVALID_ID_FORMAT',
+        { groupId: id, memberId }
+      );
+    }
+
+    // Get userId from JWT token via auth middleware
+    const userId = req.user!.id
+
+    const group = await groupService.removeMemberFromGroup(groupId, memberIdNum, userId);
+
+    res.status(200).json({
+      success: true,
+      data: group,
+      message: 'Member removed from group successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Delete/deactivate group
  * DELETE /api/groups/:id
  */

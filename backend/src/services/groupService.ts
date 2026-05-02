@@ -483,6 +483,139 @@ export async function addMemberToGroup(
 }
 
 /**
+ * Remove a member from a group
+ * IMPORTANT: Handles data integrity - settles member's expenses before removal
+ * @param groupId Group ID
+ * @param memberId Member ID to remove
+ * @param requestorId User making the request (must be group creator)
+ * @returns Updated group
+ */
+export async function removeMemberFromGroup(
+  groupId: number,
+  memberId: number,
+  requestorId: number
+) {
+  try {
+    logger.info('Removing member from group', { groupId, memberId, requestorId });
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      include: { members: { select: { id: true } } },
+    });
+
+    if (!group) {
+      throw new AppError(
+        'GROUP.NOT_FOUND',
+        404,
+        'GROUP_NOT_FOUND',
+        { groupId }
+      );
+    }
+
+    // Only creator can remove members
+    if (group.createdById !== requestorId) {
+      throw new AppError(
+        'GROUP.UNAUTHORIZED_REMOVE',
+        403,
+        'UNAUTHORIZED',
+        { groupId, memberId, requestorId }
+      );
+    }
+
+    // CRITICAL: Prevent creator from removing themselves
+    if (memberId === requestorId) {
+      throw new AppError(
+        'CREATOR.CANNOT_REMOVE_SELF',
+        400,
+        'CANNOT_REMOVE_SELF',
+        { groupId, memberId }
+      );
+    }
+
+    // Verify member exists in group
+    if (!group.members.some(m => m.id === memberId)) {
+      throw new AppError(
+        'MEMBER.NOT_FOUND',
+        404,
+        'MEMBER_NOT_FOUND',
+        { groupId, memberId }
+      );
+    }
+
+    // CRITICAL: Handle data integrity - mark member's expenses as settled
+    // This prevents orphaned expenses from breaking settlement calculations
+    const memberExpenses = await prisma.expense.findMany({
+      where: {
+        groupId,
+        paidById: memberId,
+      },
+      select: { id: true },
+    });
+
+    // Mark all expenses paid by this member as settled
+    if (memberExpenses.length > 0) {
+      await prisma.expense.updateMany({
+        where: {
+          id: { in: memberExpenses.map(e => e.id) },
+        },
+        data: { isSettled: true },
+      });
+      logger.info('Settled member expenses on removal', {
+        groupId,
+        memberId,
+        expenseCount: memberExpenses.length,
+      });
+    }
+
+    // Remove member from group and all expense splitWith relationships
+    const updated = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        members: {
+          disconnect: { id: memberId },
+        },
+      },
+      include: {
+        currency: {
+          select: { id: true, code: true, label: true },
+        },
+        members: {
+          select: { id: true, name: true, email: true },
+        },
+        createdBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    logger.info('Member successfully removed from group', {
+      groupId,
+      memberId,
+      requestorId,
+      remainingMembers: updated.members.length,
+    });
+
+    return updated;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    logger.error('Error removing member from group', error, {
+      groupId,
+      memberId,
+      requestorId,
+    });
+    throw new AppError(
+      'GROUP.MEMBER_REMOVAL_FAILED',
+      500,
+      'MEMBER_REMOVAL_ERROR',
+      { error }
+    );
+  }
+}
+
+/**
  * Update/edit a group
  * @param groupId Group ID
  * @param requestorId User making the request

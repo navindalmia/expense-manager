@@ -44,6 +44,10 @@ router.post('/:id/members/email', authMiddleware, groupController.addMemberByEma
 // POST /api/groups/:id/members
 router.post('/:id/members', authMiddleware, groupController.addMember);
 
+// Remove member from group
+// DELETE /api/groups/:id/members/:memberId
+router.delete('/:id/members/:memberId', authMiddleware, groupController.removeMember);
+
 // Update/edit a group
 // PATCH /api/groups/:id
 router.patch('/:id', authMiddleware, groupController.updateGroup);
