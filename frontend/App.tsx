@@ -1,10 +1,12 @@
 import React, { useRef, useEffect } from 'react';
-import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, type NavigationContainerRef, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/types/navigation';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import CheckEmailScreen from './src/screens/CheckEmailScreen';
+import VerifyEmailScreen from './src/screens/VerifyEmailScreen';
 import ExpenseListScreen from './src/screens/ExpenseListScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
@@ -17,6 +19,27 @@ import { setOnUnauthorized } from './src/api/http/interceptors';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 console.log("Frontend API Base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
+
+/**
+ * Deep linking configuration for email verification
+ * Handles links like: expensemanager://verify-email?token=...
+ */
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['expensemanager://', 'https://app.expensemanager.io', 'http://localhost:8081'],
+  config: {
+    screens: {
+      VerifyEmail: 'verify-email/:token',
+      Login: 'login',
+      Home: 'home',
+      CheckEmail: 'check-email',
+      ExpenseList: 'expenses/:groupId',
+      CreateExpense: 'create-expense',
+      EditExpense: 'edit-expense/:expenseId',
+      CreateGroup: 'create-group',
+      Settlement: 'settlement/:groupId',
+    },
+  },
+};
 
 /**
  * Navigation Stack
@@ -48,7 +71,7 @@ function AppNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator
         screenOptions={{
           headerShown: true,
@@ -56,17 +79,19 @@ function AppNavigator() {
         }}
         initialRouteName={isAuthenticated ? 'Home' : 'Login'}
       >
-        {/* Auth screens */}
-        {!isAuthenticated ? (
-          <Stack.Group
-            screenOptions={{
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="Login" component={LoginScreen} />
-          </Stack.Group>
-        ) : (
-          // App screens (only shown when authenticated)
+        {/* Auth screens - always available for login/signup flow */}
+        <Stack.Group
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="CheckEmail" component={CheckEmailScreen} />
+          <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+        </Stack.Group>
+
+        {/* App screens - only shown when authenticated */}
+        {isAuthenticated && (
           <Stack.Group>
             <Stack.Screen
               name="Home"

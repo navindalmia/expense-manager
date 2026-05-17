@@ -228,14 +228,24 @@ export default function LoginScreen({ navigation }: Props) {
 
     try {
       clearError();
-      await signup(email.trim(), password, name.trim());
+      const result = await signup(email.trim(), password, name.trim());
       logger.info('Signup successful', { email });
-      // Navigation handled by navigation state
+      
+      // Navigate to CheckEmailScreen with email
+      navigation.reset({
+        index: 0,
+        routes: [
+          {
+            name: 'CheckEmail',
+            params: { email: result.email },
+          },
+        ],
+      });
     } catch (err) {
       logger.error('Signup failed', err);
       // Error is displayed via error state
     }
-  }, [email, password, name, signup, validateForm, clearError]);
+  }, [email, password, name, signup, validateForm, clearError, navigation]);
 
   return (
     <KeyboardAvoidingView

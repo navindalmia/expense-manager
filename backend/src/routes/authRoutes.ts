@@ -38,4 +38,20 @@ router.get('/me', authMiddleware, authController.getCurrentUser);
  */
 router.post('/logout', authMiddleware, authController.logout);
 
+/**
+ * Verify email with token
+ * POST /api/auth/verify-email
+ * Public: No authentication required
+ * Body: { token }
+ */
+router.post('/verify-email', authController.verifyEmail);
+
+/**
+ * Resend verification email
+ * POST /api/auth/resend-verification
+ * Public: No authentication required (generic response)
+ * Body: { email }
+ */
+router.post('/resend-verification', authController.resendVerificationEmail);
+
 export default router;

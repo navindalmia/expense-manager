@@ -27,6 +27,8 @@ model User {
   name                   String
   email                  String?   @unique  // Optional - user can be invited before registering
   password               String?   // bcrypt hashed password (optional for compatibility)
+  emailVerified          Boolean   @default(false)
+  emailVerifiedAt        DateTime?
   isActive               Boolean   @default(true)
   lastLogin              DateTime?
   failedLoginAttempts    Int       @default(0)
@@ -38,6 +40,22 @@ model User {
   groupsCreated          Group[]   @relation("GroupCreatedBy")
   groupsMember           Group[]   @relation("GroupMembers")
   expensesSplit          Expense[] @relation("ExpenseSplitWith")
+  verificationTokens     EmailVerificationToken[]
+}
+
+// -------------------- EMAIL VERIFICATION TOKEN --------------------
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  token     String    @unique
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isUsed    Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // -------------------- CATEGORY --------------------

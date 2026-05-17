@@ -8,6 +8,7 @@
 import { Router } from 'express';
 import * as groupController from '../controllers/groupController';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { requireEmailVerified } from '../middlewares/emailVerificationMiddleware';
 
 const router = Router();
 
@@ -19,7 +20,8 @@ const router = Router();
 
 // Create a new group
 // POST /api/groups
-router.post('/', authMiddleware, groupController.createGroup);
+// Protected: Requires verified email
+router.post('/', authMiddleware, requireEmailVerified, groupController.createGroup);
 
 // Get all groups for current user
 // GET /api/groups
@@ -37,8 +39,8 @@ router.get('/:id/stats', authMiddleware, groupController.getStats);
 router.get('/:id', authMiddleware, groupController.getGroupById);
 
 // Add member to group by email (specific route BEFORE generic)
-// POST /api/groups/:id/members/email
-router.post('/:id/members/email', authMiddleware, groupController.addMemberByEmail);
+// Protected: Requires verified email (only creator can add members)
+router.post('/:id/members/email', authMiddleware, requireEmailVerified, groupController.addMemberByEmail);
 
 // Add member to group by ID
 // POST /api/groups/:id/members

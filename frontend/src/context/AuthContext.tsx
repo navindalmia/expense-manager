@@ -18,6 +18,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  emailVerified?: boolean;
   isActive?: boolean;
   createdAt?: string;
 }
@@ -30,7 +31,7 @@ export interface AuthContextType {
   isHydrating: boolean;
 
   // Methods
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<{ email: string }>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -89,6 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Signup: Create new account
+   * Does NOT automatically log in the user.
+   * Returns the email so caller can navigate to CheckEmailScreen.
+   * Token from backend is ignored - user must verify email first.
    */
   const signup = useCallback(
     async (email: string, password: string, name: string) => {
@@ -102,18 +106,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name,
         });
 
-        const { token: newToken, user: newUser } = response.data.data;
-
-        // Store token and user
-        await Promise.all([
-          AsyncStorage.setItem(STORAGE_KEY_TOKEN, newToken),
-          AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser)),
-        ]);
-
-        setAuthToken(newToken);
-        setToken(newToken);
-        setUser(newUser);
-        logger.info('Signup successful', { userId: newUser.id });
+        // Backend returns token, but we don't use it yet
+        // User must verify email first before accessing the app
+        logger.info('Signup successful - awaiting email verification', { email });
+        
+        // Return email so caller can navigate to CheckEmailScreen
+        return { email };
       } catch (err: any) {
         // Extract error details from normalized error
         let errorMessage = 'Signup failed';

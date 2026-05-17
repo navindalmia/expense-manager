@@ -8,9 +8,12 @@ import type { Expense } from '../services/expenseService';
  */
 export interface RootStackParamList extends Record<string, object | undefined> {
   Login: undefined;
+  CheckEmail: { email: string };
+  VerifyEmail: { token?: string };
   Home: undefined;
   ExpenseList: { groupId: number; groupName?: string; groupCurrencyCode?: string };
   ExpenseDetail: { expenseId: number };
+  CreateExpense: { groupId: number; groupName?: string; groupCurrencyCode?: string; currency?: { id: number; code: string; label: string } };
   EditExpense: { expenseId?: number; groupId: number; groupName?: string; groupCurrencyCode?: string; currency?: { id: number; code: string; label: string } };
   CreateGroup: undefined;
   Settlement: { groupId: number; groupName?: string; currency?: { id: number; code: string; label: string }; expenses: Expense[] };
@@ -43,6 +46,21 @@ export type EditExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 
 export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
 /**
+ * Props for CreateExpenseScreen
+ */
+export type CreateExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateExpense'>;
+
+/**
  * Props for SettlementScreen
  */
 export type SettlementScreenProps = NativeStackScreenProps<RootStackParamList, 'Settlement'>;
+
+/**
+ * Props for CheckEmailScreen
+ */
+export type CheckEmailScreenProps = NativeStackScreenProps<RootStackParamList, 'CheckEmail'>;
+
+/**
+ * Props for VerifyEmailScreen
+ */
+export type VerifyEmailScreenProps = NativeStackScreenProps<RootStackParamList, 'VerifyEmail'>;

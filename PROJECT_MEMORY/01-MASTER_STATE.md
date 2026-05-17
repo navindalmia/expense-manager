@@ -25,10 +25,17 @@
 - 🟡 Mobile testing on Expo Go (3 expense screens: Create, Edit, Settlement)
 - 🟡 Auto-focus amount field after category selection
 - 🟡 Settlement bug: Rent 450.50 not showing in calculations
+- 📋 **[BACKLOG]** Rate limiting at cloud level (API Management) - implement during Azure deployment, not in-app
 
 **Files Modified This Session:**
 - `frontend/src/components/EditGroupModal.tsx` - Cancel button fix
 - `backend/src/services/__tests__/expenseService.test.ts` - deleteExpense test calls
+- `backend/src/services/emailVerificationService.ts` - Email verification (NEW)
+- `backend/src/controllers/authController.ts` - Signup + verify endpoints (NEW)
+- `backend/src/routes/authRoutes.ts` - Auth routes (UPDATED)
+- `backend/src/middlewares/emailVerificationMiddleware.ts` - Email protection (NEW)
+- `backend/prisma/schema.prisma` - Email verification fields (UPDATED)
+- `backend/prisma/migrations/20260502120000_add_email_verification/` - Migration (NEW)
 
 **Next Priority:** Implement WhatsApp share feature (group invite links + share UI)
 

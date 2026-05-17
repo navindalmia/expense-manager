@@ -85,3 +85,48 @@ export function validateSignup(data: unknown): SignupInput {
 export function validateLogin(data: unknown): LoginInput {
   return loginSchema.parse(data);
 }
+
+/**
+ * Schema for email verification
+ */
+export const verifyEmailSchema = z.object({
+  token: z
+    .string()
+    .min(1, 'Verification token is required')
+    .startsWith('vrf_', 'Invalid token format'),
+});
+
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+/**
+ * Schema for resending verification email
+ */
+export const resendVerificationSchema = z.object({
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Invalid email format')
+    .toLowerCase(),
+});
+
+export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
+
+/**
+ * Validate verify email input
+ * @param data Verify email request data
+ * @returns Validated data
+ * @throws Error if validation fails
+ */
+export function validateVerifyEmail(data: unknown): VerifyEmailInput {
+  return verifyEmailSchema.parse(data);
+}
+
+/**
+ * Validate resend verification input
+ * @param data Resend verification request data
+ * @returns Validated data
+ * @throws Error if validation fails
+ */
+export function validateResendVerification(data: unknown): ResendVerificationInput {
+  return resendVerificationSchema.parse(data);
+}

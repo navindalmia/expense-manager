@@ -9,8 +9,10 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { generateToken } from '../utils/jwtHelper';
 import { hashPassword, comparePassword, isCommonPassword } from '../utils/passwordHelper';
-import { validateSignup, validateLogin } from '../schemas/authSchema';
+import { validateSignup, validateLogin, validateVerifyEmail, validateResendVerification } from '../schemas/authSchema';
 import { ZodError } from 'zod';
+import { createVerificationToken, sendVerificationEmail } from '../services/emailVerificationService';
+import { logger } from '../utils/logger';
 
 const ACCOUNT_LOCKOUT_THRESHOLD = 5;
 const ACCOUNT_LOCKOUT_DURATION_MINUTES = 15;
@@ -89,12 +91,22 @@ export async function signup(req: Request, res: Response): Promise<void> {
       });
     }
 
-    // Generate token
+    // Generate verification token and send email
+    try {
+      const verificationToken = await createVerificationToken(user.id);
+      await sendVerificationEmail(user.email!, verificationToken);
+      logger.info('Verification email sent after signup', { userId: user.id, email: user.email });
+    } catch (emailError) {
+      logger.error('Failed to send verification email', emailError, { userId: user.id });
+      // Don't fail signup - email can be resent later
+    }
+
+    // Generate JWT token for immediate session
     const token = generateToken(user.id);
 
     res.status(201).json({
       success: true,
-      message: 'Account created successfully',
+      message: 'Account created successfully. Please check your email to verify your account.',
       data: {
         token,
         user,
@@ -144,6 +156,7 @@ export async function login(req: Request, res: Response): Promise<void> {
         email: true,
         name: true,
         password: true,
+        emailVerified: true,
         isActive: true,
         lockedUntil: true,
         failedLoginAttempts: true,
@@ -156,6 +169,16 @@ export async function login(req: Request, res: Response): Promise<void> {
         success: false,
         message: 'Invalid email or password',
         error: 'AUTH_FAILED',
+      });
+      return;
+    }
+
+    // Check if email is verified
+    if (!user.emailVerified) {
+      res.status(403).json({
+        success: false,
+        message: 'Please verify your email address before logging in',
+        error: 'EMAIL_NOT_VERIFIED',
       });
       return;
     }
@@ -277,6 +300,7 @@ export async function getCurrentUser(req: Request, res: Response): Promise<void>
         id: true,
         name: true,
         email: true,
+        emailVerified: true,  // Add verification status
         isActive: true,
         lastLogin: true,
         createdAt: true,
@@ -337,6 +361,83 @@ export async function logout(req: Request, res: Response): Promise<void> {
       success: false,
       message: 'Logout failed',
       error: 'SERVER_ERROR',
+    });
+  }
+}
+
+/**
+ * Verify email endpoint
+ * POST /api/auth/verify-email
+ * Public: No authentication required
+ * 
+ * Accepts: { token }
+ * Returns: { user, message }
+ */
+export async function verifyEmail(req: Request, res: Response): Promise<void> {
+  try {
+    // Validate input with Zod
+    const { token } = validateVerifyEmail(req.body);
+
+    // Import verification service
+    const { verifyEmail: verifyEmailService } = await import('../services/emailVerificationService');
+    const verifiedUser = await verifyEmailService(token);
+
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully',
+      data: {
+        user: verifiedUser,
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      // Generic error message to prevent email enumeration
+      res.status(400).json({
+        success: false,
+        message: 'Invalid or expired verification token',
+        error: 'INVALID_TOKEN',
+      });
+      return;
+    }
+    
+    // Generic error message to prevent email enumeration
+    logger.warn('Email verification failed', { error: error?.message });
+    
+    res.status(400).json({
+      success: false,
+      message: 'Invalid or expired verification token',
+      error: 'INVALID_TOKEN',
+    });
+  }
+}
+
+/**
+ * Resend verification email endpoint
+ * POST /api/auth/resend-verification
+ * Public: No authentication required (generic response)
+ * 
+ * Accepts: { email }
+ * Returns: { message } - Always success for security
+ */
+export async function resendVerificationEmail(req: Request, res: Response): Promise<void> {
+  try {
+    // Validate input with Zod
+    const { email } = validateResendVerification(req.body);
+
+    // Import verification service
+    const { resendVerificationEmail: resendService } = await import('../services/emailVerificationService');
+    await resendService(email);
+
+    // Always return generic success to prevent email enumeration
+    res.status(200).json({
+      success: true,
+      message: 'If this email is registered, a verification link has been sent',
+    });
+  } catch (error) {
+    // Always return generic success for security - catches ZodError and all other errors
+    res.status(200).json({
+      success: true,
+      message: 'If this email is registered, a verification link has been sent',
     });
   }
 }
