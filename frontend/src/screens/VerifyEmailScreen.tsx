@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontFamily: 'monospace',
-    wordBreak: 'break-all',
+    flexWrap: 'wrap',
   },
   tokenLabel: {
     fontSize: 12,

@@ -32,7 +32,7 @@ export async function verifyEmailToken(token: string): Promise<VerifyEmailRespon
   const response = await http.post<VerifyEmailResponse>('/auth/verify-email', {
     token,
   });
-  return response;
+  return response.data;
 }
 
 /**
@@ -46,5 +46,5 @@ export async function resendVerificationEmail(
   const response = await http.post<ResendVerificationResponse>('/auth/resend-verification', {
     email,
   });
-  return response;
+  return response.data;
 }

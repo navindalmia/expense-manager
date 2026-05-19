@@ -18,10 +18,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getGroupExpenses } from '../services/expenseService';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
-import { calculateMemberShare } from './EditExpenseScreen/utils/splitValidation';
 import { useAuth } from '../context/AuthContext';
 import { styles } from './ExpenseListScreen.styles';
-import { SummaryCard } from './ExpenseListScreen/SummaryCard';
 import type { Expense } from '../services/expenseService';
 import type { ExpenseListScreenProps } from '../types/navigation';
 import LoadingState from '../components/LoadingState';
@@ -87,32 +85,39 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * EXPORTED for reuse in SettlementScreen.
    */
   const calculateUserShare = useCallback((exp: Expense): number => {
-    if (!exp.splitWith || exp.splitWith.length === 0) {
-      // No split configured, user owes nothing
-      return 0;
+    if (exp.paidBy?.id === currentUser?.id) {
+      // User is the payer
+      if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+        const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
+        const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
+        return exp.amount / totalPeople;
+      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+        const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidBy?.id) ?? -1;
+        if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
+          return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
+        } else if (exp.splitPercentage?.[0]) {
+          return (exp.amount * exp.splitPercentage[0]) / 100;
+        }
+      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+        return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
+      } else if (!exp.splitWith || exp.splitWith.length === 0) {
+        return exp.amount;
+      }
+    } else {
+      // User is in splitWith
+      const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
+      if (userIndex !== -1) {
+        if (exp.splitType === 'EQUAL') {
+          const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
+          const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
+          return exp.amount / totalPeople;
+        } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
+          return (exp.amount * exp.splitPercentage[userIndex]) / 100;
+        } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+          return exp.splitAmount[userIndex];
+        }
+      }
     }
-
-    // Check if user is in the splitWith array
-    const userInSplit = exp.splitWith.find(m => m.id === currentUser?.id);
-    if (!userInSplit) {
-      // User is not in the split, so they owe nothing
-      return 0;
-    }
-
-    const userIndex = exp.splitWith.findIndex(m => m.id === currentUser?.id);
-
-    if (exp.splitType === 'EQUAL') {
-      return parseFloat(
-        calculateMemberShare('EQUAL', exp.amount, '0', '0', exp.splitWith.length)
-      );
-    } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
-      return parseFloat(
-        calculateMemberShare('PERCENTAGE', exp.amount, '0', exp.splitPercentage[userIndex], 1)
-      );
-    } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-      return exp.splitAmount[userIndex];
-    }
-
     return 0;
   }, [currentUser?.id]);
 
@@ -240,11 +245,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
     ({ item, index }: { item: Expense; index: number }) => {
       // Get currency code with fallback
       const currencyCode = item.currency?.code || 'USD';
-      
-      // DEBUG: Log paidBy details
-      if (__DEV__) {
-        console.log(`💳 Expense "${item.title}" - paidById: ${item.paidById}, paidBy.id: ${item.paidBy?.id}, paidBy.name: ${item.paidBy?.name}`);
-      }
       
       // Calculate user's share for THIS expense
       const userShare = calculateUserShare(item);
@@ -378,16 +378,10 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
               </View>
             </View>
 
-            {/* Row 3: Paid by (left) vs Your Share (right) */}
+            {/* Row 3: Your Share (spans full width, left-aligned label, right-aligned amount) */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Paid by:</Text>
-                <Text style={{ fontSize: 12, color: '#333', fontWeight: '600' }}>{item.paidBy?.name || 'Unknown'}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>Your share:</Text>
-                <Text style={{ fontSize: 13, color: '#0066cc', fontWeight: '700' }}>{item.currency.code} {userShare.toFixed(2)}</Text>
-              </View>
+              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>Your share:</Text>
+              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>{item.currency.code} {userShare.toFixed(2)}</Text>
             </View>
           </View>
 
@@ -446,7 +440,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         <Text style={styles.emptySubtext}>Add your first expense to get started</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('EditExpense', { groupId, groupName, groupCurrencyCode: params.groupCurrencyCode, currency: group?.currency })}
+          onPress={() => navigation.navigate('EditExpense', { groupId, groupName, groupCurrencyCode: params.groupCurrencyCode })}
           testID="empty-state-add-button"
           accessible={true}
           accessibilityLabel="Add your first expense"
@@ -505,11 +499,11 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       </View>
 
       {expenses.length > 0 && (
-        <SummaryCard
-          total={total}
-          personal={personal}
-          balance={balance}
-          currencyCode={currencyPreference}
+        <TouchableOpacity
+          style={styles.summaryCard}
+          testID="summary-card"
+          accessible={true}
+          accessibilityLabel={`Total: ${currencyPreference} ${total.toFixed(2)}, Your share: ${currencyPreference} ${personal.toFixed(2)}, Balance: ${balance > 0 ? 'owed' : 'owe'} ${currencyPreference} ${Math.abs(balance).toFixed(2)}`}
           onPress={() => {
             console.log('📤 Navigating to Settlement with:', {
               groupId,
@@ -528,7 +522,35 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
               expenses 
             });
           }}
-        />
+          activeOpacity={0.7}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>Total</Text>
+              <Text style={styles.summaryAmount}>
+                {currencyPreference} {total.toFixed(2)}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>My Personal</Text>
+              <Text style={styles.summaryAmount}>
+                {currencyPreference} {personal.toFixed(2)}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>Balance</Text>
+              <Text style={[styles.summaryAmount, { color: balance >= 0 ? '#28a745' : '#dc3545' }]}>
+                {balance >= 0 ? 'Owed' : 'Owe'} {currencyPreference} {Math.abs(balance).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e0e0e0' }}>
+            <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '500', textAlign: 'center' }}>
+              Tap to see settlement breakdown →
+            </Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       <FlatList
