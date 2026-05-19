@@ -43,3 +43,22 @@ yarn-error.*
 # Development rules (not for git)
 .cursorrules
 
+# Ephemeral docs - never commit (see WORKFLOW.md > CORE PRINCIPLE)
+# Review documents
+*_REVIEW*.md
+*_CODE_REVIEW*.md
+
+# Checkpoint & session files
+*_CHECKPOINT*.md
+*_SESSION*.md
+SESSION_*.md
+
+# Planning documents
+*_PLAN*.md
+*_ROADMAP*.md
+*_PROPOSAL*.md
+
+# Test reports and output
+TEST_RESULTS*.md
+TEST_OUTPUT*.md
+
