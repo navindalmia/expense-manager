@@ -43,6 +43,15 @@ yarn-error.*
 # Development rules (not for git)
 .cursorrules
 
+# ============================================================================
+# MARKDOWN FILE RULES (See WORKFLOW.md > CORE PRINCIPLE)
+# ============================================================================
+# ALLOWED IN REPO: Configuration, project state, onboarding (.instructions.md, WORKFLOW.md, PROJECT_MEMORY/*, etc.)
+# NEVER COMMIT: Ephemeral work (reviews, checkpoints, plans, session notes)
+# Reason: Once decisions are made, code is truth. Ephemeral files clutter history.
+# Exceptions handled by .gitignore patterns below:
+# ============================================================================
+
 # Ephemeral docs - never commit (see WORKFLOW.md > CORE PRINCIPLE)
 # Review documents
 *_REVIEW*.md

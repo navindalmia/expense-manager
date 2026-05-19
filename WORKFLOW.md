@@ -8,18 +8,24 @@
 
 ## 🎯 CORE PRINCIPLE: Only Commit After Action Taken
 
-**What gets committed to git:**
+**What gets committed to git (ALLOWED):**
 - ✅ Code + tests (all phases passed)
 - ✅ Configuration system (.instructions.md, .agent.md, AGENTS.md, WORKFLOW.md, .cursorrules)
 - ✅ Source files (backend/src, frontend/src)
+- ✅ Project tracking (PROJECT_MEMORY/01-MASTER_STATE.md, other context files)
+- ✅ Onboarding docs (START_HERE.md, ARCHITECTURE.md)
 
-**What stays LOCAL (never committed):**
+**What stays LOCAL (never committed - .gitignore enforced):**
 - ❌ Review documents (`*_REVIEW*.md`, `*_CODE_REVIEW*.md`)
 - ❌ Checkpoint files (`*_CHECKPOINT*.md`, `*_SESSION*.md`)
-- ❌ Planning documents (`*_PLAN*.md`, `*_ROADMAP*.md`)
-- ❌ Test output reports
+- ❌ Planning documents (`*_PLAN*.md`, `*_ROADMAP*.md`, `*_PROPOSAL*.md`)
+- ❌ Test output reports (`TEST_RESULTS*.md`, `TEST_OUTPUT*.md`)
+- ❌ Session notes (use `/memories/session/` in user's home directory instead)
 
-**Why:** Review/plan/checkpoint files document the decision-making process. Once decisions are made and actions taken, the code becomes the source of truth. These ephemeral files clutter git history.
+**Principle:**
+- **Repo MD files** = System configuration & project state (permanent reference)
+- **Local MD files** = Work-in-progress (ephemeral decision documents, session notes)
+- Once decisions are made and actions taken, the code becomes the source of truth
 
 ---
 
@@ -177,3 +183,16 @@ Example:
 - **Reviewer:** Executes Phase 2, approves or rejects
 - **Tester:** Only starts Phase 3 if Phase 2 ✅ approved
 - **Committer:** Only commits after Phase 3 ✅ passes
+
+---
+
+## 📝 PROGRESS TRACKING (Every 10 Minutes)
+
+**See: [.agent.md](./.agent.md) → PROGRESS TRACKING & LEARNING** for detailed rules.
+
+**Quick reminder:**
+- Every 10 minutes: Update `/memories/session/[task].md` (learning, bugs, blockers)
+- Every feature: Update `PROJECT_MEMORY/01-MASTER_STATE.md` (project progress)
+- Session end: Extract insights to `/memories/user/` (persistent learning)
+
+**Why?** Prevent context loss during crashes. Previous sessions taught us the cost of not tracking progress.

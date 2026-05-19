@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   generateVerificationToken,
   createVerificationToken,
@@ -9,39 +8,39 @@ import prisma from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 
 // Mock prisma
-vi.mock('../../lib/prisma', () => ({
+jest.mock('../../lib/prisma', () => ({
   default: {
     emailVerificationToken: {
-      create: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      deleteMany: vi.fn(),
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
     },
     user: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
-    $transaction: vi.fn(),
+    $transaction: jest.fn(),
   },
 }));
 
 // Mock nodemailer
-vi.mock('nodemailer', () => ({
+jest.mock('nodemailer', () => ({
   default: {
-    createTransport: vi.fn(() => ({
-      sendMail: vi.fn().mockResolvedValue({ messageId: 'test@example.com' }),
+    createTransport: jest.fn(() => ({
+      sendMail: jest.fn().mockResolvedValue({ messageId: 'test@example.com' }),
     })),
-    createTestAccount: vi.fn().mockResolvedValue({
+    createTestAccount: jest.fn().mockResolvedValue({
       user: 'test@ethereal.email',
       pass: 'password123',
     }),
-    getTestMessageUrl: vi.fn((info) => `https://preview-url/${info.messageId}`),
+    getTestMessageUrl: jest.fn((info) => `https://preview-url/${info.messageId}`),
   },
 }));
 
 describe('Email Verification Service - Backend', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('generateVerificationToken', () => {
