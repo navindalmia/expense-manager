@@ -6,6 +6,7 @@ import groupRoutes from "./routes/groupRoutes";
 import authRoutes from "./routes/authRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import currencyRoutes from "./routes/currencyRoutes";
+import internalRoutes from "./routes/internalRoutes"; // Internal/test endpoints
 import { errorHandler } from "./middlewares/errorHandler"; 
 import { i18nMiddleware } from "./middlewares/i18nMiddleware";
 import "./types/express"; // Import JWT type extensions
@@ -23,6 +24,11 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/currencies", currencyRoutes);
+
+// Internal/Test routes (only in development mode)
+if (process.env.NODE_ENV !== 'production') {
+  app.use("/api/internal", internalRoutes);
+}
 
 // Health check
 app.get("/", (req, res) => res.send("Expense Manager API running "));

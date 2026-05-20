@@ -1,0 +1,62 @@
+---
+# TC6: After email verification, user can login
+appId: com.expensemanager.dev
+name: TC6 - Login Succeeds After Verification
+
+commands:
+  - launchApp
+
+  # Generate unique test email
+  - setVariable:
+      testEmail: "e2e-verified-${timestamp}@example.com"
+      testPassword: "TestPass123!"
+
+  # Create user
+  - runFlow: SignupFlow
+    params:
+      email: ${testEmail}
+      password: ${testPassword}
+      name: "Test User"
+
+  # Get verification token
+  - runFlow: GetVerificationToken
+    params:
+      email: ${testEmail}
+
+  # Verify email via deep link with REAL token
+  - openLink:
+      url: "expensemanager://verify-email/${verificationToken}"
+
+  - wait: 1000
+  - assertVisible:
+      text: "Verifying email"
+
+  - wait: 3000
+
+  # Success screen should appear
+  - assertVisible:
+      text: "Email verified successfully"
+      timeout: 5000
+
+  - waitForAnimationToEnd
+
+  # DATABASE: Confirm user is verified
+  - runFlow: VerifyEmailState
+    params:
+      email: ${testEmail}
+      expectedEmailVerified: true
+      expectedTokenIsUsed: true
+
+  # Now login should succeed
+  - runFlow: LoginFlow
+    params:
+      email: ${testEmail}
+      password: ${testPassword}
+
+  - waitForAnimationToEnd
+
+  # Verify: Logged in (should see home screen or dashboard)
+  - assertVisible:
+      id: home-screen
+      timeout: 5000
+      description: "User should be logged in and see home screen"

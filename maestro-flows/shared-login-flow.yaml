@@ -1,0 +1,31 @@
+---
+# SHARED FLOW: User Login
+# Used by: TC5, TC6
+appId: com.expensemanager.dev
+name: LoginFlow
+
+params:
+  - email
+  - password
+
+commands:
+  # Navigate to login screen
+  - tapOn:
+      text: "Already have account?"
+
+  - waitForAnimationToEnd
+
+  # Fill login form
+  - tapOn:
+      id: email-input
+  - inputText: ${email}
+
+  - tapOn:
+      id: password-input
+  - inputText: ${password}
+
+  # Submit login
+  - tapOn:
+      text: Login
+
+  - waitForAnimationToEnd

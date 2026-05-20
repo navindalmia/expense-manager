@@ -1,0 +1,41 @@
+---
+# SHARED FLOW: User Signup
+# Used by: TC1, TC2, TC5, TC6, TC7
+appId: com.expensemanager.dev
+name: SignupFlow
+
+params:
+  - email
+  - password
+  - name
+
+commands:
+  # Navigate to signup
+  - tapOn:
+      text: "Don't have account?"
+
+  - waitForAnimationToEnd
+
+  # Fill signup form
+  - tapOn:
+      id: email-input
+  - inputText: ${email}
+
+  - tapOn:
+      id: password-input
+  - inputText: ${password}
+
+  - tapOn:
+      id: name-input
+  - inputText: ${name}
+
+  # Submit signup
+  - tapOn:
+      text: Sign Up
+
+  - waitForAnimationToEnd
+
+  # Wait for CheckEmailScreen to appear
+  - assertVisible:
+      text: "Check your email"
+      timeout: 5000

@@ -1,0 +1,50 @@
+---
+# TC4: Email verification with valid (real) token shows success
+appId: com.expensemanager.dev
+name: TC4 - Email Verification Success with Real Token
+
+commands:
+  - launchApp
+
+  # Generate unique test email
+  - setVariable:
+      testEmail: "e2e-verify-${timestamp}@example.com"
+
+  # Create user
+  - runFlow: SignupFlow
+    params:
+      email: ${testEmail}
+      password: "TestPass123!"
+      name: "Test User"
+
+  # Get real token from database
+  - runFlow: GetVerificationToken
+    params:
+      email: ${testEmail}
+
+  # Open deep link with real token
+  - openLink:
+      url: "expensemanager://verify-email/${verificationToken}"
+
+  - wait: 1000
+
+  # Verify: During verification
+  - assertVisible:
+      text: "Verifying email"
+      timeout: 5000
+
+  # Wait for verification to complete
+  - wait: 3000
+
+  # Verify: Success screen appears
+  - assertVisible:
+      text: "Email verified successfully"
+      timeout: 5000
+      description: "Success screen should appear after token verified"
+
+  # DATABASE VERIFICATION: User should now be verified
+  - runFlow: VerifyEmailState
+    params:
+      email: ${testEmail}
+      expectedEmailVerified: true
+      expectedTokenIsUsed: true

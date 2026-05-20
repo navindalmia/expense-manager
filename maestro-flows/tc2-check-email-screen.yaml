@@ -1,0 +1,42 @@
+---
+# TC2: CheckEmailScreen displays email and resend button
+appId: com.expensemanager.dev
+name: TC2 - CheckEmailScreen UI Elements
+
+commands:
+  - launchApp
+
+  # Generate unique test email
+  - setVariable:
+      testEmail: "e2e-check-${timestamp}@example.com"
+
+  # Signup
+  - runFlow: SignupFlow
+    params:
+      email: ${testEmail}
+      password: "TestPass123!"
+      name: "Test User"
+
+  # Verify email is displayed
+  - assertVisible:
+      text: ${testEmail}
+      description: "Email should be shown on CheckEmailScreen"
+
+  # Verify resend button
+  - assertVisible:
+      text: "Resend"
+      id: resend-button
+      description: "Resend button should be clickable"
+
+  # Verify helper text
+  - assertVisible:
+      text: "check your email"
+      isRegex: true
+      description: "Helper text should explain what to do"
+
+  # DATABASE: Verify user created and unverified
+  - runFlow: VerifyEmailState
+    params:
+      email: ${testEmail}
+      expectedEmailVerified: false
+      expectedTokenIsUsed: false

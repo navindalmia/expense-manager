@@ -1,0 +1,26 @@
+---
+# SHARED FLOW: Get Verification Token from Database
+# Fetches real token from backend internal API
+appId: com.expensemanager.dev
+name: GetVerificationToken
+
+params:
+  - email
+
+commands:
+  # Call backend API to get active token for user
+  - callAPI:
+      method: POST
+      url: "http://localhost:4000/api/internal/get-token"
+      body:
+        email: ${email}
+      variable: tokenResponse
+
+  # Extract token from response
+  - setVariable:
+      verificationToken: ${tokenResponse.token}
+
+  # Verify token exists (should not be null)
+  - assertNotEmpty:
+      value: ${verificationToken}
+      description: "Verification token should exist for user ${email}"

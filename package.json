@@ -1,0 +1,19 @@
+{
+  "name": "expense-manager",
+  "version": "0.4.0",
+  "description": "Expense management application with Expo frontend and Express backend",
+  "scripts": {
+    "start": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "backend:dev": "cd backend && npm run dev",
+    "frontend:dev": "cd frontend && npm start",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test -- --run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "concurrently": "^8.2.0"
+  }
+}

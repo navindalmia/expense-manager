@@ -1,0 +1,33 @@
+---
+# TC1: Signup creates unverified user and shows CheckEmailScreen
+appId: com.expensemanager.dev
+name: TC1 - Signup Creates Unverified User
+
+commands:
+  - launchApp
+
+  # Generate unique test email with timestamp
+  - setVariable:
+      testEmail: "e2e-test-${timestamp}@example.com"
+
+  # Run signup flow with dynamic email
+  - runFlow: SignupFlow
+    params:
+      email: ${testEmail}
+      password: "TestPass123!"
+      name: "Test User"
+
+  # Verify: CheckEmailScreen shows the email
+  - assertVisible:
+      text: ${testEmail}
+
+  # Verify: Resend button visible
+  - assertVisible:
+      text: "Resend"
+
+  # DATABASE VERIFICATION: User should be unverified
+  - runFlow: VerifyEmailState
+    params:
+      email: ${testEmail}
+      expectedEmailVerified: false
+      expectedTokenIsUsed: false

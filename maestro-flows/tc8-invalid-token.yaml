@@ -1,0 +1,46 @@
+---
+# TC8: Invalid/expired token shows error
+appId: com.expensemanager.dev
+name: TC8 - Invalid Token Error Handling
+
+commands:
+  - launchApp
+
+  # Generate unique test email
+  - setVariable:
+      testEmail: "e2e-invalid-${timestamp}@example.com"
+
+  # Create user first
+  - runFlow: SignupFlow
+    params:
+      email: ${testEmail}
+      password: "TestPass123!"
+      name: "Test User"
+
+  # Try to verify with INVALID token
+  - openLink:
+      url: "expensemanager://verify-email/vrf_definitely_not_a_real_token_xyz"
+
+  - waitForAnimationToEnd
+  - wait: 2000
+
+  # Verify: Error message shown
+  - assertVisible:
+      text: "Invalid or expired"
+      isRegex: true
+      timeout: 5000
+      description: "Invalid token should show error, not crash"
+
+  # Verify: Can go back or retry
+  - assertVisible:
+      text: "Back"
+      id: back-button
+      description: "User should be able to navigate back"
+
+  # DATABASE: User should STILL be unverified
+  - runFlow: VerifyEmailState
+    params:
+      email: ${testEmail}
+      expectedEmailVerified: false
+      expectedTokenIsUsed: false
+      description: "Invalid token should not mark user as verified"

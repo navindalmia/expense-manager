@@ -1,0 +1,57 @@
+---
+# TC7: Resend verification email
+appId: com.expensemanager.dev
+name: TC7 - Resend Verification Email
+
+commands:
+  - launchApp
+
+  # Generate unique test email
+  - setVariable:
+      testEmail: "e2e-resend-${timestamp}@example.com"
+
+  # Create user
+  - runFlow: SignupFlow
+    params:
+      email: ${testEmail}
+      password: "TestPass123!"
+      name: "Test User"
+
+  # On CheckEmailScreen
+  - assertVisible:
+      text: "Resend"
+
+  # Record initial token count
+  - callAPI:
+      method: POST
+      url: "http://localhost:4000/api/internal/verify-user"
+      body:
+        email: ${testEmail}
+      variable: userStateBefore
+
+  # Click resend
+  - tapOn:
+      text: "Resend"
+
+  - waitForAnimationToEnd
+
+  # Verify: Success message shown
+  - assertVisible:
+      text: "sent"
+      isRegex: true
+      description: "Confirmation that resend was successful"
+
+  - wait: 2000
+
+  # DATABASE: Verify new token was created
+  - callAPI:
+      method: POST
+      url: "http://localhost:4000/api/internal/verify-user"
+      body:
+        email: ${testEmail}
+      variable: userStateAfter
+
+  # Token count should increase (new token created)
+  - assert:
+      condition: "${userStateAfter.activeTokenCount} > 0"
+      description: "New token should be available after resend"

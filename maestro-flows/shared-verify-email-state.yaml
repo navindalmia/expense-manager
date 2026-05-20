@@ -1,0 +1,31 @@
+---
+# SHARED FLOW: Verify Email State in Database
+# After UI action, verify backend state
+appId: com.expensemanager.dev
+name: VerifyEmailState
+
+params:
+  - email
+  - expectedEmailVerified
+  - expectedTokenIsUsed
+
+commands:
+  # Call backend API to get email verification state
+  - callAPI:
+      method: POST
+      url: "http://localhost:4000/api/internal/verify-user"
+      body:
+        email: ${email}
+      variable: userState
+
+  # Verify email verification flag
+  - assert:
+      condition: "${userState.emailVerified} == ${expectedEmailVerified}"
+      description: "User ${email} emailVerified should be ${expectedEmailVerified}"
+
+  # Verify token status if applicable
+  - if: ${expectedTokenIsUsed}
+      commands:
+        - assert:
+            condition: "${userState.activeTokenCount} == 0"
+            description: "User should have no active tokens after verification"

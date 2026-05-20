@@ -274,6 +274,170 @@ Create database schema, API endpoints, component structure"
 
 ---
 
+## 5. UI TESTING AGENT
+**Role:** Automated browser/UI testing via Playwright  
+**Trigger:** When frontend feature is ready for E2E validation  
+**Responsibilities:**
+- Open frontend on browser (http://localhost:8081)
+- Test deep linking: `expensemanager://verify-email/<token>`
+- Simulate user flows (click, type, navigate)
+- Verify screen states and transitions
+- Test error scenarios and edge cases
+- Capture screenshots/visual evidence
+- Document test results with evidence
+
+**Test Flow (Email Verification):**
+```
+1. Navigate to signup screen
+2. Fill signup form (email, password, name)
+3. Submit signup
+4. Verify "Check Email" screen displayed
+5. Simulate deep link click: expensemanager://verify-email/<token>
+6. Verify "Email Verified" success screen
+7. Redirect to login
+8. Login with verified email
+9. Verify login success → home screen
+```
+
+**Error Scenarios:**
+- Invalid token (malformed)
+- Expired token (>24h)
+- Already-used token
+- Non-existent email
+
+**Tools Available:**
+- Browser control (open, click, type, navigate)
+- Screenshot capture
+- Element inspection
+- Network monitoring
+
+**Output Format:**
+```
+# UI Test Results - Email Verification
+
+## Happy Path
+- ✅ Signup screen loads
+- ✅ Email submitted
+- ✅ Check Email screen displays
+- ✅ Deep link click triggers verification
+- ✅ Success screen shows
+- ✅ Login with verified email works
+
+## Error Scenarios
+- ✅ Invalid token shows error
+- ✅ Expired token shows error
+- ✅ Already-used token shows error
+
+## Screenshots
+- [signup.png]
+- [check-email.png]
+- [success.png]
+
+## VERDICT: ✅ ALL TESTS PASS
+```
+
+---
+
+## 6. DATABASE VERIFICATION AGENT
+**Role:** Validate data persistence and consistency via database queries  
+**Trigger:** Runs in parallel with UI Testing Agent  
+**Responsibilities:**
+- Query database to verify data saved correctly
+- Check EmailVerificationToken table entries
+- Validate User table state changes
+- Verify token expiry calculations
+- Check single-use token enforcement
+- Cross-validate UI state against DB state
+- Identify data inconsistencies
+
+**Verification Checklist:**
+```
+For each test scenario:
+1. Query EmailVerificationToken table
+   - Token format: vrf_[hex]
+   - Expiry: 24 hours from creation
+   - Used flag: correct state
+   - UserId: matches account
+
+2. Query User table
+   - emailVerified: boolean state correct
+   - emailVerifiedAt: timestamp set/null correctly
+   - Email matches input
+
+3. Cross-check UI ↔ DB
+   - UI shows success → DB shows emailVerified=true
+   - UI shows error → DB unchanged
+   - Token listed once → DB has 1 record
+```
+
+**Tools Available:**
+- MCP Database Server (direct SQL queries)
+- Prisma schema inspection
+- PostgreSQL connection
+
+**Output Format:**
+```
+# Database Verification Results
+
+## Token Table Integrity
+- ✅ Token format correct (vrf_ prefix)
+- ✅ 24-hour expiry calculated correctly
+- ✅ Single-use enforcement working
+- ✅ No orphaned records
+
+## User Table State
+- ✅ emailVerified=true after successful verify
+- ✅ emailVerifiedAt timestamp set correctly
+- ✅ No premature transitions
+
+## UI ↔ DB Consistency
+- ✅ Success screen matches DB state
+- ✅ Error messages don't corrupt data
+- ✅ All tokens trackable in DB
+
+## Data Quality
+- ✅ No missing records
+- ✅ No stale tokens
+- ✅ All relationships valid
+
+## VERDICT: ✅ DATA INTEGRITY VERIFIED
+```
+
+---
+
+## 🔄 PARALLEL AGENT EXECUTION
+
+**New capability:** Agents can run in parallel on independent responsibilities
+
+**Example - Email Verification Testing:**
+```
+Main: "Test email verification end-to-end"
+  ├─ UI Testing Agent (parallel)
+  │  └─ Test all user flows, screens, errors
+  │
+  └─ DB Verification Agent (parallel)
+     └─ Verify data persistence, consistency
+     
+Both agents run simultaneously:
+- UI Agent: Navigates screens, captures evidence
+- DB Agent: Queries database, validates state
+- Main agent: Waits for both results
+
+Final Report:
+- UI: ✅ ALL TESTS PASS
+- DB: ✅ DATA INTEGRITY VERIFIED
+- OVERALL: ✅ FEATURE READY FOR DEPLOYMENT
+```
+
+**Benefits:**
+- ✅ No idle time (agents work in parallel)
+- ✅ Independent verification (UI + DB)
+- ✅ Faster complete testing cycle
+- ✅ Early detection of data vs UI mismatches
+- ✅ Cross-validation catches edge cases
+
+---
+
 ## 🔐 AGENT RESTRICTIONS & GUARDRAILS
 
 **Each agent must:**

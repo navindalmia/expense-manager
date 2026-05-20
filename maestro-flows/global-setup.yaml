@@ -1,0 +1,15 @@
+---
+# Global Setup: Cleanup test data
+appId: com.expensemanager.dev
+name: GlobalSetup
+
+commands:
+  - launchApp
+
+  # Clear all test users from database (via internal API)
+  - callAPI:
+      method: DELETE
+      url: "http://localhost:4000/api/internal/clear-all-test-users"
+      description: "Clean database of previous test runs"
+
+  - wait: 1000

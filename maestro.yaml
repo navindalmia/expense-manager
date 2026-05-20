@@ -1,0 +1,15 @@
+appId: com.expensemanager.dev
+workspacePath: .
+flows:
+  - SignupCreateUserFlow
+  - CheckEmailScreenDisplaysFlow
+  - DeepLinkVerificationFlow
+  - VerifyEmailSuccessFlow
+  - LoginBlockedUnverifiedFlow
+  - VerifyEmailThenLoginFlow
+  - ResendVerificationEmailFlow
+  - InvalidTokenErrorFlow
+
+# Test configuration
+testTimeout: 60000
+waitForAnimationTimeout: 2000
