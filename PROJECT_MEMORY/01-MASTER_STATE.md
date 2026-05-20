@@ -209,7 +209,68 @@ maestro test maestro.yaml --debug
 - prisma/schema.prisma (EmailVerificationToken model)
 - prisma/migrations/... (email verification migration)
 
-**Next Action:** COMMIT
+**Next Action:** COMMIT ✅ **COMMITTED - Commit `7507f89` (May 20)**
+
+---
+
+## 📋 NEXT SESSION TODO (May 21+)
+
+### Your Options - Pick One:
+
+**Option A: Debug Android Emulator** (if mobile E2E testing critical)
+- Status: Emulator boots but won't connect to ADB
+- Goal: Get `adb devices` to show connected device
+- Commands:
+  ```bash
+  # Check virtualization is enabled
+  wsl --status
+  
+  # Try with KVM enabled
+  emulator @Medium_Phone_API_36.1 -qemu -enable-kvm
+  ```
+
+**Option B: Run Maestro Tests** (when simulator is available)
+- Framework 100% ready (8 test flows + MCP database server)
+- Prerequisites: Start backend + frontend first
+  ```bash
+  # Terminal 1: Backend
+  cd backend && npm start
+  
+  # Terminal 2: Frontend (Expo)
+  cd frontend && npm start
+  
+  # Terminal 3: Run Maestro
+  npx maestro test maestro.yaml --headless
+  ```
+
+**Option C: Start Next Feature** (move forward)
+- Email verification complete and committed ✅
+- Next candidates:
+  1. Settlement screen refinement (started, needs rent expense debug)
+  2. Deep linking improvements (pre-deeplink screens for unauthenticated users)
+  3. Groups feature enhancement (permissions, member management)
+  4. Mobile-specific UX polish (dark mode, animations, responsive design)
+
+### Quick Reference Commands
+```bash
+# Run unit tests
+npm test
+
+# TypeScript strict mode check
+npx tsc --noEmit
+
+# MCP database server (for manual queries)
+cd mcp-database-server && npm install && node server.js
+
+# See available Maestro flows
+ls maestro-flows/
+```
+
+### Important Reminders
+- ✅ Email verification feature COMPLETE and in git
+- ❌ Don't re-implement email verification
+- ❌ Don't skip code review before commits (use Reviewer Agent)
+- ❌ Don't commit without tests passing (Phase 3 prerequisite)
 
 ---
 
