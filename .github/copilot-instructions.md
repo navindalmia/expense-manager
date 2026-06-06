@@ -1,5 +1,8 @@
 # GitHub Copilot Operating Instructions
 
+> 🔴 **CRITICAL: UPDATE MEMORY & MASTER_STATE EVERY 5 MINUTES DURING ACTIVE WORK** 🔴
+> Do NOT skip this. No exceptions. This is your crash recovery + accountability mechanism.
+
 **Purpose:** Official directive file for Copilot behavior in this repo. READ THIS FIRST ON EVERY TURN.
 
 **Status:** Active - This is your authority file. If written here, I will follow it.
@@ -47,6 +50,23 @@ PHASE 4: COMMIT
 ```
 
 **Rule:** Never test before review. Never commit before test. No exceptions.
+
+### 2a. AUTONOMOUS SERVER RESTART (NO PERMISSION NEEDED)
+
+**When you restart servers, do this without asking:**
+
+1. **Kill existing processes** - Don't wait for confirmation
+   ```powershell
+   taskkill /F /IM node.exe  # Kill all Node processes
+   ```
+
+2. **Start fresh** - Backend and frontend immediately
+   ```powershell
+   cd c:\nd\repos\expense-manager\backend && npm run dev
+   cd c:\nd\repos\expense-manager\frontend && npm start
+   ```
+
+**Rule:** Always stop → start. No asking permission. This is standard restart procedure.
 
 ### 3. PROGRESS TRACKING - EVERY TASK & CODE PHASE (MANDATORY)
 

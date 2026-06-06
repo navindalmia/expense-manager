@@ -38,13 +38,16 @@ export async function verifyEmailToken(token: string): Promise<VerifyEmailRespon
 /**
  * Request new verification email
  * @param email User email address
+ * @param password Optional password (used by LoginScreen for extra security)
  * @returns Generic success response (for security)
  */
 export async function resendVerificationEmail(
-  email: string
+  email: string,
+  password?: string
 ): Promise<ResendVerificationResponse> {
   const response = await http.post<ResendVerificationResponse>('/auth/resend-verification', {
     email,
+    ...(password && { password }),
   });
   return response.data;
 }

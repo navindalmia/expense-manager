@@ -100,6 +100,8 @@ export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 
 /**
  * Schema for resending verification email
+ * Password is optional - if provided, validates it for extra security
+ * Used by LoginScreen (with password) and CheckEmailScreen (email only)
  */
 export const resendVerificationSchema = z.object({
   email: z
@@ -107,6 +109,9 @@ export const resendVerificationSchema = z.object({
     .min(1, 'Email is required')
     .email('Invalid email format')
     .toLowerCase(),
+  password: z
+    .string()
+    .optional(),
 });
 
 export type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;

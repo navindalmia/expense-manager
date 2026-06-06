@@ -7,7 +7,7 @@
  * - Navigate between login and signup modes
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import type { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import { resendVerificationEmail } from '../services/emailVerificationService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -124,6 +125,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
   },
+  resendButton: {
+    backgroundColor: '#ff9800',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  resendButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 
 export default function LoginScreen({ navigation }: Props) {
@@ -136,6 +149,13 @@ export default function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
+  // Detect if current error is EMAIL_NOT_VERIFIED
+  const isEmailNotVerified = useMemo(() => {
+    return error && error.includes('verify your email');
+  }, [error]);
 
   /**
    * Validate form inputs
@@ -247,6 +267,52 @@ export default function LoginScreen({ navigation }: Props) {
     }
   }, [email, password, name, signup, validateForm, clearError, navigation]);
 
+  /**
+   * Handle resend verification email
+   * Called when user clicks resend button on login screen
+   */
+  const handleResendVerification = useCallback(async () => {
+    if (!email.trim()) {
+      Alert.alert('Error', 'Email is required');
+      return;
+    }
+
+    if (!password.trim()) {
+      Alert.alert('Error', 'Password is required');
+      return;
+    }
+
+    try {
+      setIsResending(true);
+      setResendSuccess(false);
+      
+      await resendVerificationEmail(email.trim(), password);
+      
+      setResendSuccess(true);
+      logger.info('Verification email resent', { email });
+      
+      // Show success message and reset after 3 seconds
+      Alert.alert(
+        'Email Sent',
+        'A new verification email has been sent to your inbox. Please check your email.',
+        [
+          {
+            text: 'OK',
+            onPress: () => setResendSuccess(false),
+          },
+        ]
+      );
+    } catch (err) {
+      logger.error('Failed to resend verification email', err);
+      Alert.alert(
+        'Error',
+        'Failed to resend verification email. Please try again.'
+      );
+    } finally {
+      setIsResending(false);
+    }
+  }, [email, password]);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -265,6 +331,23 @@ export default function LoginScreen({ navigation }: Props) {
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
+          
+          {/* Resend Verification Email Button */}
+          {isEmailNotVerified && !isSignupMode && (
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={handleResendVerification}
+              disabled={isResending}
+            >
+              {isResending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.resendButtonText}>
+                  📧 Resend Verification Email
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

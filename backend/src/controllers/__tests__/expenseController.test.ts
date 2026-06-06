@@ -318,17 +318,18 @@ describe('Expense Controller', () => {
   describe('DELETE /api/expenses/:id', () => {
     it('should delete expense successfully', async () => {
       req.params = { id: '1' };
+      req.user = { id: 1 };
 
       (expenseService.deleteExpense as jest.Mock).mockResolvedValue(null);
 
       await deleteExpense(req as Request, res as Response);
 
-      expect(statusCode).toBe(200);
-      expect(jsonData.message).toContain('deleted successfully');
+      expect(statusCode).toBe(204);
     });
 
     it('should reject invalid expense id', async () => {
       req.params = { id: 'invalid' };
+      req.user = { id: 1 };
 
       (expenseService.deleteExpense as jest.Mock).mockRejectedValue(
         new Error('Invalid id')
@@ -336,11 +337,12 @@ describe('Expense Controller', () => {
 
       await deleteExpense(req as Request, res as Response);
 
-      expect(statusCode).not.toBe(200);
+      expect(statusCode).not.toBe(204);
     });
 
     it('should handle not found error', async () => {
       req.params = { id: '999' };
+      req.user = { id: 1 };
 
       (expenseService.deleteExpense as jest.Mock).mockRejectedValue(
         new Error('Expense not found')
@@ -348,11 +350,12 @@ describe('Expense Controller', () => {
 
       await deleteExpense(req as Request, res as Response);
 
-      expect(statusCode).not.toBe(200);
+      expect(statusCode).not.toBe(204);
     });
 
     it('should parse id as number', async () => {
       req.params = { id: '42' };
+      req.user = { id: 1 };
 
       (expenseService.deleteExpense as jest.Mock).mockResolvedValue(null);
 

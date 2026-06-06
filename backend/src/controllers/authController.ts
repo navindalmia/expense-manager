@@ -414,17 +414,64 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
 /**
  * Resend verification email endpoint
  * POST /api/auth/resend-verification
- * Public: No authentication required (generic response)
+ * Public: No authentication required
  * 
- * Accepts: { email }
+ * Accepts: { email, password? }
  * Returns: { message } - Always success for security
+ * 
+ * Security Notes:
+ * - If password is provided (from LoginScreen), validates it first
+ * - If no password (from CheckEmailScreen), allows resend with generic response
+ * - Always returns generic success message to prevent email enumeration
  */
 export async function resendVerificationEmail(req: Request, res: Response): Promise<void> {
   try {
-    // Validate input with Zod
-    const { email } = validateResendVerification(req.body);
+    // Validate input with Zod (email required, password optional)
+    const { email, password } = validateResendVerification(req.body);
 
-    // Import verification service
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        password: true,
+        emailVerified: true,
+      },
+    });
+
+    // If user doesn't exist, fail silently (security)
+    if (!user || !user.password) {
+      // Generic response - don't reveal if email exists
+      res.status(200).json({
+        success: true,
+        message: 'If this email is registered, a verification link has been sent',
+      });
+      return;
+    }
+
+    // If password is provided, validate it (extra security layer)
+    if (password) {
+      const isPasswordValid = await comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        // Generic response - don't reveal if password is wrong
+        res.status(200).json({
+          success: true,
+          message: 'If this email is registered, a verification link has been sent',
+        });
+        return;
+      }
+    }
+
+    // If already verified, fail silently
+    if (user.emailVerified) {
+      res.status(200).json({
+        success: true,
+        message: 'If this email is registered, a verification link has been sent',
+      });
+      return;
+    }
+
+    // Proceed with resending
     const { resendVerificationEmail: resendService } = await import('../services/emailVerificationService');
     await resendService(email);
 

@@ -57,8 +57,8 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   try {
     let transporter;
 
-    // Production: Use configured email service (SendGrid, AWS SES, etc.)
-    if (process.env.NODE_ENV === 'production' && process.env.SENDGRID_API_KEY) {
+    // Use SendGrid if API key is configured (works in any environment)
+    if (process.env.SENDGRID_API_KEY) {
       const sgMail = require('@sendgrid/mail');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       
@@ -148,6 +148,12 @@ export async function sendVerificationEmail(email: string, token: string): Promi
     });
   } catch (error) {
     logger.error('Failed to send verification email', error, { email });
+    if (error instanceof Error && 'response' in error) {
+      const response = (error as any).response;
+      if (response?.body?.errors) {
+        logger.error('SendGrid error details', { errors: response.body.errors });
+      }
+    }
     throw new AppError('Failed to send verification email', 500, 'EMAIL_SEND_ERROR');
   }
 }

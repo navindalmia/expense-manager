@@ -29,11 +29,11 @@ export function normalizeApiError(err: unknown): ApiErrorPayload {
   if (err && typeof err === "object" && "isAxiosError" in err && (err as any).isAxiosError) {
     const axiosErr = err as any; // safe runtime cast
 
-    // Backend responded with JSON { error, code }
-    if (axiosErr.response?.data?.error) {
+    // Backend responded with JSON { message, error, code }
+    if (axiosErr.response?.data) {
       const errorPayload = {
-        message: axiosErr.response.data.error,
-        code: axiosErr.response.data.code || 'api_error',
+        message: axiosErr.response.data.message || axiosErr.response.data.error || 'An error occurred',
+        code: axiosErr.response.data.error || axiosErr.response.data.code || 'api_error',
         status: axiosErr.response.status,
         data: axiosErr.response.data, // Preserve full response including details array
       };
