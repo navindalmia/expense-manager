@@ -21,6 +21,7 @@ jest.mock('../lib/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
+      update: jest.fn(),
     },
     group: {
       create: jest.fn(),
@@ -35,5 +36,12 @@ jest.mock('../lib/prisma', () => ({
       findUnique: jest.fn(),
       delete: jest.fn(),
     },
+    emailVerificationToken: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
   },
 }));

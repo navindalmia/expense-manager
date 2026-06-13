@@ -7,23 +7,6 @@ import {
 import prisma from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 
-// Mock prisma
-jest.mock('../../lib/prisma', () => ({
-  default: {
-    emailVerificationToken: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    user: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    $transaction: jest.fn(),
-  },
-}));
-
 // Mock nodemailer
 jest.mock('nodemailer', () => ({
   default: {

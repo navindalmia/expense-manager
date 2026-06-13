@@ -3,13 +3,13 @@
  * 
  * Handles email verification token generation, storage, and verification
  * Secure single-use tokens with 24-hour expiry
+ * Production-grade: SendGrid only
  */
 
 import prisma from '../lib/prisma';
 import { randomBytes } from 'crypto';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
-import nodemailer from 'nodemailer';
 
 // Token expiry: 24 hours
 const TOKEN_EXPIRY_HOURS = 24;
@@ -50,102 +50,50 @@ export async function createVerificationToken(userId: number): Promise<string> {
 
 /**
  * Send verification email to user
+ * Production-grade: SendGrid only
  * @param email User email
  * @param token Verification token
  */
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
   try {
-    let transporter;
-
-    // Use SendGrid if API key is configured (works in any environment)
-    if (process.env.SENDGRID_API_KEY) {
-      const sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      
-      // Use deep link for mobile app: expensemanager://verify-email/<token>
-      const verificationLink = `expensemanager://verify-email/${token}`;
-      const webLink = `${process.env.APP_FRONTEND_URL || 'https://app.expensemanager.io'}/verify-email?token=${token}`;
-      
-      const msg = {
-        to: email,
-        from: process.env.SENDGRID_FROM_EMAIL || 'noreply@expensemanager.app',
-        subject: 'Verify Your Email - Expense Manager',
-        html: `
-          <h2>Verify Your Email</h2>
-          <p>Welcome to Expense Manager!</p>
-          <p>Click the button below to verify your email address:</p>
-          <p>
-            <a href="${verificationLink}" style="background-color: #0066cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-              Verify Email
-            </a>
-          </p>
-          <p>Or copy this link: <code>${verificationLink}</code></p>
-          <p>This link expires in 24 hours.</p>
-          <p>If you didn't create this account, you can safely ignore this email.</p>
-        `,
-      };
-      
-      await sgMail.send(msg);
-      logger.info('Verification email sent via SendGrid', { email });
-      return;
+    // Require SendGrid configuration
+    if (!process.env.SENDGRID_API_KEY) {
+      throw new AppError('Email service not configured', 500, 'EMAIL_SERVICE_ERROR');
     }
 
-    // Development/MVP: Use Ethereal (persistent account)
-    // Set testAccount.user and testAccount.pass as env vars
-    if (process.env.ETHEREAL_USER && process.env.ETHEREAL_PASS) {
-      transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.ETHEREAL_USER,
-          pass: process.env.ETHEREAL_PASS,
-        },
-      });
-    } else {
-      // Fallback: Create test account (for initial testing only)
-      logger.warn('ETHEREAL_USER/ETHEREAL_PASS not configured. Using temporary test account.');
-      const testAccount = await nodemailer.createTestAccount();
-      transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-    }
-
-    // For development: use deep link for Expo, with fallback to web URL
-    // Deep link format: expensemanager://verify-email/<token>
-    const deepLink = `expensemanager://verify-email/${token}`;
-    const webUrl = process.env.APP_FRONTEND_URL || 'http://localhost:8081';
-    const webLink = `${webUrl}/verify-email?token=${token}`;
-
-    const info = await transporter.sendMail({
-      from: 'noreply@expensemanager.app',
+    const sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    // Get configurable values with sensible defaults
+    const appScheme = process.env.APP_SCHEME || 'expensemanager://';
+    const appName = process.env.APP_NAME || 'Expense Manager';
+    const appFrontendUrl = process.env.APP_FRONTEND_URL || 'https://app.expensemanager.io';
+    
+    // Deep link for mobile app
+    const deepLink = `${appScheme}verify-email/${token}`;
+    // Web link fallback
+    const webLink = `${appFrontendUrl}/verify-email?token=${token}`;
+    
+    const msg = {
       to: email,
-      subject: 'Verify Your Email - Expense Manager',
+      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@expensemanager.app',
+      subject: `Verify Your Email - ${appName}`,
       html: `
         <h2>Verify Your Email</h2>
-        <p>Welcome to Expense Manager!</p>
+        <p>Welcome to ${appName}!</p>
         <p>Click the button below to verify your email address:</p>
         <p>
-          <a href="${deepLink}" style="background-color: #0066cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+          <a href="${webLink}" style="background-color: #0066cc; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
             Verify Email
           </a>
         </p>
-        <p>Or copy this link: <code>${deepLink}</code></p>
         <p>This link expires in 24 hours.</p>
         <p>If you didn't create this account, you can safely ignore this email.</p>
       `,
-    });
-
-    logger.info('Verification email sent', {
-      email,
-      preview: process.env.NODE_ENV === 'production' ? undefined : nodemailer.getTestMessageUrl(info),
-    });
+    };
+    
+    await sgMail.send(msg);
+    logger.info('Verification email sent via SendGrid', { email });
   } catch (error) {
     logger.error('Failed to send verification email', error, { email });
     if (error instanceof Error && 'response' in error) {

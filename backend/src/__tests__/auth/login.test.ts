@@ -15,9 +15,10 @@ import { Request, Response } from 'express';
 import { login } from '../../controllers/authController';
 import prisma from '../../lib/prisma';
 import * as jwt from '../../utils/jwtHelper';
+import * as passwordHelper from '../../utils/passwordHelper';
 
-jest.mock('../../lib/prisma');
 jest.mock('../../utils/jwtHelper');
+jest.mock('../../utils/passwordHelper');
 
 describe('Login Endpoint', () => {
   let mockReq: Partial<Request>;
@@ -38,6 +39,9 @@ describe('Login Endpoint', () => {
     mockRes = {
       status: statusMock,
     };
+
+    // Setup default mocks
+    (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(false);
   });
 
   // ========== VALID LOGIN ==========
@@ -59,11 +63,7 @@ describe('Login Endpoint', () => {
       failedLoginAttempts: 0,
     });
 
-    // Mock password comparison to return true
-    jest.mock('../../utils/passwordHelper', () => ({
-      comparePassword: jest.fn().mockResolvedValue(true),
-    }));
-
+    (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(true);
     (jwt.generateToken as jest.Mock).mockReturnValue('valid.jwt.token');
 
     await login(mockReq as Request, mockRes as Response);
