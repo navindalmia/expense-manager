@@ -1,16 +1,16 @@
 # 🎯 EXPENSE MANAGER - MASTER PROJECT STATE
 
-## 🎯 SESSION: June 10-13, 2026 - Email Verification & Mobile Configuration
+## 🎯 SESSION: June 21, 2026 - Deep Link Verification Fix
 
-**Status:** 🟡 PHASE 3 PAUSED - SERVERS STOPPED, READY FOR MANUAL TESTING + COMMIT
-**Last Updated:** June 13, 2026 (Session Suspended)
-**Current Step:** Awaiting manual mobile testing, then Phase 4 commit
+**Status:** 🟡 PHASE 3 IN PROGRESS - DEEP LINK ISSUE FIXED, READY FOR RETEST
+**Last Updated:** June 21, 2026 (Deep link navigation config fixed)
+**Current Step:** Fixed query parameter handling in deep links, ready for verification retest
 
 **PHASE PROGRESS:**
 - ✅ PHASE 1: Code written + TypeScript verified (June 10)
 - ✅ PHASE 2: APPROVED by independent Code Review Agent (June 10)
-- 🟡 PHASE 3: Manual testing (PAUSED - servers configured, awaiting manual test)
-- ⏳ PHASE 4: Commit (ready after Phase 3 manual test)
+- 🟡 PHASE 3: Manual testing (IN PROGRESS - deep link issue found and fixed)
+- ⏳ PHASE 4: Commit (ready after Phase 3 verification retest passes)
 
 **Key Changes Made (June 10-13):**
 
@@ -32,10 +32,30 @@
    - Pre-Release: Play Store internal testing track (future)
    - Production: Real domain (future)
 
-**Servers Status (June 13 - Suspended):**
-- Backend: Stopped (was on port 4000, 192.168.1.188)
-- Frontend: Stopped (was on port 8081, 192.168.1.188)
-- Ready to restart on next session for mobile testing
+**NEW - June 21 Session Changes:**
+
+4. **Deep Link Navigation Fix** ✅ FIXED
+   - Issue Found: Verification link wasn't extracting token from URL
+   - Root Cause: Navigation config expected path params (/:token) but email link used query params (?token)
+   - Solution: Updated [frontend/App.tsx](frontend/App.tsx) linking config
+     - Changed: `verify-email/:token` → `verify-email?token`
+     - Added: `'http://192.168.1.188:8081'` to linking prefixes
+   - Utilities Created:
+     - `backend/generate-test-token.js` - Generate real tokens for testing
+     - `backend/verify-user.js` - Query user verification status
+   - Status: Committed (7e8311b), ready for retest
+
+5. **Test Token Generated** ✅
+   - Token: `vrf_90ad68e3f7be4cbb8d13fc3b6261b8be9359d3118e0ffc79f55c012554c7f5ca`
+   - User: testtoken@example.com (ID 19)
+   - Expires: June 22, 2026 17:42:11 UTC
+   - Test Link: `http://192.168.1.188:8081/verify-email?token=vrf_90ad68e3f7be4cbb8d13fc3b6261b8be9359d3118e0ffc79f55c012554c7f5ca`
+
+**Servers Status (June 21 - Stopped after test):**
+- Backend: Stopped (ready to restart, port 4000)
+- Frontend: Stopped (ready to restart, port 8081)
+- Database: PostgreSQL (Docker) running
+- Ready to restart for verification retest
 
 **🟢 EMAIL VERIFICATION FEATURE STATUS:**
 - **SendGrid Integration:** ✅ FULLY WORKING
@@ -92,42 +112,47 @@
 - ✅ `PROJECT_MEMORY/01-MASTER_STATE.md` (session documentation)
 - ⏳ Session memory files (optional, typically not committed)
 
-**CRITICAL NEXT STEPS (ORDERED - For Next Session):**
+## CURRENT VERSION: v0.4.0-beta (Email Verification - Deep Link Fix Deployed)
+**Version Status:** Feature COMPLETE, deep link fix deployed, ready for verification retest
+**Latest Commit:** `7e8311b` (June 21) - Deep linking navigation config fixed for query params
+**Session Status:** June 21 - Deep link issue identified and fixed, servers stopped, ready for retest
 
-1. 🟡 **ITEM A (NEXT PRIORITY):** Manual Mobile Testing (Phase 3)
+**Files Modified in Latest Commit:**
+- ✅ `frontend/App.tsx` (deep linking config: query params instead of path params)
+- ✅ `backend/generate-test-token.js` (utility for generating test tokens)
+- ✅ `backend/verify-user.js` (utility for checking verification status)
+
+**CRITICAL NEXT STEPS (ORDERED):**
+
+1. 🟡 **ITEM A (NEXT PRIORITY - RETEST):** Verify Deep Link Fix Works
    - Restart servers: `npm run dev` (backend) + `npm start` (frontend)
-   - On mobile: Sign up with test email
-   - Verify email received with button link to `http://192.168.1.188:8081/verify-email?token=...`
-   - Click button and verify email verification works
-   - Login should succeed after verification
-   - Status: Ready to execute - servers configured for 192.168.1.188
+   - Use test token: `vrf_90ad68e3f7be4cbb8d13fc3b6261b8be9359d3118e0ffc79f55c012554c7f5ca`
+   - Test link: `http://192.168.1.188:8081/verify-email?token=vrf_90ad68e3f7be4cbb8d13fc3b6261b8be9359d3118e0ffc79f55c012554c7f5ca`
+   - Expected: 
+     - ✅ VerifyEmailScreen loads
+     - ✅ Shows "Verifying..."
+     - ✅ Success message appears
+     - ✅ Database: `emailVerified` = true, `isUsed` = true
+     - ✅ Auto-redirect to Login
+   - Verification: Run `node verify-user.js` to confirm DB state
+   - Status: Ready to execute immediately
 
-2. ✅ **ITEM B (COMPLETED):** Mobile Network Configuration
-   - Machine IP: 192.168.1.188 ✓
-   - Frontend URL: Updated ✓
-   - Servers tested and running ✓
+2. 🟡 **ITEM B (AFTER A PASSES):** Manual Mobile Testing (Phase 3)
+   - Full signup flow on Expo from phone
+   - Receive email with verification link
+   - Click link from email client
+   - Verify: Email verified, can login
+   - Status: Blocked until ITEM A passes
 
-3. 🟡 **ITEM C (OPTIONAL):** Email Subject Configurability
-   - Make subject configurable via `APP_EMAIL_VERIFY_SUBJECT` env var
-   - Current: Hardcoded "Verify Your Email - Expense Manager"
-   - Status: Not blocking, can implement after mobile test
+3. 🟡 **ITEM C (POST-TESTING):** Phase 4 Commit
+   - Only after Phase 3 manual test passes completely
+   - Commit message: "feat: Email verification end-to-end with deep linking support"
+   - Status: Ready once all testing complete
 
-4. 🟡 **ITEM D (POST-TESTING):** Phase 4 Commit
-   - Only after Phase 3 manual test passes
-   - Commit message: "feat: Email verification with mobile browser support and configurable app URLs"
-   - Include: emailVerificationService changes + env configuration updates
-
-5. 🔴 **ITEM E (KNOWN BLOCKER):** 48 Pre-existing Test Failures
-   - Not from this session
-   - Status: Known, documented, separate debugging session required
-   - Blocks final production release but not current feature commit
-
----
-
-## CURRENT VERSION: v0.4.0-beta (Email Verification - Feature Ready for Testing + Commit)
-**Version Status:** Feature COMPLETE, mobile configuration READY, 187/235 tests passing (48 pre-existing failures)
-**Latest Commit:** `7507f89` (June 10) - Email verification complete with SendGrid integration
-**Session Status:** June 13 - Suspended, servers stopped, ready for manual mobile testing on next session
+4. 🔴 **KNOWN:** 48 Pre-existing Test Failures
+   - Not from email verification feature
+   - Documented separately
+   - Blocks production but not feature deployment
 
 ---
 ## 🎯 NEXT SESSION - COMMIT CHECKLIST
