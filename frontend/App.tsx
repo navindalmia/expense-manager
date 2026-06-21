@@ -25,10 +25,10 @@ console.log("Frontend API Base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
  * Handles links like: expensemanager://verify-email?token=...
  */
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['expensemanager://', 'https://app.expensemanager.io', 'http://localhost:8081'],
+  prefixes: ['expensemanager://', 'https://app.expensemanager.io', 'http://localhost:8081', 'http://192.168.1.188:8081'],
   config: {
     screens: {
-      VerifyEmail: 'verify-email/:token',
+      VerifyEmail: 'verify-email?token',
       Login: 'login',
       Home: 'home',
       CheckEmail: 'check-email',
