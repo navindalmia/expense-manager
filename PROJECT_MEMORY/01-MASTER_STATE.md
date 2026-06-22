@@ -258,18 +258,12 @@ git push origin master
 
 **🟡 CONTEXT (Read When Working on Specific Features):**
 
-- **EditExpenseScreen Bugs?**
-  → [06-TESTING_CHECKPOINT.md](./06-TESTING_CHECKPOINT.md) (April 15, v0.3.1)
-  - 6 bugs fixed with details (PERCENTAGE, payer duplication, personal share, etc.)
-  - 8 mobile test cases with pass/fail checklist
-  - How to hard reload Expo Go
-
-- **Array Indexing Issues?**
-  → [07-CHECKPOINT_APR18_ARRAY_FIXES.md](./07-CHECKPOINT_APR18_ARRAY_FIXES.md) (April 18, v0.3.4)
+- **Array Indexing Issues (Split Logic)?**
+  → [07-SPLIT_ARRAY_ARCHITECTURE.md](./07-SPLIT_ARRAY_ARCHITECTURE.md) (April 18, **CRITICAL REFERENCE**)
   - **CRITICAL KNOWLEDGE:** Array format: `[payer_value, member1_value, member2_value, ...]`
   - NaN bug fix (wrong index offset)
   - Split members override on load (reinitialize effect guard)
-  - **DO NOT FORGET THIS** when editing split logic
+  - **MUST READ** before editing split calculation logic
 
 - **Testing Strategy?**
   → [04-TESTING_STRATEGY.md](./04-TESTING_STRATEGY.md)
@@ -280,31 +274,20 @@ git push origin master
 
 ---
 
-**🟢 REFERENCE (Read When Planning UI Work):**
+**🟢 IMPLEMENTATION REFERENCE (Read When Extending UI):**
 
-- **EditExpenseScreen UX Too Scrolly?**
-  → [08-UX_REDESIGN_SPEC.md](./08-UX_REDESIGN_SPEC.md) (April 18, Future work)
-  - Phase 1: Create AccordionSection component (1 hour, 40-50% scroll reduction)
-  - Phase 2: Category horizontal scroll (1.5 hours, 65-70% total reduction)
-  - Phase 3: Additional optimizations
-  - Detailed implementation specs for each phase
+- **EditExpenseScreen UI Design (ALREADY IMPLEMENTED)**
+  → [09-EDITEXPENSESCREEN_DESIGN_DOCUMENTATION.md](./09-EDITEXPENSESCREEN_DESIGN_DOCUMENTATION.md) (April 18, v0.3.2+)
+  - **STATUS: Phase 1 ✅ COMPLETE** - AccordionSection component implemented + Notes collapsible
+  - **STATUS: Phase 2+ NOT STARTED** - Spec available for category/split collapsibles if needed
+  - Reference for extending design to other sections (Category, Split Configuration)
+  - Contains Phase 2-3 design details if future improvements planned
 
 - **Quick Reminders?**
   → [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) (April 18)
   - Array indexing pattern at a glance
-  - 10 bugs fixed in v0.3.3 summary
-  - Key files to review before UI redesign
   - Testing checklist
-
----
-
-**📋 SESSION SUMMARIES (Historical, Low Priority):**
-
-- [07-SESSION_APR18_UX_REVIEW.md](./07-SESSION_APR18_UX_REVIEW.md) (April 18, v0.3.3)
-  - Full session record: 10 bugs fixed + UX review completed
-  - Useful for understanding how bugs were found/fixed
-  - Code quality metrics before/after modularization
-  - Reference only (not updated frequently)
+  - Key architecture decisions
 
 ---
 
@@ -548,14 +531,13 @@ expense.splitWith.forEach((user, idx) => {
 - **Expert architect analysis**: 8KB comprehensive review
 - **Root cause findings**: Split section 40-50% of scroll, 9 sequential cards add 20-30%
 - **Redesign spec created**: 3 phases with detailed implementation
-- **Phase 1 impact**: 40-50% scroll reduction (1 hour, low risk)
-- **Phase 2 impact**: 65-70% total reduction (1.5 hours, medium risk)
-- **Spec location**: PROJECT_MEMORY/08-UX_REDESIGN_SPEC.md
+- **Phase 1 status**: ✅ IMPLEMENTED (AccordionSection + sticky footer)
+- **Phase 1 impact**: 40-50% scroll reduction achieved
+- **Phase 2-3**: Available in spec if extending to other sections
+- **Spec location**: PROJECT_MEMORY/09-EDITEXPENSESCREEN_DESIGN_DOCUMENTATION.md
 
 ### Session Documentation ✅
-- **Session summary**: PROJECT_MEMORY/07-SESSION_APR18_UX_REVIEW.md (comprehensive)
-- **UX redesign spec**: PROJECT_MEMORY/08-UX_REDESIGN_SPEC.md (implementation ready)
-- **All findings preserved**: Can continue Phase 1 in next session
+- **Design documentation**: PROJECT_MEMORY/09-EDITEXPENSESCREEN_DESIGN_DOCUMENTATION.md (implementation details)
 
 ---
 
