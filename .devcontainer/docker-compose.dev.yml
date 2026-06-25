@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    image: node:22-bullseye
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    working_dir: /workspace
+    environment:
+      - NODE_ENV=development
+      # Override localhost with docker service name so app can reach postgres
+      - DATABASE_URL=postgresql://admin:admin123@postgres:5432/expense_db?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy

@@ -1,0 +1,25 @@
+{
+  "name": "Expense Manager",
+  "dockerComposeFile": ["../docker-compose.yml", "docker-compose.dev.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [4000, 8081, 19000, 19001],
+  "portsAttributes": {
+    "4000": { "label": "Backend API" },
+    "8081": { "label": "Expo Web" },
+    "19000": { "label": "Expo DevTools" },
+    "19001": { "label": "Expo Metro" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "prisma.prisma",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "remoteUser": "node"
+}
