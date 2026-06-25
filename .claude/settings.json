@@ -1,4 +1,22 @@
 {
+  "permissions": {
+    "allow": [
+      "PowerShell(git -C *)",
+      "PowerShell(docker exec *)",
+      "PowerShell(docker ps *)",
+      "PowerShell(docker logs *)",
+      "PowerShell(docker images *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(ls *)",
+      "PowerShell(wsl *)",
+      "PowerShell(Invoke-WebRequest *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(jq *)",
+      "WebSearch"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
