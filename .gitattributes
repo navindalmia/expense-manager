@@ -1,0 +1,2 @@
+# Shell scripts must have LF line endings to run in Linux containers
+.devcontainer/*.sh text eol=lf

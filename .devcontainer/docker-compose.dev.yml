@@ -7,9 +7,12 @@ services:
       - ..:/workspace:cached
     command: sleep infinity
     working_dir: /workspace
+    env_file:
+      - ../backend/.env
+      - ../backend/.env.local
     environment:
       - NODE_ENV=development
-      # Override localhost with docker service name so app can reach postgres
+      # Override hostname only — credentials come from .env files above
       - DATABASE_URL=postgresql://admin:admin123@postgres:5432/expense_db?schema=public
     depends_on:
       postgres:
