@@ -11,6 +11,9 @@ npm install
 echo "Running Prisma migrations..."
 npm run migrate
 
+echo "Seeding database..."
+npm run seed
+
 echo "Installing frontend dependencies..."
 cd /workspace/expense-manager/frontend
 npm install --legacy-peer-deps
