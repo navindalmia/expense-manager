@@ -6,10 +6,10 @@ services:
     volumes:
       - ..:/workspace:cached
     command: sleep infinity
-    working_dir: /workspace
+    working_dir: /workspace/expense-manager
     env_file:
-      - ../backend/.env
-      - ../backend/.env.local
+      - ./backend/.env
+      - ./backend/.env.local
     environment:
       - NODE_ENV=development
       # Override hostname only — credentials come from .env files above

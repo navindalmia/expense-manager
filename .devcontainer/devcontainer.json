@@ -2,7 +2,7 @@
   "name": "Expense Manager",
   "dockerComposeFile": ["../docker-compose.yml", "docker-compose.dev.yml"],
   "service": "app",
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/workspace/expense-manager",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "forwardPorts": [4000, 8081, 19000, 19001],
   "portsAttributes": {
