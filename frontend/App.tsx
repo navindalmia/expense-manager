@@ -44,6 +44,22 @@ function AppNavigator() {
     }
   }, []);
 
+  useEffect(() => {
+    if (isHydrating) return;
+    const navigate = () => {
+      if (!navigationRef.current) return;
+      const currentRoute = navigationRef.current.getCurrentRoute()?.name;
+      if (!currentRoute) return;
+      if (isAuthenticated && (currentRoute === 'Login' || currentRoute === 'CheckEmail')) {
+        navigationRef.current.reset({ index: 0, routes: [{ name: 'Home' }] });
+      } else if (!isAuthenticated && currentRoute !== 'Login' && currentRoute !== 'CheckEmail' && currentRoute !== 'VerifyEmail') {
+        navigationRef.current.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
+    };
+    const timer = setTimeout(navigate, 100);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, isHydrating]);
+
   // Show nothing while hydrating auth state from storage
   if (isHydrating) {
     return null;
