@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"WORKFLOW REMINDER: You just edited code. Per WORKFLOW.md you MUST now: 1) Run npx tsc --noEmit, 2) Trigger /code-review skill, 3) Run tests before committing. Do NOT skip these steps.\"}}'",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}

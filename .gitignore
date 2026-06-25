@@ -43,6 +43,9 @@ yarn-error.*
 # Development rules (not for git)
 .cursorrules
 
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
 # ============================================================================
 # MARKDOWN FILE RULES (See WORKFLOW.md > CORE PRINCIPLE)
 # ============================================================================
