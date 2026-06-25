@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
-import { NavigationContainer, type NavigationContainerRef, LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './src/types/navigation';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -20,26 +19,6 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 console.log("Frontend API Base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
 
-/**
- * Deep linking configuration for email verification
- * Handles links like: expensemanager://verify-email?token=...
- */
-const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: ['expensemanager://', 'https://app.expensemanager.io', 'http://localhost:8081', 'http://192.168.1.188:8081'],
-  config: {
-    screens: {
-      VerifyEmail: 'verify-email?token',
-      Login: 'login',
-      Home: 'home',
-      CheckEmail: 'check-email',
-      ExpenseList: 'expenses/:groupId',
-      CreateExpense: 'create-expense',
-      EditExpense: 'edit-expense/:expenseId',
-      CreateGroup: 'create-group',
-      Settlement: 'settlement/:groupId',
-    },
-  },
-};
 
 /**
  * Navigation Stack
@@ -65,13 +44,30 @@ function AppNavigator() {
     }
   }, []);
 
+  useEffect(() => {
+    if (isHydrating) return;
+    const navigate = () => {
+      if (!navigationRef.current) return;
+      const currentRoute = navigationRef.current.getCurrentRoute()?.name;
+      if (!currentRoute) return;
+      if (isAuthenticated && (currentRoute === 'Login' || currentRoute === 'CheckEmail')) {
+        navigationRef.current.reset({ index: 0, routes: [{ name: 'Home' }] });
+      } else if (!isAuthenticated && currentRoute !== 'Login' && currentRoute !== 'CheckEmail' && currentRoute !== 'VerifyEmail') {
+        navigationRef.current.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
+    };
+    // Small delay to ensure navigator is mounted after auth state change
+    const timer = setTimeout(navigate, 100);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, isHydrating]);
+
   // Show nothing while hydrating auth state from storage
   if (isHydrating) {
     return null;
   }
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
           headerShown: true,
