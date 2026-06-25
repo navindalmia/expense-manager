@@ -13,6 +13,6 @@ npm run migrate
 
 echo "Installing frontend dependencies..."
 cd /workspace/expense-manager/frontend
-npm install
+npm install --legacy-peer-deps
 
 echo "✓ Dev container ready. Use 'npm run dev' in backend/ and 'npm start' in frontend/"
