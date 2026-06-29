@@ -257,7 +257,7 @@ describe('Signup Endpoint', () => {
   test('11. Should reject common password', async () => {
     mockReq.body = {
       email: 'user@example.com',
-      password: 'Password123!',
+      password: 'password123', // In the common-passwords list
       name: 'John Doe',
     };
 

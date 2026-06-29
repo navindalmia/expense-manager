@@ -391,6 +391,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 99,
         email: 'existing@example.com',
+        password: 'hashed_pass', // Genuine existing account (not a placeholder)
       });
 
       const req = {
@@ -433,12 +434,16 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
 
       await signup(req, res);
 
+      // Common passwords are rejected at the Zod validation boundary, which
+      // runs before the controller's body, so the error is VALIDATION_ERROR.
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: 'WEAK_PASSWORD',
-        })
-      );
+      const errorResponse = (res.json as jest.Mock).mock.calls[0][0];
+      expect(errorResponse.error).toBe('VALIDATION_ERROR');
+      expect(
+        errorResponse.details.some((d: { message: string }) =>
+          /too common/i.test(d.message)
+        )
+      ).toBe(true);
     });
 
     it('TEST 37: Should hash password (never stored plaintext)', async () => {
@@ -540,6 +545,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: null,
         failedLoginAttempts: 0,
@@ -618,6 +624,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
           email: 'test@example.com',
           name: 'Test User',
           password: 'hashed_pass',
+          emailVerified: true,
           isActive: true,
           lockedUntil: null,
           failedLoginAttempts: i,
@@ -654,6 +661,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: futureDate,
         failedLoginAttempts: 5,
@@ -686,6 +694,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: pastDate, // Lock has expired
         failedLoginAttempts: 5,
@@ -713,6 +722,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: null,
         failedLoginAttempts: 3, // Had some failed attempts before
@@ -771,6 +781,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: false, // Account deactivated
         lockedUntil: null,
         failedLoginAttempts: 0,
@@ -852,6 +863,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: null,
         failedLoginAttempts: 2, // Already 2 failed attempts

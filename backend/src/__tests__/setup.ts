@@ -6,6 +6,10 @@
 
 /// <reference types="jest" />
 
+// Deterministic JWT secret for tests. Set before any module reads it at import
+// time (setupFilesAfterEnv runs before test files load jwtHelper).
+process.env.JWT_SECRET = 'test-secret-key';
+
 jest.mock('../lib/prisma', () => ({
   __esModule: true,
   default: {

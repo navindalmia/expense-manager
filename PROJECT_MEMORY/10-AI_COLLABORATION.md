@@ -57,6 +57,10 @@ Option to schedule daily agent for: run tests → check git status → update MA
 | June 2026 | manifest.json symlink didn't take via admin PS — copy it instead; post-commit hook handles ongoing sync |
 | June 2026 | `/checkpoint` conflicts with a Claude built-in CLI command — user-created skills must avoid built-in names |
 | June 2026 | User-created skills not appearing in skill list after manifest update — requires full Claude app restart and may need further investigation into how user skills register vs Anthropic skills |
+| June 2026 | Dev Container setup: `.devcontainer/` added with devcontainer.json, docker-compose.dev.yml, post-create.sh — new laptop setup is now: install VS Code + Docker Desktop, clone repo, copy .env files, click "Reopen in Container" |
+| June 2026 | DATABASE_URL must use `postgres` hostname (not `localhost`) inside Docker containers — overridden in docker-compose.dev.yml env section |
+| June 2026 | Shell scripts committed from Windows get CRLF line endings and break in Linux containers — fixed via .gitattributes forcing LF for .devcontainer/*.sh |
+| June 2026 | Code review is mandatory before every commit per WORKFLOW.md — was skipped on devcontainer commit, caught two bugs (hardcoded credentials, CRLF line endings) |
 
 ---
 

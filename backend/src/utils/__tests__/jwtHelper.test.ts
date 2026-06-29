@@ -49,8 +49,14 @@ describe('JWT Helper', () => {
     });
 
     it('should generate different tokens on successive calls', () => {
+      // JWT `iat` has second-granularity, so advance the clock to guarantee a
+      // different issued-at between the two tokens (deterministic, not flaky).
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
       const token1 = generateToken(testUserId);
+      jest.setSystemTime(new Date('2026-01-01T00:00:02Z'));
       const token2 = generateToken(testUserId);
+      jest.useRealTimers();
 
       // Tokens will be different due to different iat (issued at) times
       expect(token1).not.toEqual(token2);
@@ -194,11 +200,19 @@ describe('JWT Helper', () => {
 
   describe('Security Scenarios', () => {
     it('should handle token reuse correctly', () => {
+      // Advance the clock between calls so the two tokens get distinct `iat`
+      // values (JWT iat is second-granular; same-second calls are identical).
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
       const token1 = generateToken(1);
+      jest.setSystemTime(new Date('2026-01-01T00:00:02Z'));
       const token2 = generateToken(1);
 
+      // Verify while the clock is still within the tokens' validity window,
+      // then restore real timers.
       const payload1 = verifyToken(token1);
       const payload2 = verifyToken(token2);
+      jest.useRealTimers();
 
       expect(payload1.userId).toBe(payload2.userId);
       expect(payload1.iat).not.toBe(payload2.iat);
