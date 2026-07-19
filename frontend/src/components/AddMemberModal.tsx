@@ -5,7 +5,7 @@
  * Shows member list and allows adding new members
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Modal,
@@ -181,6 +181,25 @@ export default function AddMemberModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending success timer if the modal unmounts or is closed early,
+  // so onMemberAdded can't fire a second time after the user has navigated away
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleClose = () => {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+    onClose();
+  };
 
   const handleAddMember = async () => {
     if (!email.trim()) {
@@ -205,15 +224,15 @@ export default function AddMemberModal({
         memberEmail: email,
       });
 
-      // Show success state briefly
+      // Show success state briefly before notifying parent, so the
+      // confirmation is visible instead of the modal disappearing instantly
       setSuccess(true);
-      onMemberAdded(result.data);
-      
-      // Close modal after 1.5 seconds
-      setTimeout(() => {
+
+      successTimeoutRef.current = setTimeout(() => {
+        successTimeoutRef.current = null;
         setEmail('');
         setSuccess(false);
-        onClose();
+        onMemberAdded(result.data);
       }, 1500);
     } catch (err) {
       const errorMessage = getErrorMessage(err);
@@ -287,7 +306,7 @@ export default function AddMemberModal({
       animationType="fade"
       transparent
       visible={visible}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
@@ -313,7 +332,7 @@ export default function AddMemberModal({
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={handleAddMember}
-                disabled={loading || !email.trim()}
+                disabled={loading || success || !email.trim()}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
@@ -394,7 +413,7 @@ export default function AddMemberModal({
           {/* Close Button */}
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={onClose}
+            onPress={handleClose}
           >
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>

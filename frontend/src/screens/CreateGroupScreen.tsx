@@ -24,6 +24,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
 import AddMemberModal from '../components/AddMemberModal';
 import type { Group } from '../services/groupService';
+import { alertThenContinue } from '../utils/crossPlatformAlert';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -208,17 +209,15 @@ function CreateGroupScreen({ navigation }: Props) {
   const handleMemberAdded = useCallback(() => {
     setShowMemberModal(false);
     setCreatedGroup(null);
-    Alert.alert('Success', 'Group created! Members invited.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    alertThenContinue('Success', 'Group created! Members invited.', () =>
+      navigation.goBack()
+    );
   }, [navigation]);
 
   const handleCloseMemberModal = useCallback(() => {
     setShowMemberModal(false);
     setCreatedGroup(null);
-    Alert.alert('Success', 'Group created!', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    alertThenContinue('Success', 'Group created!', () => navigation.goBack());
   }, [navigation]);
 
   return (
