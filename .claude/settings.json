@@ -24,8 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"WORKFLOW GATE: Code was just edited. You MUST complete ALL of these before committing: STEP 1) Run npx tsc --noEmit and confirm it passes. STEP 2) Invoke the code-review skill via Skill tool. STEP 3) Run frontend or backend tests as applicable. Skipping any step violates the project workflow. The next thing you should do RIGHT NOW is run tsc.\"}}'",
-            "shell": "powershell"
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"WORKFLOW GATE: Code was just edited. Before committing you MUST: STEP 1) Run npx tsc --noEmit and confirm it passes. STEP 2) Run the Compound Engineering /ce-code-review stage and get it APPROVED. STEP 3) Run frontend or backend tests as applicable. Skipping any step violates the project workflow. The next thing you should do RIGHT NOW is run tsc.\"}}'"
           }
         ]
       }
@@ -36,7 +35,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "The user is about to run a git commit. Check the conversation history. Has Claude EXPLICITLY run npx tsc --noEmit AND triggered the code-review skill (via Skill tool) since the last code edit? If either step was skipped, block this commit and explain which steps are missing. If both steps were done, allow it.",
+            "prompt": "The user is about to run a git commit. Check the conversation history. Has Claude EXPLICITLY run npx tsc --noEmit AND completed the Compound Engineering /ce-code-review stage with an APPROVED verdict since the last code edit? If either step was skipped, block this commit and explain which steps are missing. If both steps were done, allow it.",
             "statusMessage": "Checking workflow compliance before commit..."
           }
         ]

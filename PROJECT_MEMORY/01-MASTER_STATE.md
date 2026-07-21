@@ -1,5 +1,7 @@
 # 🎯 EXPENSE MANAGER - MASTER PROJECT STATE
 
+> **Role change (2026-07-21):** This file is now a human-curated status summary, updated at feature boundaries — not a 10-minute rolling log. Per-problem investigation memory (bugs, root causes, solutions) now lives in `docs/solutions/`, written by Compound Engineering's `/ce-compound` stage. See [MIGRATIONS.md](./MIGRATIONS.md).
+
 ## 🎯 SESSION: June 21, 2026 - Deep Link Verification Fix
 
 **Status:** 🟡 PHASE 3 IN PROGRESS - DEEP LINK ISSUE FIXED, READY FOR RETEST

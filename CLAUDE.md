@@ -95,16 +95,20 @@ __tests__/     → Vitest unit tests mirroring src/ structure
 - **Tests with every code change** — tests in `__tests__/` mirroring the file being tested
 - **SOLID + DRY** — see `PROJECT_MEMORY/03-CODING_PATTERNS.md` and `PROJECT_MEMORY/05-QUALITY_STANDARDS.md`
 
-## Workflow (Code → Review → Test → Commit)
+## Workflow (Compound Engineering)
 
-This repo enforces a strict 4-phase workflow (defined in `WORKFLOW.md`):
+This repo's development process is driven by the [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin), not a hand-rolled phase system. Use its stages in order:
 
-1. **Implement** — write code + tests, verify `npx tsc --noEmit` passes
-2. **Review** — independent review (never self-review); must receive ✅ APPROVED
-3. **Test** — run full test suite only after review approval
-4. **Commit** — only after tests pass; single commit with feature + tests
+1. `/ce-brainstorm` / `/ce-plan` — think before building
+2. `/ce-work` — implement (still must pass `npx tsc --noEmit` and ship tests with the code, per Coding Rules above)
+3. `/ce-code-review` — independent review; must pass before commit
+4. `/ce-compound` — after solving anything non-trivial, capture the solution to `docs/solutions/` so future runs don't re-investigate it
 
-**Markdown files that can be committed:** `.instructions.md`, `WORKFLOW.md`, `AGENTS.md`, `PROJECT_MEMORY/01-MASTER_STATE.md`, `START_HERE.md`, `.github/copilot-instructions.md`, source code, tests.
+`docs/solutions/` is the project's institutional memory (read by future `/ce-plan`, `/ce-ideate`, `/ce-debug`, `/ce-work` runs) — it lives in the repo, so it travels with the codebase across machines. `PROJECT_MEMORY/01-MASTER_STATE.md` is a separate, human-curated status summary — update it at feature boundaries, not continuously.
+
+See `PROJECT_MEMORY/MIGRATIONS.md` for what this replaced and why.
+
+**Markdown files that can be committed:** `.instructions.md`, `PROJECT_MEMORY/*.md`, `docs/solutions/*.md`, `START_HERE.md`, `.github/copilot-instructions.md`, source code, tests.
 
 **Never commit:** `*_REVIEW*.md`, `*_PLAN*.md`, `SESSION_*.md`, `TEST_RESULTS*.md` — these are ephemeral working docs.
 
@@ -131,8 +135,8 @@ EXPO_PUBLIC_API_BASE_URL  # Backend API base (must be EXPO_PUBLIC_ prefix to be 
 
 - `PROJECT_MEMORY/01-MASTER_STATE.md` — current feature status and what's in progress
 - `PROJECT_MEMORY/03-CODING_PATTERNS.md` — code examples and patterns
-- `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` — quality gate checklist
-- `WORKFLOW.md` — full development process definition
-- `AGENTS.md` — specialized agent definitions (Implementer, Reviewer, Tester, Planner)
+- `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` — quality gate checklist (feeds CE's `/ce-code-review` stage)
+- `docs/solutions/` — Compound Engineering's institutional memory of past problems/fixes
 - `START_HERE.md` — onboarding guide and known architectural issues
 - `PROJECT_MEMORY/10-AI_COLLABORATION.md` — agreed AI agent patterns, autonomous vs approval boundaries, lessons learned
+- `PROJECT_MEMORY/MIGRATIONS.md` — log of major workflow/tooling changes and why they were made
