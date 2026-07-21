@@ -99,11 +99,14 @@ __tests__/     → Vitest unit tests mirroring src/ structure
 
 `/ce-code-review` must check the following before approving. Full detail with rationale in `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` — this is the condensed version so it's in context without needing a separate file read.
 
-**Security (OWASP) — FAIL if any missing:**
-- No hardcoded secrets; server-side validation on everything from the client
-- Auth enforced on protected endpoints; authorization checks (does this user own/belong to this resource?)
-- Generic error messages on auth failures (no user enumeration); passwords bcrypt-hashed, never reversible
-- SQL injection prevented (Prisma/parameterized only); rate limiting on brute-forceable endpoints
+**Security (OWASP Top 10:2025) — FAIL if any missing:**
+
+CE's `security-reviewer` persona already hunts injection, auth/authz bypass, secrets-in-code-or-logs, SSRF, path traversal, and insecure deserialization generically at high confidence — these bullets are the gaps beyond that, plus things CE explicitly does *not* auto-flag as "generic hardening advice":
+- Rate limiting on brute-forceable endpoints (login, password reset, OTP) — CE will not flag this on its own
+- Passwords bcrypt-hashed, never reversible; generic error messages on auth failures (no user enumeration)
+- **Supply chain (OWASP A03:2025):** new/updated dependencies audited (`npm audit`), no unpinned or unmaintained packages introduced
+- **Security misconfiguration (OWASP A02:2025):** no debug/verbose mode, stack traces, or internal error detail reaching production responses
+- **Exceptional conditions (OWASP A10:2025):** error/failure paths fail closed, not open (e.g. an auth check that errors must deny, not allow, access)
 
 **Code quality — FAIL if any missing:**
 - SOLID followed, no DRY violations, functions <50 lines

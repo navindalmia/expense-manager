@@ -4,6 +4,19 @@ Log of major changes to how this repo's development process works, and why. Appe
 
 ---
 
+## 2026-07-21 — Benchmarked security checklist against OWASP Top 10:2025 and CE's built-in security-reviewer
+
+**Why:** Our security checklist in `CLAUDE.md` was hand-derived over months and never checked against an actual standard, nor against what CE's own `security-reviewer` persona already does automatically.
+
+**Findings:**
+- OWASP Top 10:2025 (current, supersedes 2021) added two categories we had zero coverage for: **A03 Software Supply Chain Failures** (now top-3, was a sub-part of 2021's A06) and **A10 Mishandling of Exceptional Conditions** (new). **A02 Security Misconfiguration** also jumped from #5 to #2 — also uncovered.
+- CE's `security-reviewer` persona (read directly from its source) already hunts, at high confidence, for: injection (SQL/XSS/shell), auth/authz bypass, hardcoded secrets, secrets in logs, SSRF, path traversal, insecure deserialization. Restating these in `CLAUDE.md` is redundant — CE finds them without needing a project-standards citation.
+- CE's docs explicitly list "consider adding rate limiting" as generic hardening advice it deliberately suppresses unless there's a concrete exploitable finding — meaning rate limiting is one of the few checklist items CE will *not* catch on its own, so it stays as an explicit project-standards rule.
+
+**What changed:** Rewrote the Security section in `CLAUDE.md` to drop items CE already covers generically (SQL injection, generic auth bypass, generic secrets-in-code — still implicitly covered via CE, just not restated) and add the three genuine gaps: supply chain (`npm audit`, no unpinned/unmaintained deps), security misconfiguration (no debug/stack traces reaching prod), and exceptional conditions (fail closed, not open).
+
+---
+
 ## 2026-07-21 — Verified CE plugin installed; fixed a checklist conflict with CE's own reviewer
 
 **Verification:** Confirmed the plugin is installed at `~/.claude/plugins/cache/compound-engineering-plugin` v3.19.0 and enabled in `~/.claude/settings.json`. Inspected `ce-code-review`'s source directly — it has a dedicated `project-standards-reviewer` persona (`references/personas/project-standards-reviewer.md`) whose specific job is to glob for `**/CLAUDE.md` and `**/AGENTS.md`, read them, and cite their rules as binding review criteria ("every finding must cite a specific rule from a specific standards file"). This confirms merging our checklist into `CLAUDE.md` (previous entry below) was the right call — it's actively read and enforced, not just optional context.
