@@ -71,7 +71,7 @@
 - ✅ Meaningful names (variables, functions, classes)
 - ✅ Comments explain WHY, not WHAT
 - ✅ No callback hell (async/await or promises)
-- ✅ Functions <50 lines
+- ✅ Functions extracted when they do more than one thing or their size interferes with reading the file (no fixed line count — see CLAUDE.md)
 - ✅ Consistent formatting
 - ✅ TypeScript strict mode
 

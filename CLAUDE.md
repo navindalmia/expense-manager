@@ -91,7 +91,7 @@ __tests__/     → Vitest unit tests mirroring src/ structure
 
 - **TypeScript strict mode** — no `any`, explicit annotations always
 - **Error handling** — `throw new AppError('errors.someKey', 409, 'SOME_CODE')` not `new Error('...')`
-- **Functions < 50 lines** — extract logic into helpers or services
+- **Extract when a function does more than one thing, or its size interferes with understanding the file** — no fixed line count; judged on single-responsibility and readability
 - **Tests with every code change** — tests in `__tests__/` mirroring the file being tested
 - **SOLID + DRY** — see `PROJECT_MEMORY/03-CODING_PATTERNS.md` and `PROJECT_MEMORY/05-QUALITY_STANDARDS.md`
 
@@ -109,7 +109,8 @@ CE's `security-reviewer` persona already hunts injection, auth/authz bypass, sec
 - **Exceptional conditions (OWASP A10:2025):** error/failure paths fail closed, not open (e.g. an auth check that errors must deny, not allow, access)
 
 **Code quality — FAIL if any missing:**
-- SOLID followed, no DRY violations, functions <50 lines
+- SOLID followed, no DRY violations
+- Functions extracted when they do more than one thing or their size interferes with understanding the file — judged on single-responsibility/readability, not a fixed line count
 - No `any` types; explicit param/return types
 - Error handling: try-catch on async ops, `AppError` not raw `Error`, no silent failures
 

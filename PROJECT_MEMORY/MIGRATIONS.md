@@ -4,6 +4,16 @@ Log of major changes to how this repo's development process works, and why. Appe
 
 ---
 
+## 2026-07-21 — Replaced fixed 50-line function rule with single-responsibility principle
+
+**Why:** Neither Google's nor Airbnb's JS/TS style guides specify a hard line-count limit for functions — Airbnb's stated principle is "if a function is large/complex enough to interfere with understanding the file, extract it," a readability judgment, not a number. Our "<50 lines" rule was an arbitrary figure this project picked, never checked against a real standard. Since CE's `project-standards-reviewer` now treats `CLAUDE.md` rules as literal, binding criteria, it was worth being intentional rather than mechanically enforcing an arbitrary threshold.
+
+**Decision (user's call, 3 options offered):** keep the number as-is / keep it but soften to a guideline / drop the number and state the underlying principle. Chose the third: drop the fixed count, keep the principle ("extract when a function does more than one thing or its size interferes with understanding the file").
+
+**What changed:** Updated all four places this rule appeared — `CLAUDE.md` (Coding Rules + Code Review Standards), `.instructions.md`, `PROJECT_MEMORY/05-QUALITY_STANDARDS.md`, `PROJECT_MEMORY/03-CODING_PATTERNS.md` — so `/ce-code-review`'s project-standards persona won't cite conflicting versions of the same rule.
+
+---
+
 ## 2026-07-21 — Benchmarked security checklist against OWASP Top 10:2025 and CE's built-in security-reviewer
 
 **Why:** Our security checklist in `CLAUDE.md` was hand-derived over months and never checked against an actual standard, nor against what CE's own `security-reviewer` persona already does automatically.

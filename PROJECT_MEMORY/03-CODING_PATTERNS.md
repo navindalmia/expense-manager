@@ -407,5 +407,5 @@ git commit -m "feat: add expense create/edit/list flows"
 ✅ Write tests immediately after feature code  
 ✅ Use TypeScript strict mode  
 ✅ Comment WHY, not WHAT (code shows what)  
-✅ Keep functions <50 lines  
+✅ Extract functions on single-responsibility grounds, not a fixed line count  
 ✅ Use meaningful variable names  
