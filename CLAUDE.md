@@ -95,6 +95,28 @@ __tests__/     → Vitest unit tests mirroring src/ structure
 - **Tests with every code change** — tests in `__tests__/` mirroring the file being tested
 - **SOLID + DRY** — see `PROJECT_MEMORY/03-CODING_PATTERNS.md` and `PROJECT_MEMORY/05-QUALITY_STANDARDS.md`
 
+## Code Review Standards (applies to `/ce-code-review`)
+
+`/ce-code-review` must check the following before approving. Full detail with rationale in `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` — this is the condensed version so it's in context without needing a separate file read.
+
+**Security (OWASP) — FAIL if any missing:**
+- No hardcoded secrets; server-side validation on everything from the client
+- Auth enforced on protected endpoints; authorization checks (does this user own/belong to this resource?)
+- Generic error messages on auth failures (no user enumeration); passwords bcrypt-hashed, never reversible
+- SQL injection prevented (Prisma/parameterized only); rate limiting on brute-forceable endpoints
+
+**Code quality — FAIL if any missing:**
+- SOLID followed, no DRY violations, functions <50 lines
+- No `any` types; explicit param/return types
+- Error handling: try-catch on async ops, `AppError` not raw `Error`, no silent failures
+
+**Testing — FAIL if any missing:**
+- Tests exist for new/changed code; happy path + error cases + edge cases covered
+- No hardcoded delays/sleeps; tests independent of execution order; descriptive names (`should X when Y`, not `test create`)
+- Coverage: >80% for auth/security-critical code
+
+**Verdict format:** ✅ APPROVED or ❌ FAILED with specific file:line evidence per failure — same as the old review template, still expected from `/ce-code-review`.
+
 ## Workflow (Compound Engineering)
 
 This repo's development process is driven by the [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin), not a hand-rolled phase system. Use its stages in order:

@@ -4,6 +4,18 @@ Log of major changes to how this repo's development process works, and why. Appe
 
 ---
 
+## 2026-07-21 — Merged review checklist into CLAUDE.md for `/ce-code-review`
+
+**Why:** CE has no separate config format for review criteria — `.compound-engineering/config.local.yaml` is machine-local settings only. CE agents read `CLAUDE.md` for project-specific rules and context, and there's no guarantee `/ce-code-review` follows a markdown link out to a separate file rather than working only from what's directly in `CLAUDE.md`. The OWASP/SOLID/quality checklist previously only linked from `CLAUDE.md` → `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` risked being invisible to the review stage.
+
+**What changed:**
+- Added a condensed "Code Review Standards" section directly in `CLAUDE.md` (security/quality/testing FAIL criteria + verdict format) — this is what `/ce-code-review` actually applies
+- `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` kept as the detailed reference (test naming examples, API/DB/frontend standards) and now points back at `CLAUDE.md` as the source of truth — **keep both in sync when either changes**
+
+**Also confirmed:** CE does not currently enforce `/ce-code-review` as a hard gate before commit — that enforcement (blocking `git commit` until review + tsc pass) still comes from the `.claude/settings.json` `PreToolUse` hook, not from CE itself. Native CE hook-based enforcement is in progress upstream (not yet shipped) — revisit whether the local hook is still needed once that lands.
+
+---
+
 ## 2026-07-21 — Adopted Compound Engineering plugin, removed custom workflow/agent system
 
 **Why:** The repo had a hand-rolled 4-phase workflow (`WORKFLOW.md`) plus 4 custom agent definitions (`AGENTS.md`, `.agents/*.agent.md`, `.agent.md` router) that duplicated what the [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin) provides out of the box (`/ce-plan` → `/ce-work` → `/ce-code-review` → `/ce-compound`), plus a 51-agent library. Running both would have caused conflicts — both systems wanted to own `CLAUDE.md` as the source of truth for agent behavior. The custom system was also immature (no learning-capture step, ad-hoc 10-minute memory updates) compared to CE's built-in `docs/solutions/` institutional memory.
