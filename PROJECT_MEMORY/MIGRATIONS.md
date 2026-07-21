@@ -4,6 +4,16 @@ Log of major changes to how this repo's development process works, and why. Appe
 
 ---
 
+## 2026-07-21 — Verified CE plugin installed; fixed a checklist conflict with CE's own reviewer
+
+**Verification:** Confirmed the plugin is installed at `~/.claude/plugins/cache/compound-engineering-plugin` v3.19.0 and enabled in `~/.claude/settings.json`. Inspected `ce-code-review`'s source directly — it has a dedicated `project-standards-reviewer` persona (`references/personas/project-standards-reviewer.md`) whose specific job is to glob for `**/CLAUDE.md` and `**/AGENTS.md`, read them, and cite their rules as binding review criteria ("every finding must cite a specific rule from a specific standards file"). This confirms merging our checklist into `CLAUDE.md` (previous entry below) was the right call — it's actively read and enforced, not just optional context.
+
+**Conflict found and fixed:** CE's built-in `testing-reviewer` persona explicitly instructs itself *not* to flag aggregate coverage percentages ("don't flag 'coverage is below 80%.' Flag specific untested branches that matter"). Our merged checklist in `CLAUDE.md` had `Coverage: >80% for auth/security-critical code`, which is exactly the pattern CE's own reviewer is told to ignore — so it would have sat there as a rule that never actually triggers a finding. Replaced with branch-level language matching CE's actual methodology: "Specific untested branches that matter (new error paths, lifecycle guards, early returns) — not aggregate coverage percentages."
+
+**No conflict found in the security section:** CE's `security-reviewer` persona does independent, anchored vulnerability detection (verifiable SQL injection, missing CSRF, unauthenticated endpoints) — separate from and complementary to `project-standards-reviewer` citing our named OWASP rules. Two different personas, two different jobs, no overlap.
+
+---
+
 ## 2026-07-21 — Merged review checklist into CLAUDE.md for `/ce-code-review`
 
 **Why:** CE has no separate config format for review criteria — `.compound-engineering/config.local.yaml` is machine-local settings only. CE agents read `CLAUDE.md` for project-specific rules and context, and there's no guarantee `/ce-code-review` follows a markdown link out to a separate file rather than working only from what's directly in `CLAUDE.md`. The OWASP/SOLID/quality checklist previously only linked from `CLAUDE.md` → `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` risked being invisible to the review stage.

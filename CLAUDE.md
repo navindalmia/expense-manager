@@ -113,7 +113,7 @@ __tests__/     → Vitest unit tests mirroring src/ structure
 **Testing — FAIL if any missing:**
 - Tests exist for new/changed code; happy path + error cases + edge cases covered
 - No hardcoded delays/sleeps; tests independent of execution order; descriptive names (`should X when Y`, not `test create`)
-- Coverage: >80% for auth/security-critical code
+- Specific untested branches that matter (new error paths, lifecycle guards, early returns) — not aggregate coverage percentages
 
 **Verdict format:** ✅ APPROVED or ❌ FAILED with specific file:line evidence per failure — same as the old review template, still expected from `/ce-code-review`.
 
