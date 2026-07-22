@@ -34,9 +34,8 @@
         "matcher": "Bash(git commit*)",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "The user is about to run a git commit. Check the conversation history. Has Claude EXPLICITLY run npx tsc --noEmit AND completed the Compound Engineering /ce-code-review stage with an APPROVED verdict since the last code edit? If either step was skipped, block this commit and explain which steps are missing. If both steps were done, allow it.",
-            "statusMessage": "Checking workflow compliance before commit..."
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-commit-gate.js\""
           }
         ]
       }

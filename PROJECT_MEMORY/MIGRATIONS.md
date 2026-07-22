@@ -4,6 +4,16 @@ Log of major changes to how this repo's development process works, and why. Appe
 
 ---
 
+## 2026-07-21 — Restored deterministic commit-hook gate (regression from Jul 8 fix)
+
+**Why:** While saving session memory, discovered the `git commit` PreToolUse hook was running the exact broken mechanism a July 8 commit (`d0f4e43`) had already fixed and documented as fixed: a `type: "prompt"` hook that asks the LLM to check the conversation transcript for evidence tsc/review ran. That fix replaced it with a deterministic `type: "command"` hook calling a PowerShell script. Root cause of the regression: a later commit (`2e7bfff`, Jul 19) branched from the pre-fix state (matching commit hash `cc916e3`) and reintroduced the prompt-based hook while only fixing its matcher scoping — the PowerShell-script version and `d0f4e43`'s fix never made it onto the branch line later commits (including this session's) were built on. No `.claude/hooks/pre-commit-gate.ps1` existed anywhere in current history.
+
+**What changed:** Added `.claude/hooks/pre-commit-gate.js` — a deterministic, cross-platform (plain Node, no shell script) replacement. Runs `backend/node_modules/typescript/bin/tsc --noEmit` directly via `spawnSync`, using `$CLAUDE_PROJECT_DIR` for path resolution instead of a hardcoded machine path (the original PowerShell version hardcoded `C:\nd\repos\expense-manager\...`, which is part of why it likely didn't survive a cross-machine merge). Fails open (allows the commit) if `backend/node_modules/typescript` is missing, so a broken dev environment can't block every commit the way the original broken hook did. Tested both paths directly before wiring in: passes cleanly against the current codebase, blocks with the real `tsc` error text (exit code 2) when a type error is deliberately introduced.
+
+**Deliberately out of scope (same as the Jul 8 design):** only `tsc` is gated deterministically. `/ce-code-review` and the full test suite remain PostToolUse *reminders*, not hard gates — code review is an agent action with no disk-checkable trace, and the full suite is too slow to run on every commit attempt.
+
+---
+
 ## 2026-07-21 — Replaced fixed 50-line function rule with single-responsibility principle
 
 **Why:** Neither Google's nor Airbnb's JS/TS style guides specify a hard line-count limit for functions — Airbnb's stated principle is "if a function is large/complex enough to interfere with understanding the file, extract it," a readability judgment, not a number. Our "<50 lines" rule was an arbitrary figure this project picked, never checked against a real standard. Since CE's `project-standards-reviewer` now treats `CLAUDE.md` rules as literal, binding criteria, it was worth being intentional rather than mechanically enforcing an arbitrary threshold.
