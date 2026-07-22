@@ -4,6 +4,16 @@ Log of major changes to how this repo's development process works, and why. Appe
 
 ---
 
+## 2026-07-21 — Made the commit-hook gate repo-aware
+
+**Why:** The hook is registered in expense-manager's `.claude/settings.json`, but its matcher (`"Bash(git commit*)"`) only inspects command text, not which repo it targets — a command like `git -C /some/other/repo commit` still matches. The first version of `pre-commit-gate.js` always checked `expense-manager/backend`'s TypeScript regardless of which repo was actually being committed to. It happened not to cause a visible problem yet only because it was never triggered by a matching command against another repo in practice — but that was luck, not correctness, and confirmed by direct testing (see below) that it needed fixing.
+
+**What changed:** The script now reads the hook's stdin JSON payload, extracts the actual target directory (parses `-C <path>` out of the command if present, else falls back to cwd), resolves that to a real git repo root, and shallow-scans that repo for `tsconfig.json` files. If none exist — e.g. the `-claude-memory` repo, which has no TypeScript — the check is skipped entirely rather than running expense-manager's `tsc` against an unrelated commit. If TypeScript projects are found, each is checked independently.
+
+**Verified with 4 direct tests** (stdin JSON simulated exactly as the harness sends it): (1) plain commit in expense-manager with clean tsc → passes; (2) `git -C` targeting the memory repo → skips, no tsconfig found; (3) plain commit in expense-manager with a deliberately broken tsc → blocks with real error, exit 2; (4) `git -C` targeting the memory repo *while expense-manager's tsc is simultaneously broken* → still skips, confirming the fix actually works and isn't just theoretically better.
+
+---
+
 ## 2026-07-21 — Restored deterministic commit-hook gate (regression from Jul 8 fix)
 
 **Why:** While saving session memory, discovered the `git commit` PreToolUse hook was running the exact broken mechanism a July 8 commit (`d0f4e43`) had already fixed and documented as fixed: a `type: "prompt"` hook that asks the LLM to check the conversation transcript for evidence tsc/review ran. That fix replaced it with a deterministic `type: "command"` hook calling a PowerShell script. Root cause of the regression: a later commit (`2e7bfff`, Jul 19) branched from the pre-fix state (matching commit hash `cc916e3`) and reintroduced the prompt-based hook while only fixing its matcher scoping — the PowerShell-script version and `d0f4e43`'s fix never made it onto the branch line later commits (including this session's) were built on. No `.claude/hooks/pre-commit-gate.ps1` existed anywhere in current history.
