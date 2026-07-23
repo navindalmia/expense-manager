@@ -3,7 +3,7 @@
 **For code reviews, security checks, and architectural decisions**  
 **Last Updated:** 2026-07-21  
 **Status:** Detailed reference — the condensed, always-in-context version that `/ce-code-review` actually applies lives in [CLAUDE.md](../CLAUDE.md#code-review-standards-applies-to-ce-code-review). Keep both in sync when either changes.  
-**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) for quickstart
+**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md) for current project status
 
 ---
 
@@ -25,23 +25,17 @@
 
 ---
 
-## 🔒 SECURITY CHECKLIST (OWASP)
+## 🔒 SECURITY CHECKLIST (OWASP Top 10:2025)
 
-### Input & Authentication
-- ✅ **No hardcoded secrets** (API keys, tokens, passwords)
-- ✅ **Server-side validation** (never trust client)
-- ✅ **Authentication enforced** on protected endpoints
-- ✅ **Authorization checks** (user in group? owns expense?)
-- ✅ **No user enumeration** (generic error messages for auth failures)
-- ✅ **Password hashing** (bcrypt, never reversible)
+CE's `security-reviewer` persona already hunts injection (SQL/XSS/shell), auth/authz bypass, secrets-in-code-or-logs, SSRF, path traversal, and insecure deserialization generically at high confidence — no need to restate those here. This checklist is specifically the gaps beyond that: things CE explicitly does *not* auto-flag as "generic hardening advice," plus categories that jumped in the 2025 revision.
 
-### API Security
-- ✅ **SQL Injection prevented** (use ORM, parameterized queries)
-- ✅ **XSS protected** (escape output, don't trust input)
-- ✅ **CSRF tokens** for state-changing operations
-- ✅ **Rate limiting** for brute force prevention
-- ✅ **CORS configured** correctly
-- ✅ **No plaintext passwords** in logs or responses
+- ✅ **Rate limiting** on brute-forceable endpoints (login, password reset, OTP) — CE will not flag this on its own
+- ✅ **Password hashing** (bcrypt, never reversible); generic error messages on auth failures (no user enumeration)
+- ✅ **Supply chain (A03:2025):** new/updated dependencies audited (`npm audit`), no unpinned or unmaintained packages introduced
+- ✅ **Security misconfiguration (A02:2025):** no debug/verbose mode, stack traces, or internal error detail reaching production responses
+- ✅ **Exceptional conditions (A10:2025):** error/failure paths fail closed, not open (e.g. an auth check that errors must deny, not allow, access)
+
+See `CLAUDE.md` → Code Review Standards for the condensed version `/ce-code-review` actually applies; keep both in sync.
 
 ---
 
@@ -100,16 +94,17 @@
 
 ## 🧪 TEST REVIEW GATE
 
+CE's `testing-reviewer` persona is explicitly told to ignore aggregate coverage percentages — it flags specific untested branches instead. No coverage-% target is tracked here.
+
 **PASS Criteria:**
-- ✅ Coverage >80% for auth/security
-- ✅ All edge cases covered
+- ✅ Happy path + error cases + edge cases covered
+- ✅ Specific untested branches that matter (new error paths, lifecycle guards, early returns) are covered
 - ✅ Tests independent (no interdependencies)
 - ✅ Assertions specific and clear
 - ✅ <30s total execution time
 - ✅ Descriptive test names
 
 **FAIL Criteria:**
-- ❌ Coverage <70%
 - ❌ Hardcoded timing (sleep/delays)
 - ❌ Silent test failures
 - ❌ Vague test names

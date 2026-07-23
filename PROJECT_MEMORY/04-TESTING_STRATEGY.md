@@ -1,8 +1,6 @@
 # Testing Strategy & Checklist
 
-**Last Updated:** April 12, 2026  
-**Status:** ✅ CURRENT (April 25, 2026) - Testing philosophy stable  
-**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) for when to read this
+See [01-MASTER_STATE.md](./01-MASTER_STATE.md) for current project status.
 
 ## 🎯 OUR TESTING PHILOSOPHY
 
@@ -60,7 +58,7 @@ Tests must verify:
 ✅ Buttons exist and are clickable
 ✅ Correct API endpoints called (/api/expenses)
 ✅ Accept-Language header sent (for i18n)
-⚠️ NOTE: Skip error state mocking → test manually on mobile instead
+✅ Error states are unit-tested, not just checked manually on mobile — CE's testing-reviewer flags untested error paths as a FAIL criterion (see CLAUDE.md)
 
 Commit message:
 "feat: add ExpenseListScreen with unit tests + manual mobile verification"
@@ -94,14 +92,13 @@ See: `PROJECT_MEMORY/AUTH_TESTING_PLAN.md` (if created) for detailed test cases
 
 ---
 
-## 📊 COVERAGE GOALS
+## 📊 WHAT "WELL TESTED" MEANS HERE
 
-| Area | Target | Type |
-|------|--------|------|
-| Backend Auth | 90%+ | Unit + Security |
-| Backend Services | 80%+ | Unit tests |
-| Frontend Components | 70%+ | Unit + Integration |
-| Critical Flows | 100% | E2E on mobile |
+CE's `testing-reviewer` persona is explicitly told to ignore aggregate coverage percentages ("don't flag 'coverage is below 80%'") — it flags specific untested branches instead. So this project doesn't track a coverage-% target; a change is well-tested when:
+- Happy path is covered
+- Error cases are covered (validation failures, not found, unauthorized)
+- Edge cases are covered (empty, null, boundary values)
+- New error paths, lifecycle guards, and early returns specifically have tests — these are what actually get flagged in review, not an aggregate number
 
 ---
 
@@ -126,7 +123,6 @@ See: `PROJECT_MEMORY/AUTH_TESTING_PLAN.md` (if created) for detailed test cases
 # Backend
 cd backend
 npm test              # All tests pass?
-npm run test:coverage # Coverage >= 80%? 
 
 # Frontend
 cd frontend
@@ -148,18 +144,7 @@ npm test              # Tests pass?
 ❌ **Hardcoded sleep() in tests** - Use mocks instead  
 ❌ **Tests that depend on each other** - Each test must run independently  
 ❌ **Vague test names** - Name should describe what it validates  
-❌ **Mocking errors on frontend** - Test manually on mobile instead  
 ❌ **Committing without tests** - Always add tests with code  
-
----
-
-## 📚 REFERENCE
-
-**Full test plans (in repo root):**
-- `TEST_PLAN.md` - Overall strategy and test cases
-- `TESTING_CHECKLIST.md` - Feature checklist
-- `AUTH_TESTING_PLAN.md` - Detailed auth tests
-- `QA_TEST_PLAN.md` - QA procedures
 
 ---
 

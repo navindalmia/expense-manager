@@ -134,7 +134,7 @@ This repo's development process is driven by the [Compound Engineering plugin](h
 
 See `PROJECT_MEMORY/MIGRATIONS.md` for what this replaced and why.
 
-**Markdown files that can be committed:** `.instructions.md`, `PROJECT_MEMORY/*.md`, `docs/solutions/*.md`, `START_HERE.md`, `.github/copilot-instructions.md`, source code, tests.
+**Markdown files that can be committed:** `CLAUDE.md`, `README.md`, `ROADMAP.md`, `PROJECT_MEMORY/*.md`, `docs/solutions/*.md`, source code, tests.
 
 **Never commit:** `*_REVIEW*.md`, `*_PLAN*.md`, `SESSION_*.md`, `TEST_RESULTS*.md` — these are ephemeral working docs.
 
@@ -163,6 +163,7 @@ EXPO_PUBLIC_API_BASE_URL  # Backend API base (must be EXPO_PUBLIC_ prefix to be 
 - `PROJECT_MEMORY/03-CODING_PATTERNS.md` — code examples and patterns
 - `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` — quality gate checklist (feeds CE's `/ce-code-review` stage)
 - `docs/solutions/` — Compound Engineering's institutional memory of past problems/fixes
-- `START_HERE.md` — onboarding guide and known architectural issues
+- `README.md` — onboarding, setup, and getting started
+- `ROADMAP.md` — project scope, phases, and known open work
 - `PROJECT_MEMORY/10-AI_COLLABORATION.md` — agreed AI agent patterns, autonomous vs approval boundaries, lessons learned
 - `PROJECT_MEMORY/MIGRATIONS.md` — log of major workflow/tooling changes and why they were made

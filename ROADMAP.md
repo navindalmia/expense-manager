@@ -10,7 +10,7 @@ A multilingual, mobile-first expense splitting and settlement app. Built for gro
 
 ## Current State: v0.4.0-beta
 
-Production-grade auth and core expense flows are complete. The app is functional end-to-end on mobile (Expo Go). Email verification is implemented and tested. Not yet production-deployed.
+Core expense/group flows are complete and functional end-to-end on mobile (Expo Go). Email verification is implemented but the web verify link is broken (see Phase 4). Not yet production-deployed.
 
 ---
 
@@ -54,14 +54,15 @@ Chose React Native (Expo) over React/Vite — mobile-first decision.
 
 ---
 
-## ✅ Phase 4 — Authentication & Email Verification (Complete)
+## 🟡 Phase 4 — Authentication & Email Verification (Partially Working)
 
-- JWT authentication (stateless, 24hr expiry)
-- Email verification flow: signup → SendGrid email → deep link → verified
-- Secure token format (`vrf_` prefix, single-use, 24hr expiry)
-- Mobile browser compatible verification link (HTTP → Expo deep link)
-- Account lockout after failed login attempts
-- `emailVerificationMiddleware` guards sensitive routes
+- [x] JWT authentication (stateless, 24hr expiry)
+- [x] Secure token format (`vrf_` prefix, single-use, 24hr expiry)
+- [x] Account lockout after failed login attempts
+- [x] `emailVerificationMiddleware` guards sensitive routes
+- [ ] **Broken:** web `/verify-email?token=...` route doesn't call the verify API — falls back to Login silently. Regressed when deep-linking config was removed to fix a `NavigationContainer` crash on web; never re-wired.
+- [ ] SendGrid not configured in dev — flow untested end-to-end
+- Current dev workaround: a pre-verified test user is inserted directly into the DB (`test@test.com` / `Test1234!`)
 
 ---
 
@@ -70,10 +71,11 @@ Chose React Native (Expo) over React/Vite — mobile-first decision.
 The app works but has known gaps that must close before production.
 
 ### 5a. Test Suite (High Priority)
-- [ ] Fix 48 failing backend tests (signup email service mocks)
-- [ ] Restore full 235/235 passing
+- [ ] Backend and frontend suites have drift (stale tests vs. moved code, not regressions) — get both to a clean green baseline
 - [ ] Target: 80%+ coverage on backend services, 70%+ on frontend components
 - [ ] Add E2E Playwright tests for critical auth + expense flows
+- [ ] Add CI (GitHub Actions) so drift is caught immediately instead of accumulating (see 7 — CI/CD)
+- [ ] **Unverified:** `maestro.yaml` + `maestro-flows/` (mobile E2E for email verification, 8 flows) added 2026-05-20, never wired into any npm script or CI, and never confirmed to actually run. Treat as untrusted until someone validates the `maestro` CLI setup and runs a flow end-to-end. Note: these flows test the *native* deep link (`expensemanager://verify-email/<token>`), not the *web* route (`/verify-email?token=...`) that's confirmed broken above — no coverage exists for the web bug either way. Pairs with `mcp-database-server/` (read-only Postgres query tool for verifying DB state during these flows — see its README) — also unverified/unwired for the same reason.
 
 ### 5b. Authorization (Critical — Blocks Production)
 - [ ] Enforce group membership checks on all expense/group routes
@@ -86,10 +88,13 @@ The app works but has known gaps that must close before production.
 - [ ] Remove member from group (backend ready, frontend missing)
 - [ ] Resend verification email screen
 - [ ] Auto-focus amount field after category/date selection
+- [ ] Group detail view doesn't show the current user's total personal split/debt for that group
 
 ### 5d. Known Bugs
+- [ ] Fix web `/verify-email` route (see Phase 4)
 - [ ] Settlement screen: rent expense missing from calculation (data flow bug)
 - [ ] Cannot modify/remove members after adding them to split
+- [ ] ~15 `Alert.alert(...)` call sites are silent no-ops on web (no web implementation) — includes a destructive "Remove Member" confirm in `AddMemberModal.tsx`
 
 ---
 
@@ -150,6 +155,7 @@ These are desirable but not on the critical path:
 
 | Feature | Notes |
 |---------|-------|
+| AI expense Q&A | Natural-language analytics over the user's own ring-fenced expense data (e.g. "how much on groceries last year?"). Text-to-query over structured data, not data entry. Depends on Phase 5 (stable data layer, green tests) landing first. |
 | Live currency exchange rates | Integrate open exchange rates API |
 | Receipt photo attachments | Azure Blob Storage |
 | Push notifications | Expo Notifications — settlement reminders |
@@ -171,4 +177,4 @@ These are desirable but not on the critical path:
 
 ---
 
-*Last updated: June 2026 — v0.4.0-beta*
+*This file tracks scope and status, not dates or session logs — see `git log` for history.*

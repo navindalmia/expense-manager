@@ -11,7 +11,7 @@ A multilingual, mobile-first expense splitting app for groups. Track shared cost
 - **Group-based expense tracking** — create groups for trips, households, monthly budgets
 - **Flexible splits** — equal, fixed amount per person, or percentage per person
 - **Settlement calculations** — who owes whom, summarised across all group expenses
-- **Email verification** — secure signup with SendGrid email + deep link confirmation
+- **Email verification** — secure signup with SendGrid email + deep link confirmation (mobile deep link works; web `/verify-email` link is currently broken, see ROADMAP.md Phase 4/5d)
 - **Multilingual** — English and French (EN/FR) throughout backend and frontend
 - **Multi-currency** — ISO 4217 currency support per group
 
@@ -133,11 +133,11 @@ npm run test:e2e
 
 ## Development Workflow
 
-This project enforces a strict **Code → Review → Test → Commit** cycle. See [WORKFLOW.md](WORKFLOW.md) for the full process and [`PROJECT_MEMORY/`](PROJECT_MEMORY/) for current project state and session context.
+This project is developed using the [Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin) plugin's stages — `/ce-plan` → `/ce-work` → `/ce-code-review` → `/ce-compound`. See [`CLAUDE.md`](CLAUDE.md) → Workflow for the full process and [`PROJECT_MEMORY/`](PROJECT_MEMORY/) for current project state.
 
 Never commit without:
-- Independent code review approval
-- Full test suite passing
+- `/ce-code-review` approval
+- Tests passing
 - `npx tsc --noEmit` clean
 
 ---

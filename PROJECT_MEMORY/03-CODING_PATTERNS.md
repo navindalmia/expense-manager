@@ -1,9 +1,6 @@
 # Coding Patterns & Conventions
 
-**For the Expense Manager project**  
-**Last Updated:** April 12, 2026  
-**Status:** ✅ CURRENT (April 25, 2026) - Core patterns unchanged  
-**Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md#-documentation-navigation) for quickstart
+**For the Expense Manager project.** See [01-MASTER_STATE.md](./01-MASTER_STATE.md) for current project status.
 
 ---
 
@@ -115,17 +112,6 @@ const [isModalOpen, setIsModalOpen] = useState(false);
 />
 ```
 
-### Comment Out APIs Until Ready
-```typescript
-// TODO: Call actual API when ready
-// const response = await fetch('http://localhost:4000/api/expenses');
-
-// For now, test with mock data
-const expenses = [];
-```
-
----
-
 ## 🧪 TESTING PATTERNS
 
 ### Mock Setup Pattern
@@ -229,144 +215,9 @@ disabled={isFutureDate(day, month, year)}
 
 ---
 
-## 💰 SPLIT CALCULATIONS (Important!)
+## 💰 SPLIT CALCULATIONS
 
-### Split Array Storage Format (Backend → Frontend)
-
-**CRITICAL: Array storage does NOT include payer**
-
-```typescript
-// Backend Storage (expenseService.ts):
-// splitWithIds = [1, 2]               // Member IDs ONLY (not payer)
-// splitAmount = [25, 25]              // INDEXED by member: [member0_amt, member1_amt]
-// splitPercentage = [50, 50]          // INDEXED by member: [member0_%, member1_%]
-// paidById = 3                        // Payer is SEPARATE
-
-// Frontend State (useSplitCalculator):
-// splitWithIds: [1, 2]
-// splitAmount: { 1: '25', 2: '25' }           // Map for manipulation
-// splitPercentage: { 1: '50', 2: '50' }       // Map for manipulation
-// paidById: 3
-
-// Frontend Loading (EditExpenseScreen.tsx prefillFromExpense):
-expense.splitWith.forEach((user, idx) => {
-  // user = expense.splitWith[idx]           // Get member object
-  // expense.splitAmount[idx]                // Direct array index
-  updateAmount(user.id, expense.splitAmount[idx].toString());
-});
-// ✅ Result: { 1: '25', 2: '25' } in state
-
-// ❌ OLD (WRONG - caused NaN):
-expense.splitWith.forEach((user, idx) => {
-  if (expense.splitPercentage?.[idx + 1]) {  // ← Offset by 1 = wrong index!
-    updatePercentage(user.id, expense.splitPercentage[idx + 1].toString());
-  }
-});
-```
-
-**Why this matters:**
-- Backend divides by `splitWithIds.length` (members only)
-- If payer was included in array, payer would be counted twice (once in split, once as payer)
-- Frontend loading must use DIRECT indexing: `[0, 1, 2, ...]` for members, NOT `[1, 2, 3, ...]`
-
-### Initialization Sequence (MUST NOT REORDER)
-
-```typescript
-// EditExpenseScreen.tsx:
-
-// STEP 1: Load data (parallel)
-const { expense, categories, groupMembers, loading } = useExpenseData(expenseId, groupId);
-
-// STEP 2: Create hooks (expense causes rerender → paidById changes)
-const { formState, prefillFromExpense } = useExpenseForm(expense);
-const { splitState, addMember, ... } = useSplitCalculator(
-  formState.amount,
-  formState.paidById,  // ← Sets when prefillFromExpense runs
-  groupMembers,
-  expense              // ← NEW: Prevents override on load
-);
-
-// STEP 3: Effects that populate state
-useEffect(() => {
-  if (expense) {
-    prefillFromExpense(expense);  // ← Sets paidById (rerender trigger)
-    
-    if (expense.splitWith?.length > 0) {
-      const uniqueMemberIds = [...new Set(expense.splitWith.map(u => u.id))];
-      uniqueMemberIds.forEach(userId => addMember(userId));  // ← Populate
-      
-      // Load values with DIRECT indexing
-      expense.splitWith.forEach((user, idx) => {
-        if (expense.splitPercentage?.[idx]) {
-          updatePercentage(user.id, expense.splitPercentage[idx].toString());
-        }
-      });
-    }
-  }
-}, [expense]);
-
-// useSplitCalculator.ts - CRITICAL EFFECT:
-useEffect(() => {
-  setSplitState(prev => {
-    // PROTECTION: Check if loading saved expense
-    if (savedExpense?.splitWith && savedExpense.splitWith.length > 0) {
-      return prev;  // ← Skip reinitialization!
-    }
-    
-    // Only reinitialize for NEW expenses
-    const newMembers = groupMembers.filter(m => m.id !== paidById).map(m => m.id);
-    // ... populate with all members
-  });
-}, [paidById, groupMembers.length, savedExpense?.splitWith?.length]);
-```
-
-**Key Protection:**
-- If loading saved expense: `if (savedExpense?.splitWith?.length > 0)` → EXIT
-- Allows addMember() calls to populate saved members
-- Only reinitializes on NEW expenses
-
-**Common Mistake:**
-- Passing NEW expense data resets splitWithIds to all members
-- Then addMember() calls don't override the reset
-- Result: Shows split with all members instead of saved subset
-
-### Personal Share Formula
-```typescript
-// EQUAL split: Divide total equally
-personalShare = amount / (numMembers + 1)  // +1 includes payer
-
-// AMOUNT split: You pay the remainder
-personalShare = amount - sum(otherAmounts)
-
-// PERCENTAGE split: You pay remaining %
-personalShare = amount * (100 - sum(otherPercentages)) / 100
-```
-
-### For PERCENTAGE Splits - Include Yourself
-```typescript
-// When user selects PERCENTAGE type, show:
-// [payer, ...selectedMembers]  <- Payer included!
-// Each person gets % input field including you
-
-// Validation: sum of all % must = 100%
-const totalPercent = Object.values(percentages).reduce((a, b) => a + b, 0);
-if (Math.abs(totalPercent - 100) > 0.01) {
-  error = 'Percentages must sum to 100%';
-}
-```
-
-### Backend Split Recalculation
-```typescript
-// Always recalculate on server, don't trust client
-if (payloadSplitType === 'EQUAL') {
-  // Auto-calculate: divide by # of people
-  const perPerson = newAmount / (splitWithIds.length + 1);
-  splitAmount = [perPerson, perPerson, ...];
-} else if (payloadSplitType === 'PERCENTAGE') {
-  // Validate: all percentages sum to 100
-  // Calculate amounts from percentages
-}
-```
+See [07-SPLIT_ARRAY_ARCHITECTURE.md](./07-SPLIT_ARRAY_ARCHITECTURE.md) for the current split array storage format and initialization-order guard — the version of this content that used to live here was out of date (used a `+1`-for-payer divisor formula that was since corrected to divide by `splitWithIds.length` directly).
 
 ---
 
