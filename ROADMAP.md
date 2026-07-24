@@ -92,9 +92,9 @@ The app works but has known gaps that must close before production.
 
 ### 5d. Known Bugs
 - [ ] Fix web `/verify-email` route (see Phase 4)
-- [ ] Settlement screen: rent expense missing from calculation (data flow bug)
+- [ ] Settlement screen: rent expense missing from calculation (data flow bug) — **investigated 2026-07-24**: not reproducible in `SettlementScreen.tsx`'s calculation logic itself (see `src/screens/__tests__/SettlementScreen.test.tsx`); a rent-category expense present in `route.params.expenses` is included correctly. If still real, the bug is upstream — in whatever populates `expenses` before navigating to this screen — not yet traced.
 - [ ] Cannot modify/remove members after adding them to split
-- [ ] ~15 `Alert.alert(...)` call sites are silent no-ops on web (no web implementation) — includes a destructive "Remove Member" confirm in `AddMemberModal.tsx`
+- [ ] ~15 `Alert.alert(...)` call sites are silent no-ops on web (no web implementation) — includes a destructive "Remove Member" confirm in `AddMemberModal.tsx`. **Confirmed and reproduced 2026-07-24** (see `src/components/__tests__/AddMemberModal.test.tsx`): `Alert.alert`'s multi-button array form has no `react-native-web` implementation, so the destructive button's `onPress` never fires on web and removal silently does nothing. Fix: swap to a web-compatible confirm path (e.g. `window.confirm` on web / `Alert.alert` on native) for this call site, then audit the other ~14.
 
 ---
 
