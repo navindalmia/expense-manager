@@ -49,10 +49,19 @@ describe('JWT Helper', () => {
     });
 
     it('should generate different tokens on successive calls', () => {
+      // JWT `iat` has second resolution, so two calls in the same tick
+      // produce an identical token. Advance the clock a full second
+      // between calls instead of a real-time sleep to prove the tokens
+      // diverge because of `iat`, deterministically.
+      jest.useFakeTimers({ doNotFake: ['nextTick'] });
+      jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
       const token1 = generateToken(testUserId);
+
+      jest.setSystemTime(new Date('2026-01-01T00:00:01Z'));
       const token2 = generateToken(testUserId);
 
-      // Tokens will be different due to different iat (issued at) times
+      jest.useRealTimers();
+
       expect(token1).not.toEqual(token2);
     });
   });
@@ -194,11 +203,19 @@ describe('JWT Helper', () => {
 
   describe('Security Scenarios', () => {
     it('should handle token reuse correctly', () => {
+      // Same second-resolution `iat` caveat as the generateToken test above.
+      jest.useFakeTimers({ doNotFake: ['nextTick'] });
+      jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
       const token1 = generateToken(1);
+
+      jest.setSystemTime(new Date('2026-01-01T00:00:01Z'));
       const token2 = generateToken(1);
 
+      // Verify while still within the fake-time window so neither token
+      // reads as expired against the real system clock.
       const payload1 = verifyToken(token1);
       const payload2 = verifyToken(token2);
+      jest.useRealTimers();
 
       expect(payload1.userId).toBe(payload2.userId);
       expect(payload1.iat).not.toBe(payload2.iat);
