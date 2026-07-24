@@ -15,6 +15,13 @@ jest.mock('../../utils/cleanData', () => ({
   cleanData: (data: any) => data,
 }));
 
+// jest's automock drops the `currency` delegate from the generated Prisma
+// client (unlike `category`/`group`/`expense`, which automock correctly
+// stubs) — define it manually so `prisma.currency.findUnique` is callable.
+if (!(prisma as any).currency) {
+  (prisma as any).currency = { findUnique: jest.fn() };
+}
+
 describe('ExpenseService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,12 +30,33 @@ describe('ExpenseService', () => {
     (prisma.group.findUnique as jest.Mock).mockResolvedValue({
       id: 1,
       name: 'Test Group',
+      createdById: 1,
       members: [
         { id: 1, name: 'Alice' },
         { id: 2, name: 'Bob' },
         { id: 3, name: 'Charlie' },
         { id: 5, name: 'Eve' },
       ],
+    });
+
+    // createExpense verifies category and currency exist before writing
+    (prisma.category.findUnique as jest.Mock).mockImplementation(
+      ({ where }: { where: { id: number } }) =>
+        Promise.resolve({ id: where.id, code: 'FOOD', label: 'Food' })
+    );
+    (prisma.currency.findUnique as jest.Mock).mockImplementation(
+      ({ where }: { where: { code: string } }) =>
+        Promise.resolve({ id: 1, code: where.code, label: where.code })
+    );
+
+    // deleteExpense re-fetches the expense to authorize before deleting
+    (prisma.expense.findUnique as jest.Mock).mockResolvedValue({
+      id: 1,
+      group: {
+        id: 1,
+        createdById: 1,
+        members: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 5 }],
+      },
     });
   });
 
@@ -68,7 +96,7 @@ describe('ExpenseService', () => {
   });
 
   describe('createExpense', () => {
-    it('should calculate equal split amounts correctly (120 ÷ 3 = 40 each, includes payer)', async () => {
+    it('should calculate equal split amounts correctly (120 ÷ 2 split members = 60 each; payer is optional in the split)', async () => {
       const mockCreatedExpense = {
         id: 1,
         title: 'Group Dinner',
@@ -83,24 +111,24 @@ describe('ExpenseService', () => {
         paidById: 1,
         categoryId: 1,
         groupId: 1,
-        splitWithIds: [1, 2], // 2 people + payer = 3
+        splitWithIds: [1, 2],
         splitType: 'EQUAL',
         expenseDate: new Date().toISOString(),
       });
 
-      // ✅ TEST: Service calculated splitAmount as [40, 40] (120 ÷ 3)
+      // ✅ TEST: Service divides only among splitWithIds (payer is optional in the split)
       expect(prisma.expense.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             amount: 120,
-            splitAmount: [40, 40], // Service calculated this: 120 / 3
+            splitAmount: [60, 60], // 120 / 2 split members
             splitType: 'EQUAL',
           }),
         })
       );
     });
 
-    it('should calculate equal split for 3 people (90 ÷ 4 = 22.5 each, includes payer)', async () => {
+    it('should calculate equal split for 3 split members (90 ÷ 3 = 30 each; payer is optional in the split)', async () => {
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
 
       await expenseService.createExpense({
@@ -109,16 +137,16 @@ describe('ExpenseService', () => {
         paidById: 1,
         categoryId: 1,
         groupId: 1,
-        splitWithIds: [1, 2, 3], // 3 people + payer = 4
+        splitWithIds: [1, 2, 3],
         splitType: 'EQUAL',
         expenseDate: new Date().toISOString(),
       });
 
-      // ✅ TEST: Verified calculation: 90 ÷ 4 = 22.5
+      // ✅ TEST: Verified calculation: 90 ÷ 3 split members = 30
       expect(prisma.expense.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            splitAmount: [22.5, 22.5, 22.5],
+            splitAmount: [30, 30, 30],
           }),
         })
       );
@@ -302,14 +330,15 @@ describe('ExpenseService', () => {
         expect.objectContaining({
           title: 'Concert Tickets',
           amount: 200,
-          currency: 'USD',
-          groupId: 1,
           splitType: 'EQUAL',
-          splitAmount: [66.67, 66.67], // 200 / 3
+          splitAmount: [100, 100], // 200 / 2 split members
           notes: 'Concert with friends',
         })
       );
-      // Verify relationship connections
+      // Verify relationship connections (currency/category/group are relation
+      // connects, not string/id fields, since the schema moved to FK relations)
+      expect(callArgs.data.currency).toEqual({ connect: { id: 1 } });
+      expect(callArgs.data.group).toEqual({ connect: { id: 1 } });
       expect(callArgs.data.paidBy).toEqual({ connect: { id: 5 } });
       expect(callArgs.data.category).toEqual({ connect: { id: 3 } });
     });
