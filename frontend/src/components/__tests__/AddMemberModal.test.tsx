@@ -16,32 +16,9 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AddMemberModal from '../AddMemberModal';
 import type { Group } from '../../services/groupService';
+import { Alert } from 'react-native';
 
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-
-const mockAlert = vi.fn();
-
-vi.mock('react-native', () => ({
-  View: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-  Modal: ({ children, visible }: any) => (visible ? <div>{children}</div> : null),
-  ScrollView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  TouchableOpacity: ({ children, onPress, disabled, ...props }: any) => (
-    <button {...props} onClick={disabled ? undefined : onPress} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  TextInput: ({ onChangeText, ...props }: any) => (
-    <input {...props} onChange={(e) => onChangeText?.(e.target.value)} />
-  ),
-  ActivityIndicator: (props: any) => <div {...props}>loading</div>,
-  FlatList: ({ data, renderItem, ...props }: any) => (
-    <div {...props}>{data?.map((item: any, idx: number) => <div key={idx}>{renderItem({ item })}</div>)}</div>
-  ),
-  StyleSheet: { create: (styles: any) => styles },
-  Alert: { alert: (...args: any[]) => mockAlert(...args) },
-  Linking: { canOpenURL: vi.fn().mockResolvedValue(false), openURL: vi.fn() },
-}));
+const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
 
 const mockAddMemberByEmail = vi.fn();
 const mockRemoveMemberFromGroup = vi.fn();

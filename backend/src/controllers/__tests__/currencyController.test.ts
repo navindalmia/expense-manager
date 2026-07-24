@@ -8,15 +8,6 @@ import prisma from '../../lib/prisma';
 
 jest.mock('../../lib/prisma');
 
-// jest's automock/setup mock factory doesn't stub the `currency` delegate
-// at all (see groupService.test.ts for the same workaround) -- define it
-// manually.
-if (!(prisma as any).currency) {
-  (prisma as any).currency = {};
-}
-(prisma as any).currency.findMany = jest.fn();
-(prisma as any).currency.create = jest.fn();
-
 describe('Currency Controller', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;

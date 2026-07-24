@@ -44,6 +44,12 @@ jest.mock('../lib/prisma', () => ({
       findUnique: jest.fn(),
       delete: jest.fn(),
     },
+    currency: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+    },
     emailVerificationToken: {
       create: jest.fn(),
       findUnique: jest.fn(),

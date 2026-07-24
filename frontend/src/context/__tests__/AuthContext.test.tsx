@@ -9,10 +9,6 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-
-// React 18 requires this flag for @testing-library/react's act()
-// wrapping to work without warnings in a non-browser test environment.
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from '../AuthContext';

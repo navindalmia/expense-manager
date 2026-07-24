@@ -15,13 +15,6 @@ jest.mock('../../utils/cleanData', () => ({
   cleanData: (data: any) => data,
 }));
 
-// jest's automock drops the `currency` delegate from the generated Prisma
-// client (unlike `category`/`group`/`expense`, which automock correctly
-// stubs) — define it manually so `prisma.currency.findUnique` is callable.
-if (!(prisma as any).currency) {
-  (prisma as any).currency = { findUnique: jest.fn() };
-}
-
 describe('ExpenseService', () => {
   beforeEach(() => {
     jest.clearAllMocks();

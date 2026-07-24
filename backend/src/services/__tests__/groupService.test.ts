@@ -12,14 +12,6 @@ import { AppError } from '../../errors/AppError';
 
 jest.mock('../../lib/prisma');
 
-// jest's automock drops the `currency` delegate from the generated Prisma
-// client (unlike `category`/`group`/`expense`/`user`, which automock does
-// stub correctly) -- define it manually. See expenseService.test.ts for the
-// same workaround.
-if (!(prisma as any).currency) {
-  (prisma as any).currency = { findUnique: jest.fn() };
-}
-
 const CREATOR_ID = 1;
 const MEMBER_ID = 2;
 const OUTSIDER_ID = 999;

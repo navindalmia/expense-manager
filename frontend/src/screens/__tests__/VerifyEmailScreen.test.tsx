@@ -14,30 +14,6 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-// __DEV__ is injected by the Metro/RN bundler at build time; not present
-// under Vitest/jsdom.
-(globalThis as any).__DEV__ = false;
-
-vi.mock('react-native', () => ({
-  View: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-  ScrollView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  KeyboardAvoidingView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  TouchableOpacity: ({ children, onPress, disabled, ...props }: any) => (
-    <button {...props} onClick={disabled ? undefined : onPress} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  TextInput: ({ onChangeText, ...props }: any) => (
-    <input {...props} onChange={(e) => onChangeText?.(e.target.value)} />
-  ),
-  ActivityIndicator: (props: any) => <div {...props}>loading</div>,
-  StyleSheet: { create: (styles: any) => styles },
-  Platform: { OS: 'ios' },
-  Alert: { alert: vi.fn() },
-}));
-
 const mockVerifyEmailToken = vi.fn();
 const mockResendVerificationEmail = vi.fn();
 

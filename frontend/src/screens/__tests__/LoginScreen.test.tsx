@@ -11,31 +11,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LoginScreen from '../LoginScreen';
 
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-
-// Mirrors the global react-native mock in src/tests/setup.tsx, adding the
-// primitives (Alert, ScrollView, KeyboardAvoidingView, ActivityIndicator)
-// this screen additionally needs -- importActual isn't usable here since
-// the real react-native package isn't parseable outside its native runtime.
-vi.mock('react-native', () => ({
-  View: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-  ScrollView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  KeyboardAvoidingView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  TouchableOpacity: ({ children, onPress, disabled, ...props }: any) => (
-    <button {...props} onClick={disabled ? undefined : onPress} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  TextInput: ({ onChangeText, ...props }: any) => (
-    <input {...props} onChange={(e) => onChangeText?.(e.target.value)} />
-  ),
-  ActivityIndicator: (props: any) => <div {...props}>loading</div>,
-  StyleSheet: { create: (styles: any) => styles },
-  Platform: { OS: 'ios' },
-  Alert: { alert: vi.fn() },
-}));
-
 const mockLogin = vi.fn();
 const mockSignup = vi.fn();
 const mockClearError = vi.fn();
