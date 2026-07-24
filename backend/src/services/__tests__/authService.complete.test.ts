@@ -388,9 +388,13 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
     });
 
     it('TEST 35: Should not allow duplicate email (generic error for security)', async () => {
+      // password must be set: signup() treats an existing user with no
+      // password as an unclaimed placeholder invite and activates it
+      // instead of returning a conflict.
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 99,
         email: 'existing@example.com',
+        password: '$2b$10$existinghash',
       });
 
       const req = {
@@ -420,8 +424,17 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
     it('TEST 36: Should reject common password', async () => {
       const req = {
         body: {
+          // 'password123' fails the Zod strength check (no uppercase/
+          // special char) before ever reaching the common-password check,
+          // so it would only ever prove strength validation, not this
+          // test's target. 'Password123!' passes strength and is on the
+          // common-password blocklist, so the schema's own common-password
+          // refine is what actually rejects it -- surfacing as a
+          // VALIDATION_ERROR from Zod, not the controller's separate (and
+          // in practice unreachable, since the schema already rejects
+          // these) WEAK_PASSWORD branch.
           email: 'test@example.com',
-          password: 'password123',
+          password: 'Password123!',
           name: 'John Doe',
         },
       } as unknown as Request;
@@ -436,7 +449,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: 'WEAK_PASSWORD',
+          error: 'VALIDATION_ERROR',
         })
       );
     });
@@ -535,11 +548,15 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
 
   describe('LOGIN ENDPOINT (Brute Force Protection & Account Lockout)', () => {
     beforeEach(() => {
+      // login() checks emailVerified before isActive/lockedUntil/password;
+      // omitting it here made every test in this block hit the
+      // EMAIL_NOT_VERIFIED branch regardless of what it was testing.
       (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 1,
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: null,
         failedLoginAttempts: 0,
@@ -618,6 +635,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
           email: 'test@example.com',
           name: 'Test User',
           password: 'hashed_pass',
+          emailVerified: true,
           isActive: true,
           lockedUntil: null,
           failedLoginAttempts: i,
@@ -654,6 +672,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: futureDate,
         failedLoginAttempts: 5,
@@ -686,6 +705,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: pastDate, // Lock has expired
         failedLoginAttempts: 5,
@@ -713,6 +733,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: null,
         failedLoginAttempts: 3, // Had some failed attempts before
@@ -771,6 +792,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: false, // Account deactivated
         lockedUntil: null,
         failedLoginAttempts: 0,
@@ -852,6 +874,7 @@ describe('=== AUTH SERVICE COMPLETE TEST SUITE (56 TESTS) ===', () => {
         email: 'test@example.com',
         name: 'Test User',
         password: 'hashed_pass',
+        emailVerified: true,
         isActive: true,
         lockedUntil: null,
         failedLoginAttempts: 2, // Already 2 failed attempts

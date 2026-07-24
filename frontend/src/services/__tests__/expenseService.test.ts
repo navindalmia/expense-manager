@@ -1,13 +1,21 @@
 /**
- * Example test suite for frontend ExpenseService
- * Demonstrates testing API service functions
+ * Expense Service Tests
+ *
+ * Validates the ExpenseService API wrapper functions against a mocked
+ * `http` client (the shared axios instance in src/api/http), exercising
+ * the real exported service functions rather than the http client directly.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import axios from 'axios';
+import { getExpenses, createExpense } from '../expenseService';
+import { http } from '../../api/http';
 
-// Mock axios
-vi.mock('axios');
+vi.mock('../../api/http', () => ({
+  http: {
+    get: vi.fn(),
+    post: vi.fn(),
+  },
+}));
 
 describe('ExpenseService API', () => {
   beforeEach(() => {
@@ -15,73 +23,52 @@ describe('ExpenseService API', () => {
   });
 
   describe('getExpenses', () => {
-    it('should fetch expenses with Accept-Language header', async () => {
+    it('should fetch expenses via http.get', async () => {
       const mockExpenses = [
-        { id: 1, title: 'Dinner', amount: 50, currency: 'GBP' },
-        { id: 2, title: 'Movie', amount: 20, currency: 'GBP' },
+        { id: 1, title: 'Dinner', amount: 50 },
+        { id: 2, title: 'Movie', amount: 20 },
       ];
 
-      const mockAxios = axios as any;
-      mockAxios.create().get.mockResolvedValue({ data: mockExpenses });
+      (http.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockExpenses });
 
-      // Simulate service call
-      const result = await mockAxios.create().get('/api/expenses', {
-        headers: { 'Accept-Language': 'en' },
-      });
+      const result = await getExpenses();
 
-      expect(result.data).toEqual(mockExpenses);
+      expect(result).toEqual(mockExpenses);
+      expect(http.get).toHaveBeenCalledWith('/expenses');
     });
 
-    it('should handle fetch errors gracefully', async () => {
-      const mockAxios = axios as any;
+    it('should propagate rejection when http.get fails', async () => {
       const error = new Error('Network error');
-      mockAxios.create().get.mockRejectedValue(error);
+      (http.get as ReturnType<typeof vi.fn>).mockRejectedValue(error);
 
-      await expect(
-        mockAxios.create().get('/api/expenses')
-      ).rejects.toThrow('Network error');
+      await expect(getExpenses()).rejects.toThrow('Network error');
     });
   });
 
   describe('createExpense', () => {
-    it('should post expense and return created expense', async () => {
-      const expenseData = {
-        title: 'Dinner',
-        amount: 100,
-        categoryId: 1,
-        paidById: 1,
-        expenseDate: '2024-01-01',
-      };
+    const expenseData = {
+      title: 'Team dinner',
+      amount: 50,
+      paidById: 1,
+      categoryId: 1,
+      expenseDate: '2026-04-11T12:00:00Z',
+    };
 
-      const mockResponse = { id: 1, ...expenseData };
-      const mockAxios = axios as any;
-      mockAxios.create().post.mockResolvedValue({ data: mockResponse });
+    it('should post expense data and return the created expense', async () => {
+      const mockCreated = { id: 1, ...expenseData };
+      (http.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: mockCreated });
 
-      const result = await mockAxios.create().post('/api/expenses', expenseData, {
-        headers: { 'Accept-Language': 'en' },
-      });
+      const result = await createExpense(expenseData);
 
-      expect(result.data).toEqual(mockResponse);
+      expect(http.post).toHaveBeenCalledWith('/expenses', expenseData);
+      expect(result).toEqual(mockCreated);
     });
 
-    it('should send Accept-Language header on create', async () => {
-      const mockAxios = axios as any;
-      const postMock = vi.fn().mockResolvedValue({ data: { id: 1 } });
-      mockAxios.create().post = postMock;
+    it('should propagate rejection when http.post fails', async () => {
+      const error = new Error('Validation failed');
+      (http.post as ReturnType<typeof vi.fn>).mockRejectedValue(error);
 
-      const expenseData = { title: 'Test', amount: 50, categoryId: 1, paidById: 1, expenseDate: '2024-01-01' };
-      
-      await mockAxios.create().post('/api/expenses', expenseData, {
-        headers: { 'Accept-Language': 'fr' },
-      });
-
-      expect(postMock).toHaveBeenCalledWith(
-        '/api/expenses',
-        expenseData,
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'Accept-Language': 'fr' }),
-        })
-      );
+      await expect(createExpense(expenseData)).rejects.toThrow('Validation failed');
     });
   });
 });

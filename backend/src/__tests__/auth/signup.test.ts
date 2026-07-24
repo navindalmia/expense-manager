@@ -45,6 +45,11 @@ describe('Signup Endpoint', () => {
     (emailService.createVerificationToken as jest.Mock).mockResolvedValue('mock-token-vrf_12345');
     (emailService.sendVerificationEmail as jest.Mock).mockResolvedValue(undefined);
 
+    // jest.clearAllMocks() clears call history but not a prior
+    // mockReturnValue, so reset this explicitly each test to avoid leaking
+    // a `true` return into unrelated tests.
+    (passwordHelper.isCommonPassword as jest.Mock).mockReturnValue(false);
+
     jsonMock = jest.fn().mockReturnValue(undefined);
     statusMock = jest.fn().mockReturnValue({ json: jsonMock });
 
@@ -261,9 +266,9 @@ describe('Signup Endpoint', () => {
       name: 'John Doe',
     };
 
-    // Mock password validation to reject common password
-    // Note: The validatePasswordStrength does this check internally
-    // This test expects the Zod validation to reject it
+    // isCommonPassword is mocked at module scope (see top of file) and
+    // otherwise defaults to falsy, so it must be set explicitly per-test.
+    (passwordHelper.isCommonPassword as jest.Mock).mockReturnValue(true);
 
     await signup(mockReq as Request, mockRes as Response);
 

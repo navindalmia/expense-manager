@@ -100,6 +100,12 @@ export function isCommonPassword(password: string): boolean {
   const commonPasswords = [
     'password',
     'password123',
+    // These pass the strength check (upper/lower/digit/special) but are
+    // still among the most common real-world passwords -- without them,
+    // isCommonPassword() can never fire in practice, since every bare
+    // word above already fails the strength gate that runs first.
+    'password123!',
+    'password1!',
     'admin',
     'admin123',
     '123456',
