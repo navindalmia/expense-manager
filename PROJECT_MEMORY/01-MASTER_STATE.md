@@ -10,7 +10,7 @@
 
 **Known broken:** web email-verification link (`/verify-email?token=...` falls back silently to Login instead of verifying) — see ROADMAP Phase 4/5d.
 
-**Test suites:** have drift (stale tests vs. moved code) — no fixed pass count tracked here since it goes stale immediately; check current run before relying on a number.
+**Test suites:** drift fixed and priority coverage added (authorization, security middleware, key screens) in PR [#1](https://github.com/navindalmia/expense-manager/pull/1) (`test/baseline-and-priority-coverage`), **not yet merged to master**. No CI configured on this repo — check current run before relying on a number once merged.
 
 Full list of open gaps, bugs, and planned phases: [`ROADMAP.md`](../ROADMAP.md).
 
