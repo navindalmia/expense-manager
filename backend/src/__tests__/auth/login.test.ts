@@ -287,6 +287,7 @@ describe('Login Endpoint', () => {
       failedLoginAttempts: 3,
     });
 
+    (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(true);
     (jwt.generateToken as jest.Mock).mockReturnValue('valid.jwt.token');
 
     await login(mockReq as Request, mockRes as Response);
@@ -313,6 +314,7 @@ describe('Login Endpoint', () => {
       failedLoginAttempts: 0,
     });
 
+    (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(true);
     (jwt.generateToken as jest.Mock).mockReturnValue('valid.jwt.token');
 
     const beforeLogin = new Date();
@@ -343,6 +345,7 @@ describe('Login Endpoint', () => {
       failedLoginAttempts: 0,
     });
 
+    (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(true);
     (jwt.generateToken as jest.Mock).mockReturnValue('valid.jwt.token');
 
     await login(mockReq as Request, mockRes as Response);
