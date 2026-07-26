@@ -17,3 +17,22 @@ export function alertThenContinue(title: string, message: string, onContinue: ()
 
   Alert.alert(title, message, [{ text: 'OK', onPress: onContinue }]);
 }
+
+export function confirmThenProceed(
+  title: string,
+  message: string,
+  confirmLabel: string,
+  onConfirm: () => void
+): void {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+    return;
+  }
+
+  Alert.alert(title, message, [
+    { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+    { text: confirmLabel, onPress: onConfirm, style: 'destructive' },
+  ]);
+}

@@ -22,6 +22,7 @@ import {
 import { addMemberByEmail, removeMemberFromGroup, Group } from '../services/groupService';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import { confirmThenProceed } from '../utils/crossPlatformAlert';
 
 interface AddMemberModalProps {
   visible: boolean;
@@ -246,33 +247,27 @@ export default function AddMemberModal({
   const handleRemoveMember = async (memberId: number, memberName: string) => {
     if (!group) return;
 
-    Alert.alert(
+    confirmThenProceed(
       'Remove Member',
       `Remove ${memberName} from the group?`,
-      [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Remove',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const updatedGroup = await removeMemberFromGroup(group.id, memberId);
-              onMemberAdded(updatedGroup);
-              logger.info('Member removed successfully', {
-                groupId: group.id,
-                memberId,
-              });
-            } catch (err) {
-              const errorMessage = getErrorMessage(err);
-              Alert.alert('Error', `Failed to remove member: ${errorMessage}`);
-              logger.error('Failed to remove member', err);
-            } finally {
-              setLoading(false);
-            }
-          },
-          style: 'destructive',
-        },
-      ]
+      'Remove',
+      async () => {
+        setLoading(true);
+        try {
+          const updatedGroup = await removeMemberFromGroup(group.id, memberId);
+          onMemberAdded(updatedGroup);
+          logger.info('Member removed successfully', {
+            groupId: group.id,
+            memberId,
+          });
+        } catch (err) {
+          const errorMessage = getErrorMessage(err);
+          Alert.alert('Error', `Failed to remove member: ${errorMessage}`);
+          logger.error('Failed to remove member', err);
+        } finally {
+          setLoading(false);
+        }
+      }
     );
   };
 
