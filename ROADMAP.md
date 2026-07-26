@@ -77,11 +77,11 @@ The app works but has known gaps that must close before production.
 - [ ] Add CI (GitHub Actions) so drift is caught immediately instead of accumulating (see 7 — CI/CD)
 - [ ] **Unverified:** `maestro.yaml` + `maestro-flows/` (mobile E2E for email verification, 8 flows) added 2026-05-20, never wired into any npm script or CI, and never confirmed to actually run. Treat as untrusted until someone validates the `maestro` CLI setup and runs a flow end-to-end. Note: these flows test the *native* deep link (`expensemanager://verify-email/<token>`), not the *web* route (`/verify-email?token=...`) that's confirmed broken above — no coverage exists for the web bug either way. Pairs with `mcp-database-server/` (read-only Postgres query tool for verifying DB state during these flows — see its README) — also unverified/unwired for the same reason.
 
-### 5b. Authorization (Critical — Blocks Production)
-- [ ] Enforce group membership checks on all expense/group routes
-- [ ] Users must only access groups they belong to
-- [ ] Expense edit/delete restricted to payer or group creator
-- [ ] Remove any remaining hardcoded user IDs
+### 5b. Authorization (Verified 2026-07-26 — Complete)
+- [x] Enforce group membership checks on all expense/group routes — `expenseService.ts` and `groupService.ts` both gate on `isMember || isCreator`, throwing 403 otherwise
+- [x] Users must only access groups they belong to
+- [x] **Clarified 2026-07-26:** any group member can edit/delete any expense in that group — no payer/creator-only restriction. Membership is the only gate; non-members get no access at all.
+- [x] Remove any remaining hardcoded user IDs — all controllers derive `userId` from `req.user!.id` (JWT); only remaining `userId = 1` occurrences are test fixtures in `emailVerificationService.test.ts`
 
 ### 5c. Missing UI Flows
 - [ ] Delete expense (backend ready, frontend missing)
@@ -155,7 +155,8 @@ These are desirable but not on the critical path:
 
 | Feature | Notes |
 |---------|-------|
-| AI expense Q&A | Natural-language analytics over the user's own ring-fenced expense data (e.g. "how much on groceries last year?"). Text-to-query over structured data, not data entry. Depends on Phase 5 (stable data layer, green tests) landing first. |
+| AI expense Q&A | Natural-language analytics over the user's own ring-fenced expense data. Text-to-query over structured data, not data entry. Open-ended by design — no fixed query set, since needs vary user to user and time to time. Must handle: (1) fuzzy/intelligent item-name matching (e.g. "surfshark" should also surface "surf"/"shark" partial matches, not just exact string), (2) time-scoped lookups ("when did I last spend on X", "how much yearly on X"). Accuracy of fuzzy matching and correctness of returned totals/dates are the two things to eval against (see evals note below). **Hard constraint: LLM must only translate the question into a structured query (Prisma/SQL) — the DB computes totals/dates/aggregates, never the LLM.** No non-deterministic output for numbers or dates; LLM output limited to query construction (and optionally phrasing the final answer around DB-returned facts). Depends on Phase 5 (stable data layer, green tests) landing first. |
+| Audit log / activity history | Visible history of who changed what on an expense or group (created/edited/deleted, old → new values, timestamp). Does **not** restrict who can edit — any group member can still edit/delete any expense in that group (see 5b); this only makes changes traceable after the fact, not gated. |
 | Live currency exchange rates | Integrate open exchange rates API |
 | Receipt photo attachments | Azure Blob Storage |
 | Push notifications | Expo Notifications — settlement reminders |
