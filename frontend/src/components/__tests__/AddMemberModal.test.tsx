@@ -11,12 +11,12 @@
  */
 
 import React from 'react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AddMemberModal from '../AddMemberModal';
 import type { Group } from '../../services/groupService';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
 
@@ -139,5 +139,48 @@ describe('AddMemberModal', () => {
 
     expect(mockRemoveMemberFromGroup).toHaveBeenCalledWith(1, 1);
     await waitFor(() => expect(onMemberAdded).toHaveBeenCalled());
+  });
+
+  describe('on web (Platform.OS === "web")', () => {
+    const originalOS = Platform.OS;
+    let confirmSpy: ReturnType<typeof vi.fn<[string?], boolean>>;
+
+    beforeEach(() => {
+      Platform.OS = 'web';
+      confirmSpy = vi.spyOn(window, 'confirm') as unknown as ReturnType<typeof vi.fn<[string?], boolean>>;
+    });
+
+    afterEach(() => {
+      Platform.OS = originalOS;
+      confirmSpy.mockRestore();
+    });
+
+    it('removes the member when window.confirm is accepted', async () => {
+      confirmSpy.mockReturnValue(true);
+      mockRemoveMemberFromGroup.mockResolvedValue({ ...baseGroup, members: [baseGroup.members[0]!] });
+
+      render(
+        <AddMemberModal visible group={baseGroup} onClose={onClose} onMemberAdded={onMemberAdded} />
+      );
+
+      await userEvent.click(screen.getAllByText('Remove')[0]!);
+
+      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Remove Alice from the group?'));
+      expect(mockRemoveMemberFromGroup).toHaveBeenCalledWith(1, 1);
+      await waitFor(() => expect(onMemberAdded).toHaveBeenCalled());
+    });
+
+    it('does not remove the member when window.confirm is dismissed', async () => {
+      confirmSpy.mockReturnValue(false);
+
+      render(
+        <AddMemberModal visible group={baseGroup} onClose={onClose} onMemberAdded={onMemberAdded} />
+      );
+
+      await userEvent.click(screen.getAllByText('Remove')[0]!);
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(mockRemoveMemberFromGroup).not.toHaveBeenCalled();
+    });
   });
 });
