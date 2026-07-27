@@ -56,6 +56,8 @@ Chose React Native (Expo) over React/Vite — mobile-first decision.
 
 ## 🟡 Phase 4 — Authentication & Email Verification (Partially Working)
 
+**Priority note (2026-07-27):** this is the top usability blocker in the app. Between the broken web verify route below and the non-functional WhatsApp invite (5d), a real new user currently has no working path to join — everyone who's used the app so far got in via a manually DB-verified test account. Fix this before anything else in Phase 5/6.
+
 - [x] JWT authentication (stateless, 24hr expiry)
 - [x] Secure token format (`vrf_` prefix, single-use, 24hr expiry)
 - [x] Account lockout after failed login attempts
@@ -94,7 +96,11 @@ The app works but has known gaps that must close before production.
 - [ ] Fix web `/verify-email` route (see Phase 4)
 - [ ] Settlement screen: rent expense missing from calculation (data flow bug) — **investigated 2026-07-24**: not reproducible in `SettlementScreen.tsx`'s calculation logic itself (see `src/screens/__tests__/SettlementScreen.test.tsx`); a rent-category expense present in `route.params.expenses` is included correctly. If still real, the bug is upstream — in whatever populates `expenses` before navigating to this screen — not yet traced.
 - [ ] Cannot modify/remove members after adding them to split
-- [ ] ~15 `Alert.alert(...)` call sites are silent no-ops on web (no web implementation) — includes a destructive "Remove Member" confirm in `AddMemberModal.tsx`. **Confirmed and reproduced 2026-07-24** (see `src/components/__tests__/AddMemberModal.test.tsx`): `Alert.alert`'s multi-button array form has no `react-native-web` implementation, so the destructive button's `onPress` never fires on web and removal silently does nothing. Fix: swap to a web-compatible confirm path (e.g. `window.confirm` on web / `Alert.alert` on native) for this call site, then audit the other ~14.
+- [x] ~~~15 `Alert.alert(...)` call sites are silent no-ops on web~~ — the destructive "Remove Member" confirm in `AddMemberModal.tsx` is **fixed** (PR [#2](https://github.com/navindalmia/expense-manager/pull/2), merged 2026-07-27): swapped to `confirmThenProceed` in `crossPlatformAlert.ts` (`window.confirm` on web / `Alert.alert` on native), browser-verified end-to-end. The other ~14 `Alert.alert` call sites are still unaudited.
+- [ ] **[Issue #3](https://github.com/navindalmia/expense-manager/issues/3):** `EditGroupModal` never shows existing group members directly — only visible as a side effect of opening `AddMemberModal`'s "add by email" form.
+- [ ] **[Issue #4](https://github.com/navindalmia/expense-manager/issues/4):** Create/Edit Expense split amounts don't update live when typing the Amount field — stale `React.memo` comparator on `SplitMembersInput` missing `totalAmount`. Data saves correctly; display-only bug.
+- [ ] **[Issue #5](https://github.com/navindalmia/expense-manager/issues/5):** "Share via WhatsApp" sends a plain text message with no invite link/token — recipient has no actual way to join the group. Needs real invite-link infrastructure, not just a frontend tweak.
+- [ ] **[Issue #6](https://github.com/navindalmia/expense-manager/issues/6):** Create Expense `category` field defaults to `null` and hard-blocks saving until manually picked — should default to "Other" and optionally auto-classify from the expense title.
 
 ---
 
