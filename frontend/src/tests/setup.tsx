@@ -27,6 +27,7 @@ vi.mock('axios', () => ({
 // Mock React Native Web
 vi.mock('react-native', () => ({
   View: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  SafeAreaView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
   ScrollView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   KeyboardAvoidingView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -51,6 +52,12 @@ vi.mock('react-native', () => ({
   Platform: { OS: 'ios' },
   Alert: { alert: vi.fn() },
   Linking: { canOpenURL: vi.fn().mockResolvedValue(false), openURL: vi.fn() },
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  SafeAreaProvider: ({ children }: any) => <div>{children}</div>,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 // __DEV__ is injected by the Metro/RN bundler at build time; not present

@@ -31,10 +31,11 @@ function calculateUserExpenseShare(exp: Expense, userId: number | undefined): nu
   if (exp.paidBy?.id === userId) {
     // User is the payer - calculate their share based on split type
     if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-      // Check if payer is in the split
+      // Backend divides amount / splitWith.length exactly among whoever is
+      // in splitWith. If the payer opted out of the split (unticked), their
+      // share is 0 - the others' shares already sum to the full amount.
       const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
-      const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
-      return exp.amount / totalPeople;
+      return payerInSplit ? exp.amount / exp.splitWith.length : 0;
     } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
       // Find payer's index in splitWith
       const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidBy?.id) ?? -1;
@@ -56,10 +57,7 @@ function calculateUserExpenseShare(exp: Expense, userId: number | undefined): nu
     const userIndex = exp.splitWith?.findIndex(u => u.id === userId) ?? -1;
     if (userIndex !== -1) {
       if (exp.splitType === 'EQUAL') {
-        // Check if payer is in the split
-        const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
-        const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
-        return exp.amount / totalPeople;
+        return exp.amount / exp.splitWith.length;
       } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
         return (exp.amount * exp.splitPercentage[userIndex]) / 100;
       } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
@@ -298,9 +296,7 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
 
         if (isInSplit) {
           if (exp.splitType === 'EQUAL') {
-            const payerInSplit = exp.splitWith?.some(m => m.id === exp.paidBy?.id);
-            const totalPeople = payerInSplit ? exp.splitWith!.length : exp.splitWith!.length + 1;
-            owedAmount = exp.amount / totalPeople;
+            owedAmount = exp.amount / exp.splitWith!.length;
           } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[memberInSplit]) {
             owedAmount = (exp.amount * exp.splitPercentage[memberInSplit]) / 100;
           } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[memberInSplit]) {

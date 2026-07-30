@@ -50,9 +50,9 @@ export function useSplitCalculator(
   savedExpense?: any
 ): UseSplitCalculatorReturn {
   const [splitState, setSplitState] = useState<SplitState>(() => {
-    // Initialize with all members EXCEPT payer selected by default
-    // Payer's share is auto-calculated, no need to include them in split
-    const initialMembers = groupMembers.filter(m => m.id !== paidById).map(m => m.id);
+    // Initialize with ALL members selected by default, payer included - the
+    // payer usually shares in the expense too unless they opt out manually.
+    const initialMembers = groupMembers.map(m => m.id);
     return {
       splitType: 'EQUAL',
       splitWithIds: initialMembers,
@@ -98,7 +98,7 @@ export function useSplitCalculator(
       }
 
       // Only reinitialize if starting fresh (no saved split)
-      const newMembers = groupMembers.filter(m => m.id !== paidById).map(m => m.id);
+      const newMembers = groupMembers.map(m => m.id);
       
       const newSplitAmount: Record<number, string> = {};
       const newSplitPercentage: Record<number, string> = {};
