@@ -88,9 +88,11 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
     if (exp.paidBy?.id === currentUser?.id) {
       // User is the payer
       if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
+        // Backend divides amount / splitWith.length exactly among whoever is
+        // in splitWith. If the payer opted out of the split (unticked), their
+        // share is 0 - the others' shares already sum to the full amount.
         const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
-        const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
-        return exp.amount / totalPeople;
+        return payerInSplit ? exp.amount / exp.splitWith.length : 0;
       } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
         const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidBy?.id) ?? -1;
         if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
@@ -108,9 +110,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
       const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
       if (userIndex !== -1) {
         if (exp.splitType === 'EQUAL') {
-          const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
-          const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
-          return exp.amount / totalPeople;
+          return exp.amount / exp.splitWith.length;
         } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
           return (exp.amount * exp.splitPercentage[userIndex]) / 100;
         } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {

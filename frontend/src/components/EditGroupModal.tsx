@@ -157,6 +157,30 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 14,
   },
+  membersList: {
+    marginBottom: 12,
+  },
+  memberItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  memberInfo: {
+    flex: 1,
+  },
+  memberName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  memberEmail: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
 });
 
 export default function EditGroupModal({
@@ -334,11 +358,28 @@ export default function EditGroupModal({
             <View style={styles.sectionDivider} />
             
             {/* Members Section */}
-            <Text style={styles.sectionLabel}>👥 Manage Members</Text>
+            <Text style={styles.sectionLabel}>
+              👥 Members {group?.members ? `(${group.members.length})` : ''}
+            </Text>
+
+            {/* Current Members List */}
+            {group && group.members && group.members.length > 0 && (
+              <View style={styles.membersList}>
+                {group.members.map((member) => (
+                  <View key={member.id} style={styles.memberItem}>
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>{member.name}</Text>
+                      <Text style={styles.memberEmail}>{member.email}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <Text style={styles.helpText}>
               Click the button below to invite members to this group by email
             </Text>
-            
+
             {/* Manage Members Button - Prominent */}
             <TouchableOpacity
               style={[styles.button, styles.manageButton]}
