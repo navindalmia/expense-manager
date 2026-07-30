@@ -14,7 +14,21 @@
       "PowerShell(Invoke-WebRequest *)",
       "PowerShell(Select-String *)",
       "PowerShell(jq *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git -C *)",
+      "Bash(docker exec *)",
+      "Bash(docker ps *)",
+      "Bash(docker logs *)",
+      "Bash(docker images *)",
+      "Bash(jq *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm test)",
+      "Bash(npm test -- --run)",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__find"
     ]
   },
   "hooks": {
