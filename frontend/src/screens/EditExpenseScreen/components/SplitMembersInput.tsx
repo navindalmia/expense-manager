@@ -50,6 +50,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 8,
   },
+  checkboxToggleTarget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    paddingVertical: 4,
+  },
   checkbox: {
     width: 20,
     height: 20,
@@ -193,22 +200,26 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
           }
           
           return (
-            <TouchableOpacity
-              key={member.id}
-              style={styles.checkboxRow}
-              onPress={() => {
-                if (isSelected) {
-                  onRemoveMember(member.id);
-                } else {
-                  onAddMember(member.id);
-                }
-              }}
-            >
-              <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
-                {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
-              </View>
-              <Text style={styles.checkboxLabel}>{member.name}</Text>
-              {member.id === paidById && <Text style={styles.payerBadge}>Payer</Text>}
+            <View key={member.id} style={styles.checkboxRow}>
+              <TouchableOpacity
+                style={styles.checkboxToggleTarget}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: isSelected }}
+                accessibilityLabel={isSelected ? `Remove ${member.name} from split` : `Add ${member.name} to split`}
+                onPress={() => {
+                  if (isSelected) {
+                    onRemoveMember(member.id);
+                  } else {
+                    onAddMember(member.id);
+                  }
+                }}
+              >
+                <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
+                  {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>{member.name}</Text>
+                {member.id === paidById && <Text style={styles.payerBadge}>Payer</Text>}
+              </TouchableOpacity>
               {isSelected && splitType === 'AMOUNT' ? (
                 <TextInput
                   style={[styles.memberAmount, { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 8, paddingVertical: 6, fontSize: 14, width: 80, textAlign: 'right', marginLeft: 'auto' }]}
@@ -234,7 +245,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
               ) : (
                 <Text style={[styles.memberAmount, { marginLeft: 'auto', width: 50, textAlign: 'right' }]}>{memberShare}</Text>
               )}
-            </TouchableOpacity>
+            </View>
           );
         })}
       </View>
@@ -252,6 +263,7 @@ export const SplitMembersInput = React.memo(SplitMembersInputComponent, (prevPro
     prevProps.paidById === nextProps.paidById &&
     prevProps.splitType === nextProps.splitType &&
     prevProps.currency === nextProps.currency &&
+    prevProps.totalAmount === nextProps.totalAmount &&
     JSON.stringify(prevProps.splitWithIds) === JSON.stringify(nextProps.splitWithIds) &&
     JSON.stringify(prevProps.splitAmount) === JSON.stringify(nextProps.splitAmount) &&
     JSON.stringify(prevProps.splitPercentage) === JSON.stringify(nextProps.splitPercentage) &&
