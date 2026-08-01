@@ -208,9 +208,12 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
   const params = route.params || {};
   const groupId = params.groupId || 0;
   const groupName = params.groupName || 'Group';
-  const currency = params.currency || { code: 'USD' };
-  const currencyCode = currency?.code || 'USD';
   const expenses = params.expenses as Expense[] || [];
+  // Fall back to the group's actual currency (from its expenses) before
+  // defaulting to USD - the caller not passing `currency` should not make a
+  // GBP/EUR/etc. group display as USD.
+  const currency = params.currency || expenses[0]?.currency || { code: 'USD' };
+  const currencyCode = currency?.code || 'USD';
   const { user: currentUser } = useAuth();
 
   // Debug what we actually received
