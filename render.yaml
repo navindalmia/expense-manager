@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: expense-manager-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run migrate:deploy && npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
+      - key: APP_FRONTEND_URL
+        sync: false
+      - key: APP_SCHEME
+        value: expensemanager://
+      - key: APP_NAME
+        value: Expense Manager
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000

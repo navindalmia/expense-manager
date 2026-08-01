@@ -8,8 +8,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "prisma generate && tsc",
+    "start": "node dist/src/server.js",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev --name init",
+    "migrate:deploy": "prisma migrate deploy",
     "seed": "npx ts-node prisma/seed.ts"
   },
   "keywords": [],
