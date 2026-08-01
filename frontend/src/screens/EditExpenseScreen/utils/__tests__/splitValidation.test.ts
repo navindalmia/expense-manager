@@ -10,7 +10,44 @@
  * These tests lock in the behavior after manual mobile testing passes.
  */
 
-import { calculateMemberShare, computeEqualPercentages, computeEqualAmounts } from '../splitValidation';
+import { calculateMemberShare, computeEqualPercentages, computeEqualAmounts, validateSplitConfig } from '../splitValidation';
+
+describe('validateSplitConfig - zero-value split members are rejected', () => {
+  it('rejects an AMOUNT split with a member left at 0 (regression: a newly-added member defaulting to 0 silently passed since 0 does not affect the sum check)', () => {
+    const error = validateSplitConfig('AMOUNT', '100', { 1: '100', 2: '0' }, {});
+    expect(error).toBe('Every split member must have an amount greater than 0');
+  });
+
+  it('rejects a PERCENTAGE split with a member left at 0', () => {
+    const error = validateSplitConfig('PERCENTAGE', '100', {}, { 1: '100', 2: '0' });
+    expect(error).toBe('Every split member must have a percentage greater than 0');
+  });
+
+  it('still rejects negative amounts (0-check does not shadow the negative check)', () => {
+    const error = validateSplitConfig('AMOUNT', '100', { 1: '110', 2: '-10' }, {});
+    expect(error).toBe('Split amounts cannot be negative');
+  });
+
+  it('still rejects negative percentages', () => {
+    const error = validateSplitConfig('PERCENTAGE', '100', {}, { 1: '110', 2: '-10' });
+    expect(error).toBe('Split percentages cannot be negative');
+  });
+
+  it('accepts a valid AMOUNT split where every member has a positive amount', () => {
+    const error = validateSplitConfig('AMOUNT', '100', { 1: '60', 2: '40' }, {});
+    expect(error).toBeNull();
+  });
+
+  it('accepts a valid PERCENTAGE split where every member has a positive percentage', () => {
+    const error = validateSplitConfig('PERCENTAGE', '100', {}, { 1: '60', 2: '40' });
+    expect(error).toBeNull();
+  });
+
+  it('EQUAL split type is unaffected (no per-member zero check applies)', () => {
+    const error = validateSplitConfig('EQUAL', '100', {}, {});
+    expect(error).toBeNull();
+  });
+});
 
 describe('computeEqualPercentages - regression: naive rounding does not sum to 100', () => {
   it('splits 3 ways summing to exactly 100.00 (naive (100/3).toFixed(2) x3 = 99.99)', () => {

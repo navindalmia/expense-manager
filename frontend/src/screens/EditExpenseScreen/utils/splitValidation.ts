@@ -120,11 +120,17 @@ export function validateSplitConfig(
       return 'Expense amount must be greater than 0';
     }
     
-    // Check for negative amounts
+    // Every split member must have a positive amount - a member left at the
+    // default 0 (e.g. just added, not yet filled in) would otherwise pass
+    // silently as a "ghost" 0-share participant since 0 doesn't affect the
+    // sum-to-target check below.
     for (const amount of Object.values(splitAmount)) {
       const val = parseFloat(amount || '0');
       if (val < 0) {
         return 'Split amounts cannot be negative';
+      }
+      if (val === 0) {
+        return 'Every split member must have an amount greater than 0';
       }
     }
     
@@ -134,11 +140,15 @@ export function validateSplitConfig(
       return `Split amounts must sum to ${expenseAmount} (currently ${total.toFixed(2)})`;
     }
   } else if (splitType === 'PERCENTAGE') {
-    // Check for negative percentages
+    // Every split member must have a positive percentage - see the AMOUNT
+    // branch above for why 0 specifically needs its own check.
     for (const pct of Object.values(splitPercentage)) {
       const val = parseFloat(pct || '0');
       if (val < 0) {
         return 'Split percentages cannot be negative';
+      }
+      if (val === 0) {
+        return 'Every split member must have a percentage greater than 0';
       }
     }
     
