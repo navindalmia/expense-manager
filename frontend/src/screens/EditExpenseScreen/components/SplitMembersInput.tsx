@@ -9,7 +9,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import type { GroupMember } from '../hooks/useExpenseData';
-import { calculateMemberShare } from '../utils/splitValidation';
+import { computeEqualAmounts } from '../utils/splitValidation';
 
 interface SplitMembersInputProps {
   members: GroupMember[];
@@ -162,6 +162,14 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
     return isNaN(result) ? '0.00' : result.toFixed(2);
   };
 
+  // Exact cent-accurate EQUAL split so the displayed per-member amount always
+  // matches what computeEqualAmounts actually distributes (naive (amount/N)
+  // repeated N times can under/overshoot the total by a cent - see useSplitCalculator).
+  const equalShares = React.useMemo(
+    () => computeEqualAmounts(parseFloat(totalAmount || '0') || 0, splitWithIds),
+    [totalAmount, splitWithIds]
+  );
+
   if (!members.length) {
     return null;
   }
@@ -187,18 +195,10 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
       <View style={styles.checkboxContainer}>
         {members.map(member => {
           const isSelected = splitWithIds.includes(member.id);
-          let memberShare = '0.00';
-          if (isSelected) {
-            const share = calculateMemberShare(
-              'EQUAL',
-              parseFloat(totalAmount || '0') || 0,
-              splitAmount[member.id],
-              splitPercentage[member.id],
-              splitWithIds.length
-            );
-            memberShare = isNaN(parseFloat(share)) ? '0.00' : share;
-          }
-          
+          const memberShare = isSelected
+            ? equalShares[member.id] ?? '0.00'
+            : '0.00';
+
           return (
             <View key={member.id} style={styles.checkboxRow}>
               <TouchableOpacity

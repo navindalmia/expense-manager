@@ -107,6 +107,36 @@ describe('SplitMembersInput', () => {
       expect(screen.getAllByText('150.00').length).toBeGreaterThan(0);
       expect(screen.queryByText('50.00')).toBeNull();
     });
+
+    it('displays the exact cent-accurate EQUAL share, not naive (amount/N) division', () => {
+      // 100 / 3 = 33.333... -- naive (amount/N).toFixed(2) shows 33.33 for
+      // every member (summing to 99.99, inconsistent with what's actually
+      // submitted). The display must match computeEqualAmounts: 33.34/33.33/33.33.
+      const threeMembers: GroupMember[] = [
+        { id: 1, name: 'Alice' } as GroupMember,
+        { id: 2, name: 'Bob' } as GroupMember,
+        { id: 3, name: 'Carol' } as GroupMember,
+      ];
+      render(
+        <SplitMembersInput
+          members={threeMembers}
+          paidById={1}
+          splitWithIds={[1, 2, 3]}
+          splitAmount={{}}
+          splitPercentage={{}}
+          splitType="EQUAL"
+          totalAmount="100"
+          currency="GBP"
+          onAddMember={() => {}}
+          onRemoveMember={() => {}}
+          onUpdateAmount={() => {}}
+          onUpdatePercentage={() => {}}
+        />
+      );
+
+      expect(screen.getByText('33.34')).toBeTruthy();
+      expect(screen.getAllByText('33.33').length).toBe(2);
+    });
   });
 
   describe('member edit/remove touch targets', () => {

@@ -59,6 +59,48 @@ export function calculateMemberShare(
 }
 
 /**
+ * Distribute a total (in cents) evenly across N members, giving any leftover
+ * cent(s) to the first members in order so the sum is always exact.
+ * (100/3 = 33.33 repeating -> 33.34/33.33/33.33, not 33.33/33.33/33.33 which
+ * only sums to 99.99.)
+ *
+ * @param totalCents - Total to distribute, in integer cents
+ * @param memberIds - Member IDs to distribute across, in order
+ * @returns Map of member ID to their share, formatted with 2 decimals
+ */
+function distributeCentsEvenly(totalCents: number, memberIds: number[]): Record<number, string> {
+  const n = memberIds.length;
+  const result: Record<number, string> = {};
+  if (n === 0) return result;
+
+  const baseCents = Math.floor(totalCents / n);
+  const remainderCents = totalCents - baseCents * n;
+
+  memberIds.forEach((id, index) => {
+    const cents = baseCents + (index < remainderCents ? 1 : 0);
+    result[id] = (cents / 100).toFixed(2);
+  });
+
+  return result;
+}
+
+/**
+ * Compute an EQUAL percentage split across members that always sums to
+ * exactly 100.00, unlike naive (100/N).toFixed(2) repeated N times.
+ */
+export function computeEqualPercentages(memberIds: number[]): Record<number, string> {
+  return distributeCentsEvenly(10000, memberIds);
+}
+
+/**
+ * Compute an EQUAL amount split across members that always sums to exactly
+ * the total amount, unlike naive (amount/N).toFixed(2) repeated N times.
+ */
+export function computeEqualAmounts(totalAmount: number, memberIds: number[]): Record<number, string> {
+  return distributeCentsEvenly(Math.round(totalAmount * 100), memberIds);
+}
+
+/**
  * Validate split configuration
  * @param splitType - Type of split
  * @param expenseAmount - Total expense amount

@@ -10,7 +10,59 @@
  * These tests lock in the behavior after manual mobile testing passes.
  */
 
-import { calculateMemberShare } from '../splitValidation';
+import { calculateMemberShare, computeEqualPercentages, computeEqualAmounts } from '../splitValidation';
+
+describe('computeEqualPercentages - regression: naive rounding does not sum to 100', () => {
+  it('splits 3 ways summing to exactly 100.00 (naive (100/3).toFixed(2) x3 = 99.99)', () => {
+    const result = computeEqualPercentages([1, 2, 3]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+    expect(result[1]).toBe('33.34');
+    expect(result[2]).toBe('33.33');
+    expect(result[3]).toBe('33.33');
+  });
+
+  it('splits 6 ways summing to exactly 100.00 (naive (100/6).toFixed(2) x6 = 100.02)', () => {
+    const result = computeEqualPercentages([1, 2, 3, 4, 5, 6]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+  });
+
+  it('splits 7 ways summing to exactly 100.00', () => {
+    const result = computeEqualPercentages([1, 2, 3, 4, 5, 6, 7]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+  });
+
+  it('splits evenly (2 members) as 50.00/50.00', () => {
+    expect(computeEqualPercentages([1, 2])).toEqual({ 1: '50.00', 2: '50.00' });
+  });
+
+  it('returns empty object for no members', () => {
+    expect(computeEqualPercentages([])).toEqual({});
+  });
+});
+
+describe('computeEqualAmounts - regression: naive rounding does not sum to total', () => {
+  it('splits 100 three ways summing to exactly 100.00', () => {
+    const result = computeEqualAmounts(100, [1, 2, 3]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+    expect(result[1]).toBe('33.34');
+    expect(result[2]).toBe('33.33');
+    expect(result[3]).toBe('33.33');
+  });
+
+  it('splits an arbitrary decimal total (10.01) three ways summing exactly', () => {
+    const result = computeEqualAmounts(10.01, [1, 2, 3]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(10.01, 2);
+  });
+
+  it('returns empty object for no members', () => {
+    expect(computeEqualAmounts(100, [])).toEqual({});
+  });
+});
 
 describe('calculateMemberShare - UNIT TESTS', () => {
   describe('✅ HAPPY PATH: EQUAL splits', () => {
