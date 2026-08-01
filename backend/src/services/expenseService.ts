@@ -8,6 +8,7 @@
 import prisma from "../lib/prisma";
 import { SplitType, Prisma } from "@prisma/client";
 import { cleanData } from "../utils/cleanData";
+import { distributeAmountEvenly } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
 
 /**
@@ -129,8 +130,7 @@ export async function createExpense(data: {
     switch (splitType) {
       case SplitType.EQUAL:
         // Payer is now optional in split - only divide by actual split member count
-        const perPerson = parseFloat((amount / splitWithIds.length).toFixed(2));
-        finalSplitAmounts = new Array(splitWithIds.length).fill(perPerson);
+        finalSplitAmounts = distributeAmountEvenly(amount, splitWithIds.length);
         break;
 
       case SplitType.AMOUNT:
@@ -466,39 +466,46 @@ export async function updateExpense(
       }
     }
 
-    // Handle split recalculation if splitWithIds or amount changes
-    if (splitWithIds !== undefined || amount !== undefined) {
-      const finalSplitIds = splitWithIds ?? expense.splitWith.map((u: any) => u.id);
+    // Recalculate the split from the *effective* configuration (existing or
+    // newly-provided) on every update, not just when splitWithIds/amount are
+    // explicitly passed. Recomputation is idempotent when nothing split-
+    // related actually changed, and doing it unconditionally avoids the
+    // previous bug where e.g. an amount-only edit recalculated
+    // finalSplitAmounts correctly but never got persisted (see below) because
+    // the write-back was gated on splitWithIds alone.
+    const finalSplitIds = splitWithIds ?? expense.splitWith.map((u: any) => u.id);
+    let finalSplitPercentage: number[] | undefined;
 
-      if (finalSplitIds.length > 0) {
-        const effectiveSplitType = splitType ?? expense.splitType;
+    if (finalSplitIds.length > 0) {
+      const effectiveSplitType = splitType ?? expense.splitType;
 
-        switch (effectiveSplitType) {
-          case SplitType.EQUAL:
-            // Payer is now optional in split - only divide by actual split member count
-            const perPerson = parseFloat((finalAmount / finalSplitIds.length).toFixed(2));
-            finalSplitAmounts = new Array(finalSplitIds.length).fill(perPerson);
-            break;
+      switch (effectiveSplitType) {
+        case SplitType.EQUAL:
+          // Payer is now optional in split - only divide by actual split member count
+          finalSplitAmounts = distributeAmountEvenly(finalAmount, finalSplitIds.length);
+          break;
 
-          case SplitType.AMOUNT:
-            const newSplitAmount = splitAmount ?? expense.splitAmount;
-            const sumAmount = newSplitAmount.reduce((a, b) => a + b, 0);
-            if (Math.abs(sumAmount - finalAmount) > 0.01) {
-              throw new AppError('Split amounts do not match total amount', 400, 'EXPENSE_SPLIT_INVALID');
-            }
-            finalSplitAmounts = newSplitAmount;
-            break;
+        case SplitType.AMOUNT: {
+          const newSplitAmount = splitAmount ?? expense.splitAmount;
+          const sumAmount = newSplitAmount.reduce((a, b) => a + b, 0);
+          if (Math.abs(sumAmount - finalAmount) > 0.01) {
+            throw new AppError('Split amounts do not match total amount', 400, 'EXPENSE_SPLIT_INVALID');
+          }
+          finalSplitAmounts = newSplitAmount;
+          break;
+        }
 
-          case SplitType.PERCENTAGE:
-            const newSplitPercentage = splitPercentage ?? expense.splitPercentage;
-            const sumPercentage = newSplitPercentage.reduce((a, b) => a + b, 0);
-            if (Math.abs(sumPercentage - 100) > 0.01) {
-              throw new AppError('Split percentages must sum to 100', 400, 'EXPENSE_PERCENT_INVALID');
-            }
-            finalSplitAmounts = newSplitPercentage.map((p) =>
-              parseFloat(((p / 100) * finalAmount).toFixed(2))
-            );
-            break;
+        case SplitType.PERCENTAGE: {
+          const newSplitPercentage = splitPercentage ?? expense.splitPercentage;
+          const sumPercentage = newSplitPercentage.reduce((a, b) => a + b, 0);
+          if (Math.abs(sumPercentage - 100) > 0.01) {
+            throw new AppError('Split percentages must sum to 100', 400, 'EXPENSE_PERCENT_INVALID');
+          }
+          finalSplitAmounts = newSplitPercentage.map((p) =>
+            parseFloat(((p / 100) * finalAmount).toFixed(2))
+          );
+          finalSplitPercentage = newSplitPercentage;
+          break;
         }
       }
     }
@@ -516,17 +523,21 @@ export async function updateExpense(
 
     // Handle split changes
     if (splitWithIds !== undefined) {
-      if (splitWithIds.length > 0) {
-        updateData.splitWith = { set: splitWithIds.map((id) => ({ id })) };
-        updateData.splitAmount = finalSplitAmounts;
-        if (splitType === SplitType.PERCENTAGE || (splitType === undefined && expense.splitType === SplitType.PERCENTAGE)) {
-          updateData.splitPercentage = splitPercentage ?? expense.splitPercentage;
-        }
-      } else {
-        updateData.splitWith = { set: [] };
-        updateData.splitAmount = [];
-        updateData.splitPercentage = [];
+      updateData.splitWith = { set: splitWithIds.map((id) => ({ id })) };
+    }
+
+    if (finalSplitIds.length > 0) {
+      // Persist whenever the split was (re)computed above - covers
+      // amount-only, splitType-only, splitAmount-only, and
+      // splitPercentage-only edits, not just splitWithIds changes.
+      updateData.splitAmount = finalSplitAmounts;
+      if (finalSplitPercentage !== undefined) {
+        updateData.splitPercentage = finalSplitPercentage;
       }
+    } else if (splitWithIds !== undefined) {
+      // splitWithIds explicitly cleared to an empty split
+      updateData.splitAmount = [];
+      updateData.splitPercentage = [];
     }
 
     return prisma.expense.update({

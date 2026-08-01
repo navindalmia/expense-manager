@@ -133,26 +133,28 @@ export function useSplitCalculator(
         ...prev,
         splitWithIds: newSplitWithIds,
       };
-      
-      // Auto-recalculate values if PERCENTAGE or AMOUNT split type
-      if (newSplitWithIds.length > 0) {
-        if (prev.splitType === 'PERCENTAGE') {
-          newState.splitPercentage = computeEqualPercentages(newSplitWithIds);
-        } else if (prev.splitType === 'AMOUNT') {
-          const totalAmount = parseFloat(expenseAmount) || 0;
-          newState.splitAmount = computeEqualAmounts(totalAmount, newSplitWithIds);
-        }
+
+      // For PERCENTAGE/AMOUNT, only initialize the new member's value ('0',
+      // to fill in manually) - leave existing members' manually-edited values
+      // untouched. Recomputing everyone equally would silently discard any
+      // custom split the user had already typed in for the other members.
+      if (prev.splitType === 'PERCENTAGE') {
+        newState.splitPercentage = { ...prev.splitPercentage, [memberId]: '0' };
+      } else if (prev.splitType === 'AMOUNT') {
+        newState.splitAmount = { ...prev.splitAmount, [memberId]: '0' };
       }
-      
+
       return newState;
     });
-  }, [expenseAmount]);
+  }, []);
 
   const removeMember = useCallback((memberId: number) => {
     setSplitState(prev => {
       const newSplitWithIds = prev.splitWithIds.filter(id => id !== memberId);
-      
-      const newState = {
+
+      // Just drop the removed member's entry - leave remaining members'
+      // manually-edited AMOUNT/PERCENTAGE values untouched (see addMember).
+      return {
         ...prev,
         splitWithIds: newSplitWithIds,
         splitAmount: Object.fromEntries(
@@ -162,20 +164,8 @@ export function useSplitCalculator(
           Object.entries(prev.splitPercentage).filter(([id]) => parseInt(id) !== memberId)
         ),
       };
-      
-      // Auto-recalculate values if PERCENTAGE or AMOUNT split type and members remain
-      if (newSplitWithIds.length > 0) {
-        if (prev.splitType === 'PERCENTAGE') {
-          newState.splitPercentage = computeEqualPercentages(newSplitWithIds);
-        } else if (prev.splitType === 'AMOUNT') {
-          const totalAmount = parseFloat(expenseAmount) || 0;
-          newState.splitAmount = computeEqualAmounts(totalAmount, newSplitWithIds);
-        }
-      }
-      
-      return newState;
     });
-  }, [expenseAmount]);
+  }, []);
 
   const updateAmount = useCallback((memberId: number, amount: string) => {
     setSplitState(prev => ({
