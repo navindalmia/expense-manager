@@ -88,10 +88,18 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     if (expense) {
       prefillFromExpense(expense);
       if (expense.splitWith?.length > 0) {
+        // setSplitType FIRST - it recomputes default AMOUNT/PERCENTAGE
+        // values for whatever members exist at the time it's called. Calling
+        // it after addMember/updateAmount (as before) clobbered the just-
+        // hydrated saved values with a freshly (and, at this point in the
+        // render cycle, zero-based) computed equal split, since formState.amount
+        // hasn't been prefilled yet on this render.
+        setSplitType(expense.splitType as any);
+
         // Deduplicate members before adding
         const uniqueMemberIds = [...new Set(expense.splitWith.map(u => u.id))];
         uniqueMemberIds.forEach(userId => addMember(userId));
-        
+
         if (expense.splitType === 'PERCENTAGE' && expense.splitPercentage?.length > 0) {
           // Load percentages directly from array (index 0+ = member 0+)
           expense.splitWith.forEach((user, idx) => {
@@ -107,7 +115,6 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             }
           });
         }
-        setSplitType(expense.splitType as any);
       }
     }
   }, [expense]);

@@ -45,6 +45,20 @@ vi.mock('../../services/expenseService', () => ({
 
 import { getCategories } from '../../services/categoryService';
 import { getGroup } from '../../services/groupService';
+import { getExpenseById } from '../../services/expenseService';
+
+function renderEditScreen(expenseId: number) {
+  const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as any;
+  const route = {
+    params: {
+      expenseId,
+      groupId: 1,
+      groupName: 'Roommates',
+      groupCurrencyCode: 'GBP',
+    },
+  } as any;
+  return render(<EditExpenseScreen navigation={navigation} route={route} />);
+}
 
 function renderScreen() {
   const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as any;
@@ -85,5 +99,47 @@ describe('EditExpenseScreen (CREATE mode)', () => {
     });
 
     expect(screen.queryByText('Select payer...')).toBeNull();
+  });
+});
+
+describe('EditExpenseScreen (EDIT mode)', () => {
+  const editModeMembers = [
+    { id: 1, name: 'Alice', email: 'alice@test.com' },
+    { id: 2, name: 'Bob', email: 'bob@test.com' },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (getCategories as any).mockResolvedValue(mockCategories);
+    (getGroup as any).mockResolvedValue({ id: 1, members: editModeMembers });
+    (getExpenseById as any).mockResolvedValue({
+      id: 42,
+      title: 'Groceries',
+      amount: 100,
+      currency: { id: 1, code: 'GBP', label: 'British Pound' },
+      paidById: 1,
+      paidBy: editModeMembers[0],
+      categoryId: 7,
+      category: { id: 7, code: 'OTHER', label: 'Other' },
+      splitType: 'AMOUNT',
+      splitWith: editModeMembers,
+      splitAmount: [60, 40],
+      splitPercentage: [],
+      expenseDate: '2026-04-11T12:00:00Z',
+      createdAt: '2026-04-11T12:00:00Z',
+      settled: false,
+    });
+  });
+
+  it('shows the actual saved per-member AMOUNT split values, not 0 (regression: setSplitType ran after hydration and clobbered them)', async () => {
+    renderEditScreen(42);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('60')).toBeTruthy();
+    });
+
+    expect(screen.getByDisplayValue('40')).toBeTruthy();
+    expect(screen.queryByDisplayValue('0.00')).toBeNull();
+    expect(screen.queryByDisplayValue('0')).toBeNull();
   });
 });
