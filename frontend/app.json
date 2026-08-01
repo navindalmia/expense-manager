@@ -26,6 +26,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "63b2fcf6-3023-4438-ae0c-1cae0a79d675"
+      }
+    },
+    "owner": "navindalmia"
   }
 }
