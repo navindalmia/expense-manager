@@ -193,6 +193,29 @@ describe('ExpenseService', () => {
       );
     });
 
+    it('should convert percentages to amounts summing to exactly amount (regression: naive independent rounding drifted by several cents)', async () => {
+      (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      // Naive parseFloat(((p/100)*amount).toFixed(2)) per percentage gives
+      // 33.31/33.30/33.30 = 99.91, drifting 7 cents from amount=99.98.
+      await expenseService.createExpense({
+        title: 'Dinner',
+        amount: 99.98,
+        paidById: 1,
+        categoryId: 1,
+        groupId: 1,
+        splitWithIds: [1, 2, 3],
+        splitType: 'PERCENTAGE',
+        splitPercentage: [33.34, 33.33, 33.33],
+        expenseDate: new Date().toISOString(),
+      });
+
+      const callArgs = (prisma.expense.create as jest.Mock).mock.calls[0][0];
+      const splitAmount: number[] = callArgs.data.splitAmount;
+      expect(splitAmount.reduce((a, b) => a + b, 0)).toBeCloseTo(99.98, 2);
+      expect(splitAmount).toEqual([33.33, 33.33, 33.32]);
+    });
+
     it('should convert percentages correctly with decimals (25% of 100 = 25, 75% = 75)', async () => {
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
 
@@ -320,6 +343,42 @@ describe('ExpenseService', () => {
       expect(prisma.expense.create).not.toHaveBeenCalled();
     });
 
+    it('should THROW AppError for a negative percentage even when the sum is exactly 100 (regression: [150, -50] sums to 100 but is financially nonsensical)', async () => {
+      await expect(
+        expenseService.createExpense({
+          title: 'Dinner',
+          amount: 100,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          splitWithIds: [1, 2],
+          splitType: 'PERCENTAGE',
+          splitPercentage: [150, -50], // Sum = 100 but member 2 is negative
+          expenseDate: new Date().toISOString(),
+        })
+      ).rejects.toThrow(AppError);
+
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('should THROW AppError for a negative AMOUNT split value even when the sum matches the total', async () => {
+      await expect(
+        expenseService.createExpense({
+          title: 'Dinner',
+          amount: 100,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          splitWithIds: [1, 2],
+          splitType: 'AMOUNT',
+          splitAmount: [150, -50], // Sum = 100 but member 2 is negative
+          expenseDate: new Date().toISOString(),
+        })
+      ).rejects.toThrow(AppError);
+
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+
     it('should include all expense data in Prisma.create call', async () => {
       const expenseDate = new Date().toISOString();
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
@@ -413,6 +472,60 @@ describe('ExpenseService', () => {
       const splitAmount: number[] = callArgs.data.splitAmount;
       expect(splitAmount.reduce((a, b) => a + b, 0)).toBeCloseTo(100, 2);
       expect(splitAmount).toEqual([33.34, 33.33, 33.33]);
+    });
+
+    it('converts percentages to amounts summing to exactly finalAmount on a PERCENTAGE-type update (regression: naive independent rounding drifted)', async () => {
+      const percentageExpense = {
+        ...mockExistingExpense,
+        splitType: SplitType.PERCENTAGE,
+        splitAmount: [50, 50],
+        splitPercentage: [50, 50],
+        splitWith: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      };
+      (prisma.expense.findUnique as jest.Mock).mockResolvedValue(percentageExpense);
+
+      await expenseService.updateExpense(1, 1, {
+        amount: 99.98,
+        splitPercentage: [33.34, 33.33, 33.33],
+      });
+
+      const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];
+      const splitAmount: number[] = callArgs.data.splitAmount;
+      expect(splitAmount.reduce((a, b) => a + b, 0)).toBeCloseTo(99.98, 2);
+      expect(splitAmount).toEqual([33.33, 33.33, 33.32]);
+    });
+
+    it('throws for a negative percentage even when the sum is exactly 100 (regression: [150, -50] sums to 100 but is financially nonsensical)', async () => {
+      const percentageExpense = {
+        ...mockExistingExpense,
+        splitType: SplitType.PERCENTAGE,
+        splitAmount: [50, 50],
+        splitPercentage: [50, 50],
+        splitWith: [{ id: 1 }, { id: 2 }],
+      };
+      (prisma.expense.findUnique as jest.Mock).mockResolvedValue(percentageExpense);
+
+      await expect(
+        expenseService.updateExpense(1, 1, { splitPercentage: [150, -50] })
+      ).rejects.toThrow(AppError);
+
+      expect(prisma.expense.update).not.toHaveBeenCalled();
+    });
+
+    it('throws for a negative AMOUNT split value even when the sum matches the total', async () => {
+      const amountExpense = {
+        ...mockExistingExpense,
+        splitType: SplitType.AMOUNT,
+        splitAmount: [50, 50],
+        splitWith: [{ id: 1 }, { id: 2 }],
+      };
+      (prisma.expense.findUnique as jest.Mock).mockResolvedValue(amountExpense);
+
+      await expect(
+        expenseService.updateExpense(1, 1, { splitAmount: [150, -50] })
+      ).rejects.toThrow(AppError);
+
+      expect(prisma.expense.update).not.toHaveBeenCalled();
     });
   });
 

@@ -7,7 +7,8 @@
   },
   "EXPENSE": {
     "SPLIT_SUM_MISMATCH": "Sum of split amounts must equal total amount.",
-    "SPLIT_PERCENTAGE_INVALID": "Split percentages must add up to 100%.",
+    "SPLIT_AMOUNT_INVALID": "Every split amount must be greater than 0.",
+    "SPLIT_PERCENTAGE_INVALID": "Split percentages must add up to 100%, and every percentage must be greater than 0.",
     "NOT_FOUND": "Expense not found.",
     "CREATION_FAILED": "Failed to create expense.",
     "FETCH_FAILED": "Failed to fetch expenses.",

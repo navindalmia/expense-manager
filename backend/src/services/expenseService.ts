@@ -8,7 +8,7 @@
 import prisma from "../lib/prisma";
 import { SplitType, Prisma } from "@prisma/client";
 import { cleanData } from "../utils/cleanData";
-import { distributeAmountEvenly } from "../utils/splitCalculation";
+import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
 
 /**
@@ -134,6 +134,8 @@ export async function createExpense(data: {
         break;
 
       case SplitType.AMOUNT:
+        if (hasNonPositiveValue(splitAmount))
+          throw new AppError("EXPENSE.SPLIT_AMOUNT_INVALID", 400, "EXPENSE_SPLIT_INVALID");
         const sumAmount = splitAmount.reduce((a, b) => a + b, 0);
         if (Math.abs(sumAmount - amount) > 0.01)
           throw new AppError("EXPENSE.SPLIT_SUM_MISMATCH", 400, "EXPENSE_SPLIT_INVALID");
@@ -141,13 +143,13 @@ export async function createExpense(data: {
         break;
 
       case SplitType.PERCENTAGE:
+        if (hasNonPositiveValue(splitPercentage))
+          throw new AppError("EXPENSE.SPLIT_PERCENTAGE_INVALID", 400, "EXPENSE_PERCENT_INVALID");
         const sumPercentage = splitPercentage.reduce((a, b) => a + b, 0);
         if (Math.abs(sumPercentage - 100) > 0.01)
           throw new AppError("EXPENSE.SPLIT_PERCENTAGE_INVALID", 400, "EXPENSE_PERCENT_INVALID");
 
-        finalSplitAmounts = splitPercentage.map((p) =>
-          parseFloat(((p / 100) * amount).toFixed(2))
-        );
+        finalSplitAmounts = distributeAmountByWeights(amount, splitPercentage);
         break;
     }
   }
@@ -487,6 +489,9 @@ export async function updateExpense(
 
         case SplitType.AMOUNT: {
           const newSplitAmount = splitAmount ?? expense.splitAmount;
+          if (hasNonPositiveValue(newSplitAmount)) {
+            throw new AppError('EXPENSE.SPLIT_AMOUNT_INVALID', 400, 'EXPENSE_SPLIT_INVALID');
+          }
           const sumAmount = newSplitAmount.reduce((a, b) => a + b, 0);
           if (Math.abs(sumAmount - finalAmount) > 0.01) {
             throw new AppError('Split amounts do not match total amount', 400, 'EXPENSE_SPLIT_INVALID');
@@ -497,13 +502,14 @@ export async function updateExpense(
 
         case SplitType.PERCENTAGE: {
           const newSplitPercentage = splitPercentage ?? expense.splitPercentage;
+          if (hasNonPositiveValue(newSplitPercentage)) {
+            throw new AppError('EXPENSE.SPLIT_PERCENTAGE_INVALID', 400, 'EXPENSE_PERCENT_INVALID');
+          }
           const sumPercentage = newSplitPercentage.reduce((a, b) => a + b, 0);
           if (Math.abs(sumPercentage - 100) > 0.01) {
             throw new AppError('Split percentages must sum to 100', 400, 'EXPENSE_PERCENT_INVALID');
           }
-          finalSplitAmounts = newSplitPercentage.map((p) =>
-            parseFloat(((p / 100) * finalAmount).toFixed(2))
-          );
+          finalSplitAmounts = distributeAmountByWeights(finalAmount, newSplitPercentage);
           finalSplitPercentage = newSplitPercentage;
           break;
         }

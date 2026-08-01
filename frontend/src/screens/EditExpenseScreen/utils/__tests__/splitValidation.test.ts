@@ -10,7 +10,7 @@
  * These tests lock in the behavior after manual mobile testing passes.
  */
 
-import { calculateMemberShare, computeEqualPercentages, computeEqualAmounts, validateSplitConfig } from '../splitValidation';
+import { calculateMemberShare, computeEqualPercentages, computeEqualAmounts, computePercentageAmounts, validateSplitConfig } from '../splitValidation';
 
 describe('validateSplitConfig - zero-value split members are rejected', () => {
   it('rejects an AMOUNT split with a member left at 0 (regression: a newly-added member defaulting to 0 silently passed since 0 does not affect the sum check)', () => {
@@ -98,6 +98,35 @@ describe('computeEqualAmounts - regression: naive rounding does not sum to total
 
   it('returns empty object for no members', () => {
     expect(computeEqualAmounts(100, [])).toEqual({});
+  });
+});
+
+describe('computePercentageAmounts - regression: naive independent rounding drifts from totalAmount', () => {
+  it('splits proportionally to percentages summing to exactly totalAmount', () => {
+    // Naive (totalAmount * pct / 100).toFixed(2) per member gives
+    // 33.31/33.30/33.30 = 99.91, drifting from totalAmount=99.98.
+    const result = computePercentageAmounts(
+      99.98,
+      { 1: '33.34', 2: '33.33', 3: '33.33' },
+      [1, 2, 3]
+    );
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(99.98, 2);
+    expect(result).toEqual({ 1: '33.33', 2: '33.33', 3: '33.32' });
+  });
+
+  it('splits proportionally for unequal percentages (70/30)', () => {
+    const result = computePercentageAmounts(100, { 1: '70', 2: '30' }, [1, 2]);
+    expect(result).toEqual({ 1: '70.00', 2: '30.00' });
+  });
+
+  it('returns 0.00 for all members when percentages are unset (weight sum is 0)', () => {
+    const result = computePercentageAmounts(100, {}, [1, 2]);
+    expect(result).toEqual({ 1: '0.00', 2: '0.00' });
+  });
+
+  it('returns empty object for no members', () => {
+    expect(computePercentageAmounts(100, {}, [])).toEqual({});
   });
 });
 

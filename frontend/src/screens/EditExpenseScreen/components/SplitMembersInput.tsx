@@ -9,7 +9,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import type { GroupMember } from '../hooks/useExpenseData';
-import { computeEqualAmounts } from '../utils/splitValidation';
+import { computeEqualAmounts, computePercentageAmounts } from '../utils/splitValidation';
 
 interface SplitMembersInputProps {
   members: GroupMember[];
@@ -154,20 +154,21 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
     }
   };
 
-  // Helper to safely calculate percentage-based amount
-  const calculatePercentageAmount = (percentStr: string, totalStr: string): string => {
-    const total = parseFloat(totalStr || '0') || 0;
-    const percent = parseFloat(percentStr || '0') || 0;
-    const result = (total * percent) / 100;
-    return isNaN(result) ? '0.00' : result.toFixed(2);
-  };
-
   // Exact cent-accurate EQUAL split so the displayed per-member amount always
   // matches what computeEqualAmounts actually distributes (naive (amount/N)
   // repeated N times can under/overshoot the total by a cent - see useSplitCalculator).
   const equalShares = React.useMemo(
     () => computeEqualAmounts(parseFloat(totalAmount || '0') || 0, splitWithIds),
     [totalAmount, splitWithIds]
+  );
+
+  // Same fix, proportional case: naive independent rounding of each
+  // member's (amount * pct / 100) can drift from totalAmount by a cent or
+  // more; this mirrors the backend's distributeAmountByWeights so the
+  // preview always matches what's actually submitted/persisted.
+  const percentageShares = React.useMemo(
+    () => computePercentageAmounts(parseFloat(totalAmount || '0') || 0, splitPercentage, splitWithIds),
+    [totalAmount, splitPercentage, splitWithIds]
   );
 
   if (!members.length) {
@@ -239,7 +240,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                   />
                   <Text style={{ fontSize: 12, color: '#999', fontWeight: '500' }}>%</Text>
                   <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', width: 50, textAlign: 'right' }}>
-                    {calculatePercentageAmount(splitPercentage[member.id] || '', totalAmount || '0')}
+                    {percentageShares[member.id] ?? '0.00'}
                   </Text>
                 </View>
               ) : (

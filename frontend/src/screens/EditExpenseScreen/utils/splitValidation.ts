@@ -101,6 +101,55 @@ export function computeEqualAmounts(totalAmount: number, memberIds: number[]): R
 }
 
 /**
+ * Distribute totalAmount across members proportional to their percentage
+ * share, rounded to whole cents, guaranteed to sum back to totalAmount.
+ * Naive independent rounding of each member's (amount * pct / 100) can
+ * drift by a cent or more from totalAmount depending on the percentages -
+ * mirrors the backend's distributeAmountByWeights (largest-remainder
+ * method) so the displayed preview always matches what gets submitted.
+ */
+export function computePercentageAmounts(
+  totalAmount: number,
+  splitPercentage: Record<number, string>,
+  memberIds: number[]
+): Record<number, string> {
+  const result: Record<number, string> = {};
+  const n = memberIds.length;
+  if (n === 0) return result;
+
+  const totalCents = Math.round(totalAmount * 100);
+  const weights = memberIds.map(id => parseFloat(splitPercentage[id] || '0') || 0);
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+
+  if (weightSum <= 0) {
+    memberIds.forEach(id => { result[id] = '0.00'; });
+    return result;
+  }
+
+  const rawShares = weights.map(w => (w / weightSum) * totalCents);
+  const flooredCents = rawShares.map(share => Math.floor(share));
+  const distributedCents = flooredCents.reduce((a, b) => a + b, 0);
+  let remainderCents = totalCents - distributedCents;
+
+  const order = rawShares
+    .map((share, index) => ({ index, fraction: share - (flooredCents[index] ?? 0) }))
+    .sort((a, b) => b.fraction - a.fraction);
+
+  const resultCents = [...flooredCents];
+  for (const { index } of order) {
+    if (remainderCents <= 0) break;
+    resultCents[index] = (resultCents[index] ?? 0) + 1;
+    remainderCents -= 1;
+  }
+
+  memberIds.forEach((id, index) => {
+    result[id] = ((resultCents[index] ?? 0) / 100).toFixed(2);
+  });
+
+  return result;
+}
+
+/**
  * Validate split configuration
  * @param splitType - Type of split
  * @param expenseAmount - Total expense amount
