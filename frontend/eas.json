@@ -17,7 +17,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://expense-manager-backend.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://expense-manager-udoo.onrender.com/api"
       }
     },
     "production": {
