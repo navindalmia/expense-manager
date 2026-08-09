@@ -7,8 +7,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator, SafeAreaView,
+  KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { EditExpenseScreenProps } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -110,6 +111,26 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
       }
     }
   }, [expense]);
+
+  // In CREATE mode, default category to "Other" once categories load so the
+  // field is never blank/blocking; users can still change it via the picker.
+  useEffect(() => {
+    if (isCreateMode && !formState.category && categories.length > 0) {
+      const otherCategory = categories.find(c => c.code === 'OTHER');
+      if (otherCategory) {
+        updateField('category', otherCategory.id);
+      }
+    }
+  }, [isCreateMode, categories, formState.category, updateField]);
+
+  // In CREATE mode, default "Paid By" to the logged-in user, since they're
+  // usually the one paying when they're the one adding the expense. Users
+  // can still change it via the payer picker.
+  useEffect(() => {
+    if (isCreateMode && !formState.paidById && user) {
+      updateField('paidById', user.id);
+    }
+  }, [isCreateMode, user, formState.paidById, updateField]);
 
   const validateForm = useCallback((): boolean => {
     clearErrors();

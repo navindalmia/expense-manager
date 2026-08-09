@@ -95,6 +95,59 @@ describe('GroupService', () => {
       expect(result[0]!.id).toBe(1);
       expect(result[0]!.totalAmount).toBe(0);
     });
+
+    it('gives the payer a 0 share when they opted out of an EQUAL split, not a phantom non-zero share', async () => {
+      // Regression test: calculateUserExpenseShare used to add a phantom +1
+      // to the divisor whenever the payer wasn't in splitWith, e.g. treating
+      // a 2-person split as a 3-person split and returning amount/3 for the
+      // payer instead of the correct 0 (the other 2 members' shares already
+      // sum to the full amount).
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          createdById: CREATOR_ID,
+          members: [{ id: CREATOR_ID }],
+          expenses: [
+            {
+              amount: 50,
+              paidById: CREATOR_ID,
+              splitType: 'EQUAL',
+              splitWith: [{ id: MEMBER_ID }, { id: 3 }],
+              splitAmount: null,
+              splitPercentage: null,
+            },
+          ],
+        },
+      ]);
+
+      const result = await groupService.getUserGroups(CREATOR_ID);
+
+      expect(result[0]!.userPersonalTotal).toBe(0);
+    });
+
+    it("gives a split member their exact equal share, unaffected by the payer's inclusion", async () => {
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          createdById: CREATOR_ID,
+          members: [{ id: MEMBER_ID }],
+          expenses: [
+            {
+              amount: 50,
+              paidById: CREATOR_ID,
+              splitType: 'EQUAL',
+              splitWith: [{ id: MEMBER_ID }, { id: 3 }],
+              splitAmount: null,
+              splitPercentage: null,
+            },
+          ],
+        },
+      ]);
+
+      const result = await groupService.getUserGroups(MEMBER_ID);
+
+      expect(result[0]!.userPersonalTotal).toBe(25);
+    });
   });
 
   describe('getGroupById', () => {

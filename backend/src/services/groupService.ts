@@ -32,10 +32,11 @@ function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): numbe
   if (exp.paidById === userId) {
     // User is the payer - calculate their share based on split type
     if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-      // Check if payer is in the split
+      // Matches createExpense's EQUAL calculation: amount / splitWith.length
+      // among whoever is in splitWith. If the payer opted out of the split,
+      // their share is 0 - the others' shares already sum to the full amount.
       const payerInSplit = exp.splitWith.some(m => m.id === exp.paidById);
-      const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
-      return exp.amount / totalPeople;
+      return payerInSplit ? exp.amount / exp.splitWith.length : 0;
     } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
       // Find payer's index in splitWith
       const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidById) ?? -1;
@@ -57,10 +58,7 @@ function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): numbe
     const userIndex = exp.splitWith?.findIndex(u => u.id === userId) ?? -1;
     if (userIndex !== -1) {
       if (exp.splitType === 'EQUAL') {
-        // Check if payer is in the split
-        const payerInSplit = exp.splitWith.some(m => m.id === exp.paidById);
-        const totalPeople = payerInSplit ? exp.splitWith.length : exp.splitWith.length + 1;
-        return exp.amount / totalPeople;
+        return exp.amount / exp.splitWith.length;
       } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
         return (exp.amount * exp.splitPercentage[userIndex]) / 100;
       } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {

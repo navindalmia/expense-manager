@@ -238,6 +238,13 @@ export default function CreateExpenseScreen({
         const fetchedCategories = await getCategories();
         setCategories(fetchedCategories);
 
+        // Default category to "Other" so the field is never blank/blocking.
+        // Users can still change it via the category picker.
+        const otherCategory = fetchedCategories.find(c => c.code === 'OTHER');
+        if (otherCategory) {
+          setCategory(otherCategory.id);
+        }
+
         // Fetch group members for payer selection
         const groupResponse = await http.get<{ data: any }>(`/groups/${groupId}`);
         if (groupResponse.data.data && groupResponse.data.data.members) {
