@@ -14,10 +14,11 @@ import type { EditExpenseScreenProps } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { useAuth } from '../context/AuthContext';
-import { updateExpense, createExpense } from '../services/expenseService';
+import { updateExpense, createExpense, deleteExpense } from '../services/expenseService';
 import { getCategories } from '../services/categoryService';
 import { useExpenseData, useExpenseForm, useSplitCalculator, DatePickerModal, SplitMembersInput } from './EditExpenseScreen/index';
 import { AccordionSection } from '../components/AccordionSection';
+import { confirmThenProceed } from '../utils/crossPlatformAlert';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
@@ -40,6 +41,7 @@ const styles = StyleSheet.create({
   button: { flex: 1, paddingVertical: 10, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
   updateButton: { backgroundColor: '#0066cc' },
   cancelButton: { backgroundColor: '#f0f0f0' },
+  deleteButton: { backgroundColor: '#cc0000' },
   buttonText: { fontSize: 15, fontWeight: '600', color: '#fff' },
   cancelButtonText: { color: '#666' },
   errorText: { color: '#cc0000', fontSize: 11, marginTop: -6, marginBottom: 8 },
@@ -71,6 +73,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const [showPayerModal, setShowPayerModal] = useState(false);
   const [showSplitTypeModal, setShowSplitTypeModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Set header with group name on the right and title
   useEffect(() => {
@@ -242,6 +245,29 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     }
   }, [formState, expense, validateForm, getSplitPayload, expenseId, groupId, isCreateMode, navigation, splitState.splitType]);
 
+  const handleDelete = useCallback(() => {
+    if (!expenseId) return;
+    confirmThenProceed(
+      'Delete Expense',
+      `Are you sure you want to delete "${expense?.title ?? 'this expense'}"? This cannot be undone.`,
+      'Delete',
+      async () => {
+        setDeleting(true);
+        try {
+          await deleteExpense(expenseId);
+          logger.info('Expense deleted successfully', { expenseId });
+          navigation.goBack();
+        } catch (err: any) {
+          const msg = getErrorMessage(err);
+          logger.error('Delete failed', err, { expenseId, errorMsg: msg });
+          Alert.alert('Error', msg || 'Failed to delete expense');
+        } finally {
+          setDeleting(false);
+        }
+      }
+    );
+  }, [expenseId, expense, navigation]);
+
   if (dataLoading) return (<View style={styles.loadingContainer}><ActivityIndicator size="large" color="#0066cc" /><Text style={{ marginTop: 12, color: '#666' }}>Loading...</Text></View>);
   if (dataError) return (<View style={styles.loadingContainer}><Text style={{ color: '#cc0000', fontSize: 16, marginBottom: 16 }}>{dataError}</Text><TouchableOpacity style={[styles.button, styles.updateButton]} onPress={() => navigation.goBack()}><Text style={styles.buttonText}>Go Back</Text></TouchableOpacity></View>);
 
@@ -348,10 +374,23 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <AccordionSection title="Additional Notes" isOptional={true} defaultExpanded={formState.notes.length > 0}><TextInput style={[styles.input, styles.notesInput]} placeholder="Add details..." value={formState.notes} onChangeText={val => updateField('notes', val)} multiline editable={!submitting} /></AccordionSection>
 
         <View style={styles.stickyFooter}>
-          <TouchableOpacity style={[styles.button, styles.updateButton]} onPress={handleUpdate} disabled={submitting}>
+          {!isCreateMode && (
+            <TouchableOpacity
+              style={[styles.button, styles.deleteButton]}
+              onPress={handleDelete}
+              disabled={submitting || deleting}
+              testID="delete-expense-button"
+              accessible={true}
+              accessibilityLabel="Delete expense"
+              accessibilityRole="button"
+            >
+              <Text style={styles.buttonText}>{deleting ? 'Deleting...' : 'Delete'}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={[styles.button, styles.updateButton]} onPress={handleUpdate} disabled={submitting || deleting}>
             <Text style={styles.buttonText}>{submitting ? 'Saving...' : 'Save'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => navigation.goBack()} disabled={submitting}>
+          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => navigation.goBack()} disabled={submitting || deleting}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>

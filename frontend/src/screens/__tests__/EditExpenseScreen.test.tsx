@@ -10,8 +10,10 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Platform } from 'react-native';
 import EditExpenseScreen from '../EditExpenseScreen';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -41,11 +43,12 @@ vi.mock('../../services/expenseService', () => ({
   getExpenseById: vi.fn(),
   createExpense: vi.fn(),
   updateExpense: vi.fn(),
+  deleteExpense: vi.fn(),
 }));
 
 import { getCategories } from '../../services/categoryService';
 import { getGroup } from '../../services/groupService';
-import { getExpenseById } from '../../services/expenseService';
+import { getExpenseById, deleteExpense } from '../../services/expenseService';
 
 function renderEditScreen(expenseId: number) {
   const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as any;
@@ -100,6 +103,18 @@ describe('EditExpenseScreen (CREATE mode)', () => {
 
     expect(screen.queryByText('Select payer...')).toBeNull();
   });
+
+  it('does not show a Delete button when creating a new expense (nothing to delete yet)', async () => {
+    const { container } = renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Other')).toBeTruthy();
+    });
+
+    // RN's testID renders as a lowercase `testid` attribute on web, not
+    // `data-testid` -- see the EDIT-mode delete tests below for the query helper.
+    expect(container.querySelector('[testid="delete-expense-button"]')).toBeNull();
+  });
 });
 
 describe('EditExpenseScreen (EDIT mode)', () => {
@@ -141,5 +156,63 @@ describe('EditExpenseScreen (EDIT mode)', () => {
     expect(screen.getByDisplayValue('40')).toBeTruthy();
     expect(screen.queryByDisplayValue('0.00')).toBeNull();
     expect(screen.queryByDisplayValue('0')).toBeNull();
+  });
+
+  describe('Delete expense (web, Platform.OS === "web")', () => {
+    const originalOS = Platform.OS;
+    let confirmSpy: ReturnType<typeof vi.fn<[string?], boolean>>;
+
+    beforeEach(() => {
+      Platform.OS = 'web';
+      confirmSpy = vi.spyOn(window, 'confirm') as unknown as ReturnType<typeof vi.fn<[string?], boolean>>;
+    });
+
+    afterEach(() => {
+      Platform.OS = originalOS;
+      confirmSpy.mockRestore();
+    });
+
+    function renderEditModeForDelete() {
+      const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as any;
+      const route = {
+        params: { expenseId: 42, groupId: 1, groupName: 'Roommates', groupCurrencyCode: 'GBP' },
+      } as any;
+      const result = render(<EditExpenseScreen navigation={navigation} route={route} />);
+
+      // RN's testID renders as a lowercase `testid` attribute on web, not
+      // `data-testid` that @testing-library/react's getByTestId expects.
+      const getDeleteButton = (): HTMLElement => {
+        const el = result.container.querySelector('[testid="delete-expense-button"]');
+        if (!el) throw new Error('Unable to find delete-expense-button');
+        return el as HTMLElement;
+      };
+
+      return { navigation, getDeleteButton };
+    }
+
+    it('deletes the expense and navigates back when the confirmation is accepted', async () => {
+      confirmSpy.mockReturnValue(true);
+      (deleteExpense as any).mockResolvedValue(undefined);
+      const { navigation, getDeleteButton } = renderEditModeForDelete();
+
+      await waitFor(() => expect(getDeleteButton()).toBeTruthy());
+      await userEvent.click(getDeleteButton());
+
+      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Groceries'));
+      expect(deleteExpense).toHaveBeenCalledWith(42);
+      await waitFor(() => expect(navigation.goBack).toHaveBeenCalled());
+    });
+
+    it('does not delete the expense when the confirmation is dismissed', async () => {
+      confirmSpy.mockReturnValue(false);
+      const { navigation, getDeleteButton } = renderEditModeForDelete();
+
+      await waitFor(() => expect(getDeleteButton()).toBeTruthy());
+      await userEvent.click(getDeleteButton());
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(deleteExpense).not.toHaveBeenCalled();
+      expect(navigation.goBack).not.toHaveBeenCalled();
+    });
   });
 });
