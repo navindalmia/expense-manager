@@ -62,7 +62,19 @@ describe('GroupService', () => {
     it('throws when the group name is empty', async () => {
       await expect(
         groupService.createGroup({ name: '   ', createdById: CREATOR_ID })
-      ).rejects.toThrow('Group name is required');
+      ).rejects.toThrow('GROUP.NAME_REQUIRED');
+      expect(prisma.group.create).not.toHaveBeenCalled();
+    });
+
+    it('throws an AppError instead of a generic 500 when the currency code has no matching seed row', async () => {
+      (prisma.currency.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        groupService.createGroup({ name: 'Trip to Rome', createdById: CREATOR_ID, currency: 'ZZZ' })
+      ).rejects.toThrow(AppError);
+      await expect(
+        groupService.createGroup({ name: 'Trip to Rome', createdById: CREATOR_ID, currency: 'ZZZ' })
+      ).rejects.toThrow('GROUP.CURRENCY_NOT_FOUND');
       expect(prisma.group.create).not.toHaveBeenCalled();
     });
   });

@@ -82,11 +82,11 @@ export async function createGroup(data: {
 }) {
   // Validate input
   if (!data.name || data.name.trim().length === 0) {
-    throw new Error('Group name is required');
+    throw new AppError('GROUP.NAME_REQUIRED', 400, 'GROUP_NAME_REQUIRED');
   }
 
   if (data.name.length > 100) {
-    throw new Error('Group name must be less than 100 characters');
+    throw new AppError('GROUP.NAME_TOO_LONG', 400, 'GROUP_NAME_TOO_LONG');
   }
 
   try {
@@ -97,7 +97,7 @@ export async function createGroup(data: {
     });
 
     if (!currencyRecord) {
-      throw new Error(`Currency ${currencyCode} not found`);
+      throw new AppError('GROUP.CURRENCY_NOT_FOUND', 400, 'GROUP_CURRENCY_NOT_FOUND', { currencyCode });
     }
 
     const group = await prisma.group.create({
@@ -125,8 +125,11 @@ export async function createGroup(data: {
 
     return group;
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      throw new Error('Failed to create group');
+      throw new AppError('GROUP.CREATION_FAILED', 500, 'GROUP_CREATION_FAILED', { prismaCode: error.code });
     }
     throw error;
   }

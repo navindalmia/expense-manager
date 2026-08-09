@@ -20,5 +20,11 @@
   },
   "CATEGORY": {
     "NOT_FOUND": "Catégorie non trouvée."
+  },
+  "GROUP": {
+    "NAME_REQUIRED": "Le nom du groupe est requis.",
+    "NAME_TOO_LONG": "Le nom du groupe doit contenir moins de 100 caractères.",
+    "CURRENCY_NOT_FOUND": "La devise sélectionnée n'est pas disponible.",
+    "CREATION_FAILED": "Échec de la création du groupe."
   }
 }
