@@ -9,7 +9,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import type { GroupMember } from '../hooks/useExpenseData';
-import { calculateMemberShare } from '../utils/splitValidation';
+import { computeEqualAmounts, computePercentageAmounts } from '../utils/splitValidation';
 
 interface SplitMembersInputProps {
   members: GroupMember[];
@@ -49,6 +49,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 14,
     gap: 8,
+  },
+  checkboxToggleTarget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    paddingVertical: 4,
   },
   checkbox: {
     width: 20,
@@ -147,13 +154,22 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
     }
   };
 
-  // Helper to safely calculate percentage-based amount
-  const calculatePercentageAmount = (percentStr: string, totalStr: string): string => {
-    const total = parseFloat(totalStr || '0') || 0;
-    const percent = parseFloat(percentStr || '0') || 0;
-    const result = (total * percent) / 100;
-    return isNaN(result) ? '0.00' : result.toFixed(2);
-  };
+  // Exact cent-accurate EQUAL split so the displayed per-member amount always
+  // matches what computeEqualAmounts actually distributes (naive (amount/N)
+  // repeated N times can under/overshoot the total by a cent - see useSplitCalculator).
+  const equalShares = React.useMemo(
+    () => computeEqualAmounts(parseFloat(totalAmount || '0') || 0, splitWithIds),
+    [totalAmount, splitWithIds]
+  );
+
+  // Same fix, proportional case: naive independent rounding of each
+  // member's (amount * pct / 100) can drift from totalAmount by a cent or
+  // more; this mirrors the backend's distributeAmountByWeights so the
+  // preview always matches what's actually submitted/persisted.
+  const percentageShares = React.useMemo(
+    () => computePercentageAmounts(parseFloat(totalAmount || '0') || 0, splitPercentage, splitWithIds),
+    [totalAmount, splitPercentage, splitWithIds]
+  );
 
   if (!members.length) {
     return null;
@@ -180,35 +196,31 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
       <View style={styles.checkboxContainer}>
         {members.map(member => {
           const isSelected = splitWithIds.includes(member.id);
-          let memberShare = '0.00';
-          if (isSelected) {
-            const share = calculateMemberShare(
-              'EQUAL',
-              parseFloat(totalAmount || '0') || 0,
-              splitAmount[member.id],
-              splitPercentage[member.id],
-              splitWithIds.length
-            );
-            memberShare = isNaN(parseFloat(share)) ? '0.00' : share;
-          }
-          
+          const memberShare = isSelected
+            ? equalShares[member.id] ?? '0.00'
+            : '0.00';
+
           return (
-            <TouchableOpacity
-              key={member.id}
-              style={styles.checkboxRow}
-              onPress={() => {
-                if (isSelected) {
-                  onRemoveMember(member.id);
-                } else {
-                  onAddMember(member.id);
-                }
-              }}
-            >
-              <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
-                {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
-              </View>
-              <Text style={styles.checkboxLabel}>{member.name}</Text>
-              {member.id === paidById && <Text style={styles.payerBadge}>Payer</Text>}
+            <View key={member.id} style={styles.checkboxRow}>
+              <TouchableOpacity
+                style={styles.checkboxToggleTarget}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: isSelected }}
+                accessibilityLabel={isSelected ? `Remove ${member.name} from split` : `Add ${member.name} to split`}
+                onPress={() => {
+                  if (isSelected) {
+                    onRemoveMember(member.id);
+                  } else {
+                    onAddMember(member.id);
+                  }
+                }}
+              >
+                <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
+                  {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>{member.name}</Text>
+                {member.id === paidById && <Text style={styles.payerBadge}>Payer</Text>}
+              </TouchableOpacity>
               {isSelected && splitType === 'AMOUNT' ? (
                 <TextInput
                   style={[styles.memberAmount, { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 8, paddingVertical: 6, fontSize: 14, width: 80, textAlign: 'right', marginLeft: 'auto' }]}
@@ -228,13 +240,13 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                   />
                   <Text style={{ fontSize: 12, color: '#999', fontWeight: '500' }}>%</Text>
                   <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', width: 50, textAlign: 'right' }}>
-                    {calculatePercentageAmount(splitPercentage[member.id] || '', totalAmount || '0')}
+                    {percentageShares[member.id] ?? '0.00'}
                   </Text>
                 </View>
               ) : (
                 <Text style={[styles.memberAmount, { marginLeft: 'auto', width: 50, textAlign: 'right' }]}>{memberShare}</Text>
               )}
-            </TouchableOpacity>
+            </View>
           );
         })}
       </View>
@@ -252,6 +264,7 @@ export const SplitMembersInput = React.memo(SplitMembersInputComponent, (prevPro
     prevProps.paidById === nextProps.paidById &&
     prevProps.splitType === nextProps.splitType &&
     prevProps.currency === nextProps.currency &&
+    prevProps.totalAmount === nextProps.totalAmount &&
     JSON.stringify(prevProps.splitWithIds) === JSON.stringify(nextProps.splitWithIds) &&
     JSON.stringify(prevProps.splitAmount) === JSON.stringify(nextProps.splitAmount) &&
     JSON.stringify(prevProps.splitPercentage) === JSON.stringify(nextProps.splitPercentage) &&

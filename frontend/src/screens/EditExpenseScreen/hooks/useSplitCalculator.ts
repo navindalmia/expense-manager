@@ -10,7 +10,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import type { SplitType } from '../../../types/common';
-import { validateSplitConfig, calculateSplitTotal } from '../utils/splitValidation';
+import { validateSplitConfig, calculateSplitTotal, computeEqualPercentages, computeEqualAmounts } from '../utils/splitValidation';
 
 export interface SplitState {
   splitType: SplitType;
@@ -69,13 +69,7 @@ export function useSplitCalculator(
       paidById !== null
     ) {
       // Payer is now optional - only divide by actual split members
-      const totalMembers = splitState.splitWithIds.length;
-      const sharePercent = (100 / totalMembers).toFixed(2);
-
-      const newPercentages: Record<number, string> = {};
-      splitState.splitWithIds.forEach(memberId => {
-        newPercentages[memberId] = sharePercent;
-      });
+      const newPercentages = computeEqualPercentages(splitState.splitWithIds);
 
       setSplitState(prev => ({
         ...prev,
@@ -139,36 +133,28 @@ export function useSplitCalculator(
         ...prev,
         splitWithIds: newSplitWithIds,
       };
-      
-      // Auto-recalculate values if PERCENTAGE or AMOUNT split type
-      if (newSplitWithIds.length > 0) {
-        if (prev.splitType === 'PERCENTAGE') {
-          const defaultPercent = (100 / newSplitWithIds.length).toFixed(2);
-          const newPercentages: Record<number, string> = {};
-          newSplitWithIds.forEach(id => {
-            newPercentages[id] = defaultPercent;
-          });
-          newState.splitPercentage = newPercentages;
-        } else if (prev.splitType === 'AMOUNT') {
-          const totalAmount = parseFloat(expenseAmount) || 0;
-          const memberAmount = (totalAmount / newSplitWithIds.length).toFixed(2);
-          const newAmounts: Record<number, string> = {};
-          newSplitWithIds.forEach(id => {
-            newAmounts[id] = memberAmount;
-          });
-          newState.splitAmount = newAmounts;
-        }
+
+      // For PERCENTAGE/AMOUNT, only initialize the new member's value ('0',
+      // to fill in manually) - leave existing members' manually-edited values
+      // untouched. Recomputing everyone equally would silently discard any
+      // custom split the user had already typed in for the other members.
+      if (prev.splitType === 'PERCENTAGE') {
+        newState.splitPercentage = { ...prev.splitPercentage, [memberId]: '0' };
+      } else if (prev.splitType === 'AMOUNT') {
+        newState.splitAmount = { ...prev.splitAmount, [memberId]: '0' };
       }
-      
+
       return newState;
     });
-  }, [expenseAmount]);
+  }, []);
 
   const removeMember = useCallback((memberId: number) => {
     setSplitState(prev => {
       const newSplitWithIds = prev.splitWithIds.filter(id => id !== memberId);
-      
-      const newState = {
+
+      // Just drop the removed member's entry - leave remaining members'
+      // manually-edited AMOUNT/PERCENTAGE values untouched (see addMember).
+      return {
         ...prev,
         splitWithIds: newSplitWithIds,
         splitAmount: Object.fromEntries(
@@ -178,30 +164,8 @@ export function useSplitCalculator(
           Object.entries(prev.splitPercentage).filter(([id]) => parseInt(id) !== memberId)
         ),
       };
-      
-      // Auto-recalculate values if PERCENTAGE or AMOUNT split type and members remain
-      if (newSplitWithIds.length > 0) {
-        if (prev.splitType === 'PERCENTAGE') {
-          const defaultPercent = (100 / newSplitWithIds.length).toFixed(2);
-          const newPercentages: Record<number, string> = {};
-          newSplitWithIds.forEach(id => {
-            newPercentages[id] = defaultPercent;
-          });
-          newState.splitPercentage = newPercentages;
-        } else if (prev.splitType === 'AMOUNT') {
-          const totalAmount = parseFloat(expenseAmount) || 0;
-          const memberAmount = (totalAmount / newSplitWithIds.length).toFixed(2);
-          const newAmounts: Record<number, string> = {};
-          newSplitWithIds.forEach(id => {
-            newAmounts[id] = memberAmount;
-          });
-          newState.splitAmount = newAmounts;
-        }
-      }
-      
-      return newState;
     });
-  }, [expenseAmount]);
+  }, []);
 
   const updateAmount = useCallback((memberId: number, amount: string) => {
     setSplitState(prev => ({
@@ -233,21 +197,11 @@ export function useSplitCalculator(
       // Auto-populate defaults when switching split types
       if (type === 'PERCENTAGE' && prev.splitWithIds.length > 0) {
         // Default: equal percentage per member
-        const defaultPercent = (100 / prev.splitWithIds.length).toFixed(2);
-        const newPercentages: Record<number, string> = {};
-        prev.splitWithIds.forEach(memberId => {
-          newPercentages[memberId] = defaultPercent;
-        });
-        newState.splitPercentage = newPercentages;
+        newState.splitPercentage = computeEqualPercentages(prev.splitWithIds);
         newState.splitAmount = {}; // Clear amounts
       } else if (type === 'AMOUNT' && prev.splitWithIds.length > 0) {
         // Default: divide expenseAmount equally among members
-        const memberAmount = (parseFloat(expenseAmount) / prev.splitWithIds.length).toFixed(2);
-        const newAmounts: Record<number, string> = {};
-        prev.splitWithIds.forEach(memberId => {
-          newAmounts[memberId] = memberAmount;
-        });
-        newState.splitAmount = newAmounts;
+        newState.splitAmount = computeEqualAmounts(parseFloat(expenseAmount) || 0, prev.splitWithIds);
         newState.splitPercentage = {}; // Clear percentages
       } else if (type === 'EQUAL') {
         // Clear both - auto-calculated

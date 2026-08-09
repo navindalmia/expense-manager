@@ -516,10 +516,11 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
                 paidBy: e.paidBy?.name,
               })),
             });
-            navigation.navigate('Settlement', { 
-              groupId, 
+            navigation.navigate('Settlement', {
+              groupId,
               groupName,
-              expenses 
+              currency: expenses[0]?.currency,
+              expenses
             });
           }}
           activeOpacity={0.7}

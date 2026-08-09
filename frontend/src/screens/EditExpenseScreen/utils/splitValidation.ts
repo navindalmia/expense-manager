@@ -59,6 +59,97 @@ export function calculateMemberShare(
 }
 
 /**
+ * Distribute a total (in cents) evenly across N members, giving any leftover
+ * cent(s) to the first members in order so the sum is always exact.
+ * (100/3 = 33.33 repeating -> 33.34/33.33/33.33, not 33.33/33.33/33.33 which
+ * only sums to 99.99.)
+ *
+ * @param totalCents - Total to distribute, in integer cents
+ * @param memberIds - Member IDs to distribute across, in order
+ * @returns Map of member ID to their share, formatted with 2 decimals
+ */
+function distributeCentsEvenly(totalCents: number, memberIds: number[]): Record<number, string> {
+  const n = memberIds.length;
+  const result: Record<number, string> = {};
+  if (n === 0) return result;
+
+  const baseCents = Math.floor(totalCents / n);
+  const remainderCents = totalCents - baseCents * n;
+
+  memberIds.forEach((id, index) => {
+    const cents = baseCents + (index < remainderCents ? 1 : 0);
+    result[id] = (cents / 100).toFixed(2);
+  });
+
+  return result;
+}
+
+/**
+ * Compute an EQUAL percentage split across members that always sums to
+ * exactly 100.00, unlike naive (100/N).toFixed(2) repeated N times.
+ */
+export function computeEqualPercentages(memberIds: number[]): Record<number, string> {
+  return distributeCentsEvenly(10000, memberIds);
+}
+
+/**
+ * Compute an EQUAL amount split across members that always sums to exactly
+ * the total amount, unlike naive (amount/N).toFixed(2) repeated N times.
+ */
+export function computeEqualAmounts(totalAmount: number, memberIds: number[]): Record<number, string> {
+  return distributeCentsEvenly(Math.round(totalAmount * 100), memberIds);
+}
+
+/**
+ * Distribute totalAmount across members proportional to their percentage
+ * share, rounded to whole cents, guaranteed to sum back to totalAmount.
+ * Naive independent rounding of each member's (amount * pct / 100) can
+ * drift by a cent or more from totalAmount depending on the percentages -
+ * mirrors the backend's distributeAmountByWeights (largest-remainder
+ * method) so the displayed preview always matches what gets submitted.
+ */
+export function computePercentageAmounts(
+  totalAmount: number,
+  splitPercentage: Record<number, string>,
+  memberIds: number[]
+): Record<number, string> {
+  const result: Record<number, string> = {};
+  const n = memberIds.length;
+  if (n === 0) return result;
+
+  const totalCents = Math.round(totalAmount * 100);
+  const weights = memberIds.map(id => parseFloat(splitPercentage[id] || '0') || 0);
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+
+  if (weightSum <= 0) {
+    memberIds.forEach(id => { result[id] = '0.00'; });
+    return result;
+  }
+
+  const rawShares = weights.map(w => (w / weightSum) * totalCents);
+  const flooredCents = rawShares.map(share => Math.floor(share));
+  const distributedCents = flooredCents.reduce((a, b) => a + b, 0);
+  let remainderCents = totalCents - distributedCents;
+
+  const order = rawShares
+    .map((share, index) => ({ index, fraction: share - (flooredCents[index] ?? 0) }))
+    .sort((a, b) => b.fraction - a.fraction);
+
+  const resultCents = [...flooredCents];
+  for (const { index } of order) {
+    if (remainderCents <= 0) break;
+    resultCents[index] = (resultCents[index] ?? 0) + 1;
+    remainderCents -= 1;
+  }
+
+  memberIds.forEach((id, index) => {
+    result[id] = ((resultCents[index] ?? 0) / 100).toFixed(2);
+  });
+
+  return result;
+}
+
+/**
  * Validate split configuration
  * @param splitType - Type of split
  * @param expenseAmount - Total expense amount
@@ -78,11 +169,17 @@ export function validateSplitConfig(
       return 'Expense amount must be greater than 0';
     }
     
-    // Check for negative amounts
+    // Every split member must have a positive amount - a member left at the
+    // default 0 (e.g. just added, not yet filled in) would otherwise pass
+    // silently as a "ghost" 0-share participant since 0 doesn't affect the
+    // sum-to-target check below.
     for (const amount of Object.values(splitAmount)) {
       const val = parseFloat(amount || '0');
       if (val < 0) {
         return 'Split amounts cannot be negative';
+      }
+      if (val === 0) {
+        return 'Every split member must have an amount greater than 0';
       }
     }
     
@@ -92,11 +189,15 @@ export function validateSplitConfig(
       return `Split amounts must sum to ${expenseAmount} (currently ${total.toFixed(2)})`;
     }
   } else if (splitType === 'PERCENTAGE') {
-    // Check for negative percentages
+    // Every split member must have a positive percentage - see the AMOUNT
+    // branch above for why 0 specifically needs its own check.
     for (const pct of Object.values(splitPercentage)) {
       const val = parseFloat(pct || '0');
       if (val < 0) {
         return 'Split percentages cannot be negative';
+      }
+      if (val === 0) {
+        return 'Every split member must have a percentage greater than 0';
       }
     }
     

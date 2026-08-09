@@ -10,7 +10,125 @@
  * These tests lock in the behavior after manual mobile testing passes.
  */
 
-import { calculateMemberShare } from '../splitValidation';
+import { calculateMemberShare, computeEqualPercentages, computeEqualAmounts, computePercentageAmounts, validateSplitConfig } from '../splitValidation';
+
+describe('validateSplitConfig - zero-value split members are rejected', () => {
+  it('rejects an AMOUNT split with a member left at 0 (regression: a newly-added member defaulting to 0 silently passed since 0 does not affect the sum check)', () => {
+    const error = validateSplitConfig('AMOUNT', '100', { 1: '100', 2: '0' }, {});
+    expect(error).toBe('Every split member must have an amount greater than 0');
+  });
+
+  it('rejects a PERCENTAGE split with a member left at 0', () => {
+    const error = validateSplitConfig('PERCENTAGE', '100', {}, { 1: '100', 2: '0' });
+    expect(error).toBe('Every split member must have a percentage greater than 0');
+  });
+
+  it('still rejects negative amounts (0-check does not shadow the negative check)', () => {
+    const error = validateSplitConfig('AMOUNT', '100', { 1: '110', 2: '-10' }, {});
+    expect(error).toBe('Split amounts cannot be negative');
+  });
+
+  it('still rejects negative percentages', () => {
+    const error = validateSplitConfig('PERCENTAGE', '100', {}, { 1: '110', 2: '-10' });
+    expect(error).toBe('Split percentages cannot be negative');
+  });
+
+  it('accepts a valid AMOUNT split where every member has a positive amount', () => {
+    const error = validateSplitConfig('AMOUNT', '100', { 1: '60', 2: '40' }, {});
+    expect(error).toBeNull();
+  });
+
+  it('accepts a valid PERCENTAGE split where every member has a positive percentage', () => {
+    const error = validateSplitConfig('PERCENTAGE', '100', {}, { 1: '60', 2: '40' });
+    expect(error).toBeNull();
+  });
+
+  it('EQUAL split type is unaffected (no per-member zero check applies)', () => {
+    const error = validateSplitConfig('EQUAL', '100', {}, {});
+    expect(error).toBeNull();
+  });
+});
+
+describe('computeEqualPercentages - regression: naive rounding does not sum to 100', () => {
+  it('splits 3 ways summing to exactly 100.00 (naive (100/3).toFixed(2) x3 = 99.99)', () => {
+    const result = computeEqualPercentages([1, 2, 3]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+    expect(result[1]).toBe('33.34');
+    expect(result[2]).toBe('33.33');
+    expect(result[3]).toBe('33.33');
+  });
+
+  it('splits 6 ways summing to exactly 100.00 (naive (100/6).toFixed(2) x6 = 100.02)', () => {
+    const result = computeEqualPercentages([1, 2, 3, 4, 5, 6]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+  });
+
+  it('splits 7 ways summing to exactly 100.00', () => {
+    const result = computeEqualPercentages([1, 2, 3, 4, 5, 6, 7]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+  });
+
+  it('splits evenly (2 members) as 50.00/50.00', () => {
+    expect(computeEqualPercentages([1, 2])).toEqual({ 1: '50.00', 2: '50.00' });
+  });
+
+  it('returns empty object for no members', () => {
+    expect(computeEqualPercentages([])).toEqual({});
+  });
+});
+
+describe('computeEqualAmounts - regression: naive rounding does not sum to total', () => {
+  it('splits 100 three ways summing to exactly 100.00', () => {
+    const result = computeEqualAmounts(100, [1, 2, 3]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(100, 2);
+    expect(result[1]).toBe('33.34');
+    expect(result[2]).toBe('33.33');
+    expect(result[3]).toBe('33.33');
+  });
+
+  it('splits an arbitrary decimal total (10.01) three ways summing exactly', () => {
+    const result = computeEqualAmounts(10.01, [1, 2, 3]);
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(10.01, 2);
+  });
+
+  it('returns empty object for no members', () => {
+    expect(computeEqualAmounts(100, [])).toEqual({});
+  });
+});
+
+describe('computePercentageAmounts - regression: naive independent rounding drifts from totalAmount', () => {
+  it('splits proportionally to percentages summing to exactly totalAmount', () => {
+    // Naive (totalAmount * pct / 100).toFixed(2) per member gives
+    // 33.31/33.30/33.30 = 99.91, drifting from totalAmount=99.98.
+    const result = computePercentageAmounts(
+      99.98,
+      { 1: '33.34', 2: '33.33', 3: '33.33' },
+      [1, 2, 3]
+    );
+    const sum = Object.values(result).reduce((s, v) => s + parseFloat(v), 0);
+    expect(sum).toBeCloseTo(99.98, 2);
+    expect(result).toEqual({ 1: '33.33', 2: '33.33', 3: '33.32' });
+  });
+
+  it('splits proportionally for unequal percentages (70/30)', () => {
+    const result = computePercentageAmounts(100, { 1: '70', 2: '30' }, [1, 2]);
+    expect(result).toEqual({ 1: '70.00', 2: '30.00' });
+  });
+
+  it('returns 0.00 for all members when percentages are unset (weight sum is 0)', () => {
+    const result = computePercentageAmounts(100, {}, [1, 2]);
+    expect(result).toEqual({ 1: '0.00', 2: '0.00' });
+  });
+
+  it('returns empty object for no members', () => {
+    expect(computePercentageAmounts(100, {}, [])).toEqual({});
+  });
+});
 
 describe('calculateMemberShare - UNIT TESTS', () => {
   describe('✅ HAPPY PATH: EQUAL splits', () => {

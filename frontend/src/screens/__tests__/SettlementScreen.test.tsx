@@ -57,7 +57,39 @@ function renderSettlement(expenses: Expense[]) {
   return render(<SettlementScreen navigation={{} as any} route={route} />);
 }
 
+function renderSettlementWithoutCurrencyParam(expenses: Expense[]) {
+  // Regression: ExpenseListScreen used to navigate to Settlement without
+  // passing `currency` at all - simulate that by omitting it from params,
+  // the way the real navigation call did before the fix.
+  const route = {
+    params: {
+      groupId: 1,
+      groupName: 'Roommates',
+      expenses,
+    },
+  } as any;
+  return render(<SettlementScreen navigation={{} as any} route={route} />);
+}
+
 describe('SettlementScreen', () => {
+  it('derives currency from the expenses data when route.params.currency is missing, instead of defaulting to USD (regression: GBP group showed USD)', () => {
+    const gbpExpense = makeExpense({
+      id: 20,
+      amount: 200,
+      currency: { id: 2, code: 'GBP', label: 'British Pound' },
+      splitWith: [
+        { id: 1, name: 'Alice', email: 'alice@test.com' },
+        { id: 2, name: 'Bob', email: 'bob@test.com' },
+      ],
+      splitType: 'EQUAL',
+    });
+
+    renderSettlementWithoutCurrencyParam([gbpExpense]);
+
+    expect(screen.getByText(/Alice will get GBP 100\.00/)).toBeTruthy();
+    expect(screen.queryByText(/USD/)).toBeNull();
+  });
+
   it('shows an empty state when there are no expenses', () => {
     renderSettlement([]);
 
