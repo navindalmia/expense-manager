@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run migrate:deploy && npm start
     envVars:
       - key: DATABASE_URL
@@ -27,3 +27,5 @@ services:
         value: production
       - key: PORT
         value: 4000
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"

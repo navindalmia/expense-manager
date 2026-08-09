@@ -13,6 +13,7 @@ import { validateSignup, validateLogin, validateVerifyEmail, validateResendVerif
 import { ZodError } from 'zod';
 import { createVerificationToken, sendVerificationEmail } from '../services/emailVerificationService';
 import { logger } from '../utils/logger';
+import { isEmailVerificationRequired } from '../lib/config';
 
 const ACCOUNT_LOCKOUT_THRESHOLD = 5;
 const ACCOUNT_LOCKOUT_DURATION_MINUTES = 15;
@@ -173,8 +174,8 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Check if email is verified
-    if (!user.emailVerified) {
+    // Check if email is verified (togglable via REQUIRE_EMAIL_VERIFICATION env var)
+    if (isEmailVerificationRequired() && !user.emailVerified) {
       res.status(403).json({
         success: false,
         message: 'Please verify your email address before logging in',

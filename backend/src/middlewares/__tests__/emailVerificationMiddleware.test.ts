@@ -61,6 +61,23 @@ describe('requireEmailVerified', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it('calls next() for an unverified user when REQUIRE_EMAIL_VERIFICATION=false', async () => {
+    process.env.REQUIRE_EMAIL_VERIFICATION = 'false';
+
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+      id: 1,
+      emailVerified: false,
+      email: 'user@test.com',
+    });
+
+    await requireEmailVerified(req as Request, res as Response, next);
+
+    delete process.env.REQUIRE_EMAIL_VERIFICATION;
+
+    expect(next).toHaveBeenCalled();
+    expect(req.user!.emailVerified).toBe(false);
+  });
+
   it('returns 401 when req.user is not set', async () => {
     req.user = undefined;
 

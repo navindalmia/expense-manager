@@ -395,6 +395,68 @@ describe('Auth Controller', () => {
       expect(jsonData.success).toBe(true);
     });
 
+    it('should reject login when email is unverified and REQUIRE_EMAIL_VERIFICATION is unset (default)', async () => {
+      delete process.env.REQUIRE_EMAIL_VERIFICATION;
+
+      req.body = {
+        email: 'john@test.com',
+        password: 'Valid@Password123',
+      };
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 1,
+        email: 'john@test.com',
+        password: 'hashed_password',
+        emailVerified: false,
+        isActive: true,
+        lockedUntil: null,
+        failedLoginAttempts: 0,
+      });
+
+      (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(true);
+
+      await login(req as Request, res as Response);
+
+      expect(statusCode).toBe(403);
+      expect(jsonData.success).toBe(false);
+      expect(jsonData.error).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('should allow login when email is unverified but REQUIRE_EMAIL_VERIFICATION=false', async () => {
+      process.env.REQUIRE_EMAIL_VERIFICATION = 'false';
+
+      req.body = {
+        email: 'john@test.com',
+        password: 'Valid@Password123',
+      };
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 1,
+        email: 'john@test.com',
+        name: 'John Doe',
+        password: 'hashed_password',
+        emailVerified: false,
+        isActive: true,
+        lockedUntil: null,
+        failedLoginAttempts: 0,
+      });
+
+      (passwordHelper.comparePassword as jest.Mock).mockResolvedValue(true);
+      (jwtHelper.generateToken as jest.Mock).mockReturnValue('valid-token');
+      (prisma.user.update as jest.Mock).mockResolvedValue({
+        id: 1,
+        lastLogin: new Date(),
+      });
+
+      await login(req as Request, res as Response);
+
+      delete process.env.REQUIRE_EMAIL_VERIFICATION;
+
+      expect(statusCode).toBe(200);
+      expect(jsonData.success).toBe(true);
+      expect(jsonData.data.token).toBe('valid-token');
+    });
+
     it('should reject non-existent user with generic error', async () => {
       req.body = {
         email: 'nonexistent@test.com',

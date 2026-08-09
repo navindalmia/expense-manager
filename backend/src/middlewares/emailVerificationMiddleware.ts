@@ -8,6 +8,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
+import { isEmailVerificationRequired } from '../lib/config';
 
 /**
  * Middleware to ensure user's email is verified
@@ -46,7 +47,7 @@ export async function requireEmailVerified(
       return;
     }
 
-    if (!user.emailVerified) {
+    if (isEmailVerificationRequired() && !user.emailVerified) {
       logger.info('Access denied to unverified user', {
         userId: req.user.id,
         email: user.email,
@@ -64,7 +65,7 @@ export async function requireEmailVerified(
     }
 
     // Attach verification status to request
-    req.user.emailVerified = true;
+    req.user.emailVerified = user.emailVerified;
     next();
   } catch (error) {
     logger.error('Error checking email verification', error, {

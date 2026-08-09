@@ -154,6 +154,17 @@ See [ROADMAP.md](ROADMAP.md) for the full feature roadmap including current stab
 
 ---
 
-## Deployment Target
+## Deployment (current: free-tier cloud stack)
 
-Azure — Container Apps (backend) · Static Web Apps (frontend) · PostgreSQL Flexible Server · SendGrid. CI/CD via GitHub Actions. See ROADMAP.md Phase 7 for the full plan.
+- **Backend:** [Render](https://render.com) free tier, service `expense-manager`, config in [`render.yaml`](render.yaml). Live at `https://expense-manager-udoo.onrender.com`. Sleeps after ~15min idle (30-50s cold start on next request). Deploys automatically on push to `master` (Render watches the repo).
+- **Database:** [Neon](https://neon.tech) Postgres free tier, project "expense-manager", 0.5GB cap. Auto-suspends compute when idle; data persists. Run migrations against it the same way as local (`npm run migrate` in `backend/`, pointed at the Neon `DATABASE_URL`).
+- **Mobile builds:** [EAS Build](https://docs.expo.dev/build/introduction/) (Android internal distribution, not Play Store). Config in [`frontend/eas.json`](frontend/eas.json). To build and test:
+  ```
+  cd frontend
+  npx eas-cli build --platform android --profile preview
+  ```
+  EAS prints an install link when done (also at `expo.dev/accounts/navindalmia/projects/expense-manager/builds/<id>`) — open it on an Android phone to install the APK directly, no Play Store needed. The `preview` profile points at the live Render backend.
+- **Email verification:** SendGrid env vars (`SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`) are wired into `render.yaml` but **not yet set** — see [`backend/ENVIRONMENT_SETUP.md`](backend/ENVIRONMENT_SETUP.md). Until configured, verify test accounts manually via SQL in Neon's SQL Editor: `UPDATE "User" SET "emailVerified"=true WHERE email='...'`.
+- **Debugging a failed EAS build:** if the dashboard just says "Unknown error", get the real log with `npx eas-cli build:view <build-id> --json` (gives a signed log URL) — see `docs/solutions/build-errors/render-eas-free-tier-deploy-setup.md` for the full troubleshooting steps (log is Brotli-compressed, needs `brotli -d`, not `gunzip`).
+
+Azure was the original target (see ROADMAP.md Phase 7) but was deferred indefinitely 2026-08-01 in favor of this zero-spend stack.
