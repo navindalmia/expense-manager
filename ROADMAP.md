@@ -86,11 +86,12 @@ The app works but has known gaps that must close before production.
 - [x] Remove any remaining hardcoded user IDs — all controllers derive `userId` from `req.user!.id` (JWT); only remaining `userId = 1` occurrences are test fixtures in `emailVerificationService.test.ts`
 
 ### 5c. Missing UI Flows
-- [ ] Delete expense (backend ready, frontend missing)
+- [x] ~~Delete expense (backend ready, frontend missing)~~ — **shipped** (commit `cd3305c`): delete-expense UI added, using the backend endpoint that already existed unused.
 - [ ] Remove member from group (backend ready, frontend missing)
 - [ ] Resend verification email screen
 - [ ] Auto-focus amount field after category/date selection
 - [ ] Group detail view doesn't show the current user's total personal split/debt for that group
+- [ ] **Logged 2026-08-16 (mobile screenshot review):** expense cards on the Group Expenses screen don't show who paid — with several members, it's not clear at a glance whose expense is whose. Add a "paid by <name>" label to each card.
 
 ### 5d. Known Bugs
 - [ ] Fix web `/verify-email` route (see Phase 4)
