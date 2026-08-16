@@ -87,4 +87,6 @@ jobs:
 
       - name: Publish EAS Update (preview channel)
         working-directory: frontend
-        run: npx eas-cli update --branch preview --channel preview --message "${{ github.event.head_commit.message }}" --non-interactive
+        env:
+          UPDATE_MESSAGE: ${{ github.event.head_commit.message }}
+        run: npx eas-cli update --branch preview --message "$UPDATE_MESSAGE" --non-interactive
