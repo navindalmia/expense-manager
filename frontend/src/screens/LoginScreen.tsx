@@ -250,17 +250,22 @@ export default function LoginScreen({ navigation }: Props) {
       clearError();
       const result = await signup(email.trim(), password, name.trim());
       logger.info('Signup successful', { email });
-      
-      // Navigate to CheckEmailScreen with email
-      navigation.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'CheckEmail',
-            params: { email: result.email },
-          },
-        ],
-      });
+
+      if (result.requireEmailVerification) {
+        // Navigate to CheckEmailScreen with email
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'CheckEmail',
+              params: { email: result.email },
+            },
+          ],
+        });
+      }
+      // Otherwise the user is already logged in (AuthContext set the
+      // authenticated state) - navigation into the app is handled by the
+      // root navigator reacting to isAuthenticated, same as after login.
     } catch (err) {
       logger.error('Signup failed', err);
       // Error is displayed via error state

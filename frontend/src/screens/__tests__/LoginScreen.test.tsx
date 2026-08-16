@@ -89,8 +89,8 @@ describe('LoginScreen', () => {
     expect(screen.queryByText(/Resend Verification Email/)).toBeNull();
   });
 
-  it('switches to signup mode and calls signup on submit', async () => {
-    mockSignup.mockResolvedValue({ email: 'new@test.com' });
+  it('navigates to CheckEmailScreen when signup requires email verification', async () => {
+    mockSignup.mockResolvedValue({ email: 'new@test.com', requireEmailVerification: true });
     renderLogin();
 
     await userEvent.click(screen.getByText('Signup'));
@@ -107,5 +107,21 @@ describe('LoginScreen', () => {
         routes: [expect.objectContaining({ name: 'CheckEmail', params: { email: 'new@test.com' } })],
       })
     );
+  });
+
+  it('does not navigate to CheckEmailScreen when signup does not require email verification', async () => {
+    mockSignup.mockResolvedValue({ email: 'new@test.com', requireEmailVerification: false });
+    renderLogin();
+
+    await userEvent.click(screen.getByText('Signup'));
+    await userEvent.type(screen.getByPlaceholderText('John Doe'), 'New User');
+    await userEvent.type(screen.getByPlaceholderText('john@example.com'), 'new@test.com');
+    await userEvent.type(screen.getByPlaceholderText('••••••••'), 'SecurePass123!');
+    await userEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(mockSignup).toHaveBeenCalledWith('new@test.com', 'SecurePass123!', 'New User');
+    });
+    expect(navigation.reset).not.toHaveBeenCalled();
   });
 });

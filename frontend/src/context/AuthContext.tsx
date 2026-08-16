@@ -31,7 +31,11 @@ export interface AuthContextType {
   isHydrating: boolean;
 
   // Methods
-  signup: (email: string, password: string, name: string) => Promise<{ email: string }>;
+  signup: (
+    email: string,
+    password: string,
+    name: string
+  ) => Promise<{ email: string; requireEmailVerification: boolean }>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -90,9 +94,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Signup: Create new account
-   * Does NOT automatically log in the user.
-   * Returns the email so caller can navigate to CheckEmailScreen.
-   * Token from backend is ignored - user must verify email first.
+   *
+   * If the backend has email verification required, the token is ignored and
+   * the caller is expected to navigate to CheckEmailScreen. Otherwise (e.g.
+   * REQUIRE_EMAIL_VERIFICATION=false, no email provider configured) there is
+   * nothing to wait on, so the user is logged in immediately - same as after
+   * a normal login - to avoid stranding them on a "check your email" screen
+   * that will never receive anything.
    */
   const signup = useCallback(
     async (email: string, password: string, name: string) => {
@@ -106,12 +114,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name,
         });
 
-        // Backend returns token, but we don't use it yet
-        // User must verify email first before accessing the app
-        logger.info('Signup successful - awaiting email verification', { email });
-        
-        // Return email so caller can navigate to CheckEmailScreen
-        return { email };
+        const { token: newToken, user: newUser, requireEmailVerification } = response.data.data;
+
+        if (!requireEmailVerification) {
+          await Promise.all([
+            AsyncStorage.setItem(STORAGE_KEY_TOKEN, newToken),
+            AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser)),
+          ]);
+
+          setAuthToken(newToken);
+          setToken(newToken);
+          setUser(newUser);
+          logger.info('Signup successful - verification not required, logged in', { email });
+        } else {
+          logger.info('Signup successful - awaiting email verification', { email });
+        }
+
+        return { email, requireEmailVerification: !!requireEmailVerification };
       } catch (err: any) {
         // Extract error details from normalized error
         let errorMessage = 'Signup failed';

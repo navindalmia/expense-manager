@@ -25,17 +25,28 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 
 /** Minimal consumer that exposes auth state/actions via the DOM for assertions. */
 function AuthProbe() {
-  const { user, isAuthenticated, isHydrating, error, login, logout } = useAuth();
+  const { user, isAuthenticated, isHydrating, error, login, logout, signup } = useAuth();
+  const [signupResult, setSignupResult] = React.useState<string>('');
   return (
     <div>
       <span data-testid="hydrating">{String(isHydrating)}</span>
       <span data-testid="authenticated">{String(isAuthenticated)}</span>
       <span data-testid="user-email">{user?.email ?? ''}</span>
       <span data-testid="error">{error ?? ''}</span>
+      <span data-testid="signup-result">{signupResult}</span>
       <button onClick={() => login('user@test.com', 'SecurePass123!').catch(() => {})}>
         login
       </button>
       <button onClick={() => logout()}>logout</button>
+      <button
+        onClick={() =>
+          signup('new@test.com', 'SecurePass123!', 'New User')
+            .then((r) => setSignupResult(JSON.stringify(r)))
+            .catch(() => {})
+        }
+      >
+        signup
+      </button>
     </div>
   );
 }
@@ -128,5 +139,58 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('authenticated').textContent).toBe('false');
     });
     expect(screen.getByTestId('user-email').textContent).toBe('');
+  });
+
+  it('does not authenticate the user after signup when email verification is required', async () => {
+    (http.post as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        data: {
+          token: 'jwt-token-signup',
+          user: { id: 2, email: 'new@test.com', name: 'New User' },
+          requireEmailVerification: true,
+        },
+      },
+    });
+
+    renderWithProvider();
+    await waitFor(() => expect(screen.getByTestId('hydrating').textContent).toBe('false'));
+
+    await act(async () => {
+      await userEvent.click(screen.getByText('signup'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('signup-result').textContent).toBe(
+        JSON.stringify({ email: 'new@test.com', requireEmailVerification: true })
+      );
+    });
+    expect(screen.getByTestId('authenticated').textContent).toBe('false');
+  });
+
+  it('stores the token and authenticates the user after signup when email verification is not required', async () => {
+    (http.post as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        data: {
+          token: 'jwt-token-signup',
+          user: { id: 2, email: 'new@test.com', name: 'New User' },
+          requireEmailVerification: false,
+        },
+      },
+    });
+
+    renderWithProvider();
+    await waitFor(() => expect(screen.getByTestId('hydrating').textContent).toBe('false'));
+
+    await act(async () => {
+      await userEvent.click(screen.getByText('signup'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('authenticated').textContent).toBe('true');
+    });
+    expect(screen.getByTestId('user-email').textContent).toBe('new@test.com');
+    expect(screen.getByTestId('signup-result').textContent).toBe(
+      JSON.stringify({ email: 'new@test.com', requireEmailVerification: false })
+    );
   });
 });

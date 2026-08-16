@@ -357,4 +357,67 @@ describe('Signup Endpoint', () => {
       })
     );
   });
+
+  // ========== EMAIL VERIFICATION REQUIREMENT FLAG ==========
+
+  test('16. Should include requireEmailVerification: true in response when verification is required (default)', async () => {
+    delete process.env.REQUIRE_EMAIL_VERIFICATION;
+
+    mockReq.body = {
+      email: 'user@example.com',
+      password: 'SecurePass123!',
+      name: 'John Doe',
+    };
+
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.user.create as jest.Mock).mockResolvedValue({
+      id: 1,
+      email: 'user@example.com',
+      name: 'John Doe',
+    });
+    (jwt.generateToken as jest.Mock).mockReturnValue('token');
+
+    await signup(mockReq as Request, mockRes as Response);
+
+    expect(jsonMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          requireEmailVerification: true,
+        }),
+      })
+    );
+  });
+
+  test('17. Should include requireEmailVerification: false in response when REQUIRE_EMAIL_VERIFICATION=false', async () => {
+    const original = process.env.REQUIRE_EMAIL_VERIFICATION;
+    process.env.REQUIRE_EMAIL_VERIFICATION = 'false';
+
+    try {
+      mockReq.body = {
+        email: 'user@example.com',
+        password: 'SecurePass123!',
+        name: 'John Doe',
+      };
+
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+      (prisma.user.create as jest.Mock).mockResolvedValue({
+        id: 1,
+        email: 'user@example.com',
+        name: 'John Doe',
+      });
+      (jwt.generateToken as jest.Mock).mockReturnValue('token');
+
+      await signup(mockReq as Request, mockRes as Response);
+
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            requireEmailVerification: false,
+          }),
+        })
+      );
+    } finally {
+      process.env.REQUIRE_EMAIL_VERIFICATION = original;
+    }
+  });
 });

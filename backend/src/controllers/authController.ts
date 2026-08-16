@@ -105,12 +105,20 @@ export async function signup(req: Request, res: Response): Promise<void> {
     // Generate JWT token for immediate session
     const token = generateToken(user.id);
 
+    // Tell the frontend whether email verification is actually required so it can
+    // skip the "check your email" dead-end when REQUIRE_EMAIL_VERIFICATION=false
+    // (e.g. no email provider configured) and route the user straight into the app.
+    const requireEmailVerification = isEmailVerificationRequired();
+
     res.status(201).json({
       success: true,
-      message: 'Account created successfully. Please check your email to verify your account.',
+      message: requireEmailVerification
+        ? 'Account created successfully. Please check your email to verify your account.'
+        : 'Account created successfully.',
       data: {
         token,
         user,
+        requireEmailVerification,
       },
     });
   } catch (error) {
