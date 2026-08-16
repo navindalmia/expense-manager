@@ -18,7 +18,10 @@ if (!baseURL) {
 
 export const apiConfig = {
   baseURL,
-  timeout: 12000, // 12 seconds — 
+  // 45 seconds — the live backend (Render free tier) sleeps after ~15min
+  // idle and takes 30-50s to wake on the next request. A short timeout here
+  // reliably fails a new user's very first request against a cold backend.
+  timeout: 45000,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
