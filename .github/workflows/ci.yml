@@ -76,7 +76,7 @@ jobs:
     # passes - replaces Render's own autoDeploy polling (disabled 2026-08-22)
     # so a broken backend can never reach production, regardless of what
     # Render's own webhook would otherwise have done on every push.
-    needs: backend-test
+    needs: [backend-test, frontend-test]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
