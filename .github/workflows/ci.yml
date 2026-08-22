@@ -71,6 +71,23 @@ jobs:
         working-directory: frontend
         run: npm test -- --run
 
+  deploy-backend:
+    # Real CD: only runs on master (never on PRs), and only after backend-test
+    # passes - replaces Render's own autoDeploy polling (disabled 2026-08-22)
+    # so a broken backend can never reach production, regardless of what
+    # Render's own webhook would otherwise have done on every push.
+    needs: backend-test
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl -f -X POST \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":"do_not_clear"}' \
+            https://api.render.com/v1/services/srv-d9n52drl550s739au83g/deploys
+
   e2e-mobile:
     runs-on: ubuntu-latest
     # NOTE: Not yet wired to a real emulator/Maestro run. This job is scaffolded but
