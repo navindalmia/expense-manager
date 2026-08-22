@@ -377,7 +377,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
               <Text style={[styles.message, { fontSize: 13, color: '#666' }]}>
                 Redirecting to login in a moment...
               </Text>
-              <TouchableOpacity style={styles.button} onPress={handleBackToLogin}>
+              <TouchableOpacity testID="back-button" style={styles.button} onPress={handleBackToLogin}>
                 <Text style={styles.buttonText}>Back to Login</Text>
               </TouchableOpacity>
             </View>
@@ -387,7 +387,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
           {(state.status === 'error' || state.status === 'idle') && (
             <>
               <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.button} onPress={handleBackToLogin}>
+                <TouchableOpacity testID="back-button" style={styles.button} onPress={handleBackToLogin}>
                   <Text style={styles.buttonText}>Back to Login</Text>
                 </TouchableOpacity>
               </View>

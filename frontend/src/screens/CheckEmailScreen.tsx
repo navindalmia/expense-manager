@@ -288,6 +288,7 @@ export default function CheckEmailScreen({ navigation, route }: Props) {
               autoCapitalize="none"
             />
             <TouchableOpacity
+              testID="resend-button"
               style={[styles.button, state.isResending && styles.buttonDisabled]}
               onPress={handleResend}
               disabled={state.isResending || !state.resendingEmail.trim()}
