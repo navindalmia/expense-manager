@@ -23,11 +23,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      # JWT_SECRET and REQUIRE_EMAIL_VERIFICATION are deliberately NOT set here -
+      # the test suite manages both itself: setup.ts defaults JWT_SECRET to
+      # 'test-secret-key' when unset, and emailVerificationMiddleware.test.ts sets/
+      # deletes REQUIRE_EMAIL_VERIFICATION per test case to exercise both branches.
+      # Setting either at the job level overrides what individual tests expect.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/expense_manager_ci
-      JWT_SECRET: ci-test-secret-not-for-production
       JWT_EXPIRES_IN: 24h
       NODE_ENV: test
-      REQUIRE_EMAIL_VERIFICATION: "false"
       APP_FRONTEND_URL: http://localhost:19006
       APP_SCHEME: expensemanager
       APP_NAME: Expense Manager
