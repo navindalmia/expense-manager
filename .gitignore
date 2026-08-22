@@ -40,9 +40,12 @@ frontend/.env
 # test coverage reports
 coverage/
 
-# generated native folders
+# generated native folders (root-level, and frontend/ where expo prebuild
+# actually generates them — the /pattern above only anchors to repo root)
 /ios
 /android
+frontend/ios
+frontend/android
 
 # Development rules (not for git)
 .cursorrules

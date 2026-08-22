@@ -30,7 +30,7 @@ params:
 
 # Submit signup
 - tapOn:
-    text: Sign Up
+    text: "Create Account"
 
 - waitForAnimationToEnd
 
