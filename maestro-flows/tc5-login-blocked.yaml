@@ -1,44 +1,45 @@
 ---
 # TC5: Login is blocked for unverified email
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC5 - Login Blocked for Unverified Email
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-blocked-' + Date.now() + '@example.com'}
+- evalScript: ${output.testPassword = 'TestPass123!'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-blocked-${timestamp}@example.com"
-      testPassword: "TestPass123!"
-
-  # Create unverified user
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
-      password: ${testPassword}
+# Create unverified user
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
+      password: ${output.testPassword}
       name: "Test User"
 
-  # Go back to login screen
-  - back
+# Go back to login screen
+- back
 
-  # Run login flow
-  - runFlow: LoginFlow
-    params:
-      email: ${testEmail}
-      password: ${testPassword}
+# Run login flow
+- runFlow:
+    file: shared-login-flow.yaml
+    env:
+      email: ${output.testEmail}
+      password: ${output.testPassword}
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # Verify: Login is blocked with email verification error
-  - assertVisible:
-      text: "verify your email"
-      isRegex: true
-      timeout: 5000
-      description: "Login should be blocked for unverified email"
+# Verify: Login is blocked with email verification error
+- assertVisible:
+    text: "verify your email"
+    isRegex: true
+    timeout: 5000
+    description: "Login should be blocked for unverified email"
 
-  # DATABASE: Confirm user still unverified
-  - runFlow: VerifyEmailState
-    params:
-      email: ${testEmail}
+# DATABASE: Confirm user still unverified
+- runFlow:
+    file: shared-verify-email-state.yaml
+    env:
+      email: ${output.testEmail}
       expectedEmailVerified: false
       expectedTokenIsUsed: false

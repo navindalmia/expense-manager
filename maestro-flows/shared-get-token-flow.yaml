@@ -1,26 +1,22 @@
 ---
 # SHARED FLOW: Get Verification Token from Database
 # Fetches real token from backend internal API
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: GetVerificationToken
 
 params:
   - email
+---
+# Call backend API to get active token for user
+- evalScript: |
+    const response = http.post('http://localhost:4000/api/internal/get-token', {
+        body: JSON.stringify({ email: '${email}' }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+    const tokenResponse = json(response.body);
+    output.verificationToken = tokenResponse.token;
 
-commands:
-  # Call backend API to get active token for user
-  - callAPI:
-      method: POST
-      url: "http://localhost:4000/api/internal/get-token"
-      body:
-        email: ${email}
-      variable: tokenResponse
-
-  # Extract token from response
-  - setVariable:
-      verificationToken: ${tokenResponse.token}
-
-  # Verify token exists (should not be null)
-  - assertNotEmpty:
-      value: ${verificationToken}
-      description: "Verification token should exist for user ${email}"
+# Verify token exists (should not be null/empty)
+- assertTrue:
+    condition: ${output.verificationToken}
+    label: "Verification token should exist for user ${email}"

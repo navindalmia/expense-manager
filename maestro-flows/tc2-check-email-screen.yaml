@@ -1,42 +1,42 @@
 ---
 # TC2: CheckEmailScreen displays email and resend button
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC2 - CheckEmailScreen UI Elements
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-check-' + Date.now() + '@example.com'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-check-${timestamp}@example.com"
-
-  # Signup
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
+# Signup
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
       password: "TestPass123!"
       name: "Test User"
 
-  # Verify email is displayed
-  - assertVisible:
-      text: ${testEmail}
-      description: "Email should be shown on CheckEmailScreen"
+# Verify email is displayed
+- assertVisible:
+    text: ${output.testEmail}
+    description: "Email should be shown on CheckEmailScreen"
 
-  # Verify resend button
-  - assertVisible:
-      text: "Resend"
-      id: resend-button
-      description: "Resend button should be clickable"
+# Verify resend button
+- assertVisible:
+    text: "Resend"
+    id: resend-button
+    description: "Resend button should be clickable"
 
-  # Verify helper text
-  - assertVisible:
-      text: "check your email"
-      isRegex: true
-      description: "Helper text should explain what to do"
+# Verify helper text
+- assertVisible:
+    text: "check your email"
+    isRegex: true
+    description: "Helper text should explain what to do"
 
-  # DATABASE: Verify user created and unverified
-  - runFlow: VerifyEmailState
-    params:
-      email: ${testEmail}
+# DATABASE: Verify user created and unverified
+- runFlow:
+    file: shared-verify-email-state.yaml
+    env:
+      email: ${output.testEmail}
       expectedEmailVerified: false
       expectedTokenIsUsed: false
