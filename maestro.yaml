@@ -1,4 +1,4 @@
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 workspacePath: .
 flows:
   - SignupCreateUserFlow
