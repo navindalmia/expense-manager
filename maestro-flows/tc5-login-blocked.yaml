@@ -30,11 +30,12 @@ name: TC5 - Login Blocked for Unverified Email
 - waitForAnimationToEnd
 
 # Verify: Login is blocked with email verification error
+- extendedWaitUntil:
+    visible:
+      text: "verify your email"
+    timeout: 5000
 - assertVisible:
     text: "verify your email"
-    isRegex: true
-    timeout: 5000
-    description: "Login should be blocked for unverified email"
 
 # DATABASE: Confirm user still unverified
 - runFlow:

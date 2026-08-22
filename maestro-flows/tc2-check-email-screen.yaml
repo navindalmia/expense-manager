@@ -19,19 +19,15 @@ name: TC2 - CheckEmailScreen UI Elements
 # Verify email is displayed
 - assertVisible:
     text: ${output.testEmail}
-    description: "Email should be shown on CheckEmailScreen"
 
 # Verify resend button
 - assertVisible:
     text: "Resend"
     id: resend-button
-    description: "Resend button should be clickable"
 
 # Verify helper text
 - assertVisible:
     text: "check your email"
-    isRegex: true
-    description: "Helper text should explain what to do"
 
 # DATABASE: Verify user created and unverified
 - runFlow:

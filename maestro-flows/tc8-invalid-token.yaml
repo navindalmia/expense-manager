@@ -18,23 +18,22 @@ name: TC8 - Invalid Token Error Handling
 
 # Try to verify with INVALID token
 - openLink:
-    url: "expensemanager://verify-email/vrf_definitely_not_a_real_token_xyz"
+    link: "expensemanager://verify-email/vrf_definitely_not_a_real_token_xyz"
 
 - waitForAnimationToEnd
-- wait: 2000
 
 # Verify: Error message shown
+- extendedWaitUntil:
+    visible:
+      text: "Invalid or expired"
+    timeout: 5000
 - assertVisible:
     text: "Invalid or expired"
-    isRegex: true
-    timeout: 5000
-    description: "Invalid token should show error, not crash"
 
 # Verify: Can go back or retry
 - assertVisible:
     text: "Back"
     id: back-button
-    description: "User should be able to navigate back"
 
 # DATABASE: User should STILL be unverified
 - runFlow:
@@ -43,4 +42,3 @@ name: TC8 - Invalid Token Error Handling
       email: ${output.testEmail}
       expectedEmailVerified: false
       expectedTokenIsUsed: false
-      description: "Invalid token should not mark user as verified"

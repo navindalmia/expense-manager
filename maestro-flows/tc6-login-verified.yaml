@@ -25,18 +25,19 @@ name: TC6 - Login Succeeds After Verification
 
 # Verify email via deep link with REAL token
 - openLink:
-    url: "expensemanager://verify-email/${verificationToken}"
+    link: "expensemanager://verify-email/${output.verificationToken}"
 
-- wait: 1000
 - assertVisible:
     text: "Verifying email"
 
-- wait: 3000
 
 # Success screen should appear
+- extendedWaitUntil:
+    visible:
+      text: "Email verified successfully"
+    timeout: 5000
 - assertVisible:
     text: "Email verified successfully"
-    timeout: 5000
 
 - waitForAnimationToEnd
 
@@ -58,7 +59,9 @@ name: TC6 - Login Succeeds After Verification
 - waitForAnimationToEnd
 
 # Verify: Logged in (should see home screen or dashboard)
+- extendedWaitUntil:
+    visible:
+      id: home-screen
+    timeout: 5000
 - assertVisible:
     id: home-screen
-    timeout: 5000
-    description: "User should be logged in and see home screen"

@@ -24,23 +24,24 @@ name: TC4 - Email Verification Success with Real Token
 
 # Open deep link with real token
 - openLink:
-    url: "expensemanager://verify-email/${verificationToken}"
+    link: "expensemanager://verify-email/${output.verificationToken}"
 
-- wait: 1000
 
 # Verify: During verification
+- extendedWaitUntil:
+    visible:
+      text: "Verifying email"
+    timeout: 5000
 - assertVisible:
     text: "Verifying email"
-    timeout: 5000
-
-# Wait for verification to complete
-- wait: 3000
 
 # Verify: Success screen appears
+- extendedWaitUntil:
+    visible:
+      text: "Email verified successfully"
+    timeout: 5000
 - assertVisible:
     text: "Email verified successfully"
-    timeout: 5000
-    description: "Success screen should appear after token verified"
 
 # DATABASE VERIFICATION: User should now be verified
 - runFlow:

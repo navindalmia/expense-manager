@@ -24,11 +24,10 @@ name: TC3 - Deep Link Navigation with Real Token
 
 # Use REAL token in deep link
 - openLink:
-    url: "expensemanager://verify-email/${verificationToken}"
+    link: "expensemanager://verify-email/${output.verificationToken}"
 
 - waitForAnimationToEnd
 
 # Verify: VerifyEmailScreen appears
 - assertVisible:
     text: "Verifying email"
-    description: "Deep link should trigger verification screen"
