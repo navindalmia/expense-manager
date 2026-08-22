@@ -8,9 +8,9 @@ params:
   - email
   - password
 ---
-# Navigate to login screen
+# Navigate to login screen (tap the actual "Login" link, not the static prefix text)
 - tapOn:
-    text: "Already have account?"
+    text: "Login"
 
 - waitForAnimationToEnd
 

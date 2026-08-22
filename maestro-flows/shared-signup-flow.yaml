@@ -11,7 +11,7 @@ params:
 ---
 # Navigate to signup
 - tapOn:
-    text: "Don't have account?"
+    text: "Signup"
 
 - waitForAnimationToEnd
 
