@@ -126,7 +126,8 @@ The app works but has known gaps that must close before production.
 - [ ] Helmet.js headers audit
 - [ ] CORS locked to known origins in production
 - [ ] Secrets management via Azure Key Vault (not `.env` files)
-- [ ] Dependency audit (`npm audit`) and automated updates
+- [x] Dependency audit and automated updates — Dependabot added 2026-08-22 (`.github/dependabot.yml`), weekly, covers npm deps + GitHub Actions versions
+- [ ] **Known gap, not covered by Dependabot:** the literal `node-version: "20"` pins inside `.github/workflows/*.yml` won't auto-update when Node 20 reaches end-of-life (~2026-2027) — Dependabot doesn't parse that string as a version reference. Needs a periodic manual/AI-assisted check (roughly annual, matching Node's LTS cadence) rather than an automated mechanism. Logged 2026-08-22.
 
 ### 6d. API Quality
 - [ ] OpenAPI/Swagger spec for all routes
