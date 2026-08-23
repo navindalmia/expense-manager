@@ -12,6 +12,7 @@ symptoms:
 root_cause: wrong_api
 resolution_type: test_fix
 tags: [maestro, e2e-testing, mobile, yaml, hallucination]
+last_refreshed: 2026-08-23
 ---
 
 # Maestro E2E flow files used commands that never existed in real Maestro syntax
@@ -60,7 +61,7 @@ Example, before and after (`shared-verify-email-state.yaml`):
 # After (real Maestro)
 - evalScript: |
     const response = http.post('http://localhost:4000/api/internal/verify-user', {
-        body: JSON.stringify({ email: '${email}' }),
+        body: JSON.stringify({ email: email }),
         headers: { 'Content-Type': 'application/json' }
     });
     const userState = json(response.body);
@@ -81,3 +82,7 @@ Maestro's actual command set is narrower and more JS-centric than the fabricated
 - **Run `maestro check-syntax <file>` (or the equivalent for any DSL-based test framework) immediately after writing a flow, before assuming it's correct.** This repo's flows sat unvalidated for 3 months because nothing forced a syntax check at authoring time.
 - When unsure whether a command in a niche testing DSL is real, verify against the framework's own docs directly (or a research agent that fetches them) rather than inferring the API shape from general knowledge — the errors here were not typos, they were entirely invented commands that happened to look plausible.
 - Consider wiring `maestro check-syntax` into CI once flows are stable, so a future syntax regression is caught on the next PR rather than the next multi-month-later manual run.
+
+## Related Documentation
+
+- [`docs/solutions/logic-errors/maestro-evalscript-params-are-js-variables-not-dollar-brace-substitution.md`](../logic-errors/maestro-evalscript-params-are-js-variables-not-dollar-brace-substitution.md) — a follow-up learning that found this doc's own "After (real Maestro)" example (above) still contained a runtime bug: `email: '${email}'` is syntactically valid Maestro YAML (not a fabricated command, so `maestro check-syntax` passed on it), but crashes GraalJS at execution time. `maestro check-syntax` validates YAML shape and command names — it does not catch this class of error, since the bug is in how JS values are referenced *inside* a valid `evalScript` block. The snippet above has been corrected to match; see the linked doc for the underlying mechanism (params as real JS variables vs. Maestro's `${}` text-substitution syntax).
