@@ -98,7 +98,11 @@ npm run migrate
 npm run seed
 ```
 
-### 5. Start the app
+### 5. Configure frontend environment (optional)
+
+The Android emulator / CI default (`10.0.2.2:4000/api`) is already committed in `frontend/.env.development` — no setup needed for emulator or CI use. Only needed for a **physical device**: see [`frontend/ENVIRONMENT_SETUP.md`](frontend/ENVIRONMENT_SETUP.md).
+
+### 6. Start the app
 
 ```bash
 # From repo root — starts both backend and frontend
@@ -144,7 +148,7 @@ Never commit without:
 
 ## Environment Variables Reference
 
-See [`backend/.env.example`](backend/.env.example) for all variables with descriptions, and [`backend/ENVIRONMENT_SETUP.md`](backend/ENVIRONMENT_SETUP.md) for setup instructions including production/Azure deployment.
+See [`backend/.env.example`](backend/.env.example) / [`backend/ENVIRONMENT_SETUP.md`](backend/ENVIRONMENT_SETUP.md) for backend setup including production/Azure deployment, and [`frontend/.env.example`](frontend/.env.example) / [`frontend/ENVIRONMENT_SETUP.md`](frontend/ENVIRONMENT_SETUP.md) for frontend setup (emulator/CI default vs. physical-device override).
 
 ---
 
