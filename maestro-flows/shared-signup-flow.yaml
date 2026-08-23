@@ -28,6 +28,11 @@ params:
     id: name-input
 - inputText: ${name}
 
+# Keyboard is still open after the last input and likely overlaps the
+# submit button's bounds - dismiss it first so the tap actually lands
+# on the button, not the keyboard.
+- hideKeyboard
+
 # Submit signup (id, not text: "Create Account" also matches the screen's
 # header subtitle in signup mode - text-tap was hitting that non-touchable
 # header instead of the button, so the form never actually submitted)
