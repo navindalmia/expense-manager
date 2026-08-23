@@ -23,8 +23,10 @@ params:
     id: password-input
 - inputText: ${password}
 
-# Submit login
+# Submit login (id, for consistency/robustness with the signup flow's fix -
+# same screen component, same risk if a future copy change adds another
+# "Login" text node)
 - tapOn:
-    text: Login
+    id: submit-button
 
 - waitForAnimationToEnd

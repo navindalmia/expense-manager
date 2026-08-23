@@ -422,6 +422,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         {/* Submit button */}
         <TouchableOpacity
+          testID="submit-button"
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={isSignupMode ? handleSignup : handleLogin}
           disabled={isLoading}

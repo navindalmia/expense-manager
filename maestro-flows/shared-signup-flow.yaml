@@ -28,9 +28,11 @@ params:
     id: name-input
 - inputText: ${name}
 
-# Submit signup
+# Submit signup (id, not text: "Create Account" also matches the screen's
+# header subtitle in signup mode - text-tap was hitting that non-touchable
+# header instead of the button, so the form never actually submitted)
 - tapOn:
-    text: "Create Account"
+    id: submit-button
 
 - waitForAnimationToEnd
 
