@@ -12,14 +12,20 @@ params:
 # Call backend API to get email verification state
 - evalScript: |
     const response = http.post('http://localhost:4000/api/internal/verify-user', {
-        body: JSON.stringify({ email: '${email}' }),
+        body: JSON.stringify({ email: email }),
         headers: { 'Content-Type': 'application/json' }
     });
     const userState = json(response.body);
     output.userEmailVerified = userState.emailVerified;
     output.userActiveTokenCount = userState.activeTokenCount;
 
-# Verify email verification flag
+# Verify email verification flag.
+# KNOWN OPEN ISSUE: this assertion fails even though a direct curl to the
+# same internal API endpoint with the same test email confirms the backend
+# returns the correct emailVerified value. Root cause not yet confirmed -
+# see docs/solutions or ai_workflow.md memory for investigation notes
+# (Maestro flow env params vs output object type handling, or a possible
+# query-before-write-commits race). Needs a fresh investigation pass.
 - assertTrue:
     condition: ${output.userEmailVerified == expectedEmailVerified}
     label: "User ${email} emailVerified should be ${expectedEmailVerified}"
