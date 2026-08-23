@@ -260,6 +260,7 @@ export default function CheckEmailScreen({ navigation, route }: Props) {
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
+              testID="back-to-login-button"
               style={styles.button}
               onPress={handleBackToLogin}
             >

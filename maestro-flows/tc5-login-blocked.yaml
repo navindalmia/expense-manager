@@ -17,8 +17,13 @@ name: TC5 - Login Blocked for Unverified Email
       password: ${output.testPassword}
       name: "Test User"
 
-# Go back to login screen
-- back
+# Go back to login screen - tap the app's actual "Back to Login" button,
+# not the OS back gesture. CheckEmailScreen is reached via navigation.reset()
+# from signup, making it the sole stack entry, so hardware back has no
+# defined relationship to the app's own navigation.reset() call in
+# handleBackToLogin() - it was never reliably going to land on Login.
+- tapOn:
+    id: back-to-login-button
 
 # Run login flow
 - runFlow:
