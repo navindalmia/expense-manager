@@ -8,11 +8,11 @@ params:
   - email
   - password
 ---
-# Navigate to login screen (tap the actual "Login" link, not the static prefix text)
-- tapOn:
-    text: "Login"
-
-- waitForAnimationToEnd
+# Both actual callers (TC5 via back-to-login-button, TC6 via VerifyEmailScreen's
+# equivalent handler) reset navigation straight to a plain Login screen - already
+# in login mode, not signup mode. So there is no toggle link to tap here; tapping
+# "Login" text on this screen matches the submit button itself (not a nav link),
+# firing a premature submit on an empty form. Start directly on the form.
 
 # Fill login form
 - tapOn:
@@ -22,6 +22,10 @@ params:
 - tapOn:
     id: password-input
 - inputText: ${password}
+
+# Same keyboard-overlap issue as the signup flow (see shared-signup-flow.yaml):
+# keyboard stays open after the last field and covers submit-button's bounds.
+- hideKeyboard
 
 # Submit login (id, for consistency/robustness with the signup flow's fix -
 # same screen component, same risk if a future copy change adds another

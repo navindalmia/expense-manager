@@ -335,11 +335,12 @@ export default function LoginScreen({ navigation }: Props) {
       {/* Error Banner */}
       {error && (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text testID="login-error-banner" style={styles.errorText}>{error}</Text>
           
           {/* Resend Verification Email Button */}
           {isEmailNotVerified && !isSignupMode && (
             <TouchableOpacity
+              testID="login-resend-button"
               style={styles.resendButton}
               onPress={handleResendVerification}
               disabled={isResending}
