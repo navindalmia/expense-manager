@@ -23,7 +23,7 @@ name: TC7 - Resend Verification Email
 # Record initial token count
 - evalScript: |
     const response = http.post('http://localhost:4000/api/internal/verify-user', {
-        body: JSON.stringify({ email: '${output.testEmail}' }),
+        body: JSON.stringify({ email: output.testEmail }),
         headers: { 'Content-Type': 'application/json' }
     });
     output.userStateBefore = json(response.body);
@@ -42,7 +42,7 @@ name: TC7 - Resend Verification Email
 # DATABASE: Verify new token was created
 - evalScript: |
     const response = http.post('http://localhost:4000/api/internal/verify-user', {
-        body: JSON.stringify({ email: '${output.testEmail}' }),
+        body: JSON.stringify({ email: output.testEmail }),
         headers: { 'Content-Type': 'application/json' }
     });
     output.userStateAfter = json(response.body);

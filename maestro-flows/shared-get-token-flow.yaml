@@ -10,7 +10,7 @@ params:
 # Call backend API to get active token for user
 - evalScript: |
     const response = http.post('http://localhost:4000/api/internal/get-token', {
-        body: JSON.stringify({ email: '${email}' }),
+        body: JSON.stringify({ email: email }),
         headers: { 'Content-Type': 'application/json' }
     });
     const tokenResponse = json(response.body);
