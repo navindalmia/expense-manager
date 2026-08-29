@@ -169,6 +169,22 @@ it('should reject duplicate email without revealing existence', () => {})
 - ✅ Accessibility (ARIA labels, semantic HTML)
 - ✅ Responsive (phone, tablet, desktop)
 - ✅ Error boundaries for error handling
+- ✅ `testID` set on interactive/key display elements (see Test Automation IDs below)
+
+### Test Automation IDs (`testID`)
+
+Every interactive element (buttons, inputs, switches, touchables) and any element E2E/Maestro flows assert against must set React Native's `testID` prop — it maps automatically to `resource-id` on Android and `accessibilityIdentifier` on iOS, so one prop covers both platforms plus Playwright-for-web. Do not set `resource-id` directly; always use `testID`.
+
+**Naming convention:** `screen-component-role`, kebab-case, e.g.:
+```tsx
+<TextInput testID="login-email-input" ... />
+<TouchableOpacity testID="login-submit-button" ... />
+<View testID="expense-list-item-{id}" ... />
+```
+
+**Why:** i18n (EN/FR) makes text-based selectors unreliable — a testID is locale-independent and won't break when a label changes language. This repo already relies on stable selectors for Maestro E2E and Playwright.
+
+**Review gate:** new/changed interactive elements without a `testID` should be flagged in `/ce-code-review`.
 
 ### Performance
 - ✅ Memoization (React.memo, useMemo, useCallback)

@@ -219,6 +219,7 @@ function HomeScreen({ navigation }: Props) {
         <TouchableOpacity
           onPress={logout}
           style={{ marginRight: 16 }}
+          testID="home-logout-button"
         >
           <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
             Logout
@@ -323,6 +324,7 @@ function HomeScreen({ navigation }: Props) {
             accessible={true}
             accessibilityLabel={`${item.name}, ${expenseCount} expenses`}
             accessibilityRole="button"
+            testID={`group-card-${item.id}`}
           >
             <View style={styles.groupHeader}>
               <View style={styles.groupInfo}>
@@ -370,6 +372,7 @@ function HomeScreen({ navigation }: Props) {
               setSelectedGroupForEdit(item);
               setEditModalVisible(true);
             }}
+            testID={`edit-group-button-${item.id}`}
           >
             <Text style={styles.editButtonText}>
               ✏️ Edit Group

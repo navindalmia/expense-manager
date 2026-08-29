@@ -277,27 +277,27 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><View style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)}><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></View></Modal>
-        <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)}><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
-        <View style={styles.formSection}><Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={val => updateField('title', val)} editable={!submitting} />{formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}</View>
-        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onChangeText={val => {
+        <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><View style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)} testID="edit-expense-paid-by-modal-close-button"><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }} testID={`edit-expense-paid-by-option-${member.id}`}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></View></Modal>
+        <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
+        <View style={styles.formSection}><Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={val => updateField('title', val)} editable={!submitting} testID="edit-expense-title-input" />{formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}</View>
+        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onChangeText={val => {
               // Reject negative amounts
               if (val.startsWith('-')) {
                 return;
               }
               updateField('amount', val);
-            }} keyboardType="decimal-pad" editable={!submitting} />{formState.errors.amount && <Text style={styles.errorText}>{formState.errors.amount}</Text>}</View><View style={styles.flex1}><Text style={styles.label}>Split Type</Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowSplitTypeModal(true)} disabled={submitting}><Text style={{ color: '#333' }}>{splitState.splitType === 'EQUAL' ? 'Equal' : splitState.splitType === 'AMOUNT' ? 'AMOUNT' : 'Percentage'}</Text></TouchableOpacity></View></View></View>
+            }} keyboardType="decimal-pad" editable={!submitting} testID="edit-expense-amount-input" />{formState.errors.amount && <Text style={styles.errorText}>{formState.errors.amount}</Text>}</View><View style={styles.flex1}><Text style={styles.label}>Split Type</Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowSplitTypeModal(true)} disabled={submitting} testID="edit-expense-split-type-picker-button"><Text style={{ color: '#333' }}>{splitState.splitType === 'EQUAL' ? 'Equal' : splitState.splitType === 'AMOUNT' ? 'AMOUNT' : 'Percentage'}</Text></TouchableOpacity></View></View></View>
         <View style={styles.row}>
           <View style={styles.flex1}>
             <Text style={styles.label}>Category <Text style={styles.required}>*</Text></Text>
-            <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowCategoryPicker(true)} disabled={submitting}>
+            <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowCategoryPicker(true)} disabled={submitting} testID="edit-expense-category-picker-button">
               <Text style={{ color: formState.category ? '#333' : '#666', fontSize: 14, fontWeight: '500' }}>{categories.find(c => c.id === formState.category)?.label || 'Select category...'}</Text>
             </TouchableOpacity>
             {formState.errors.category && <Text style={styles.errorText}>{formState.errors.category}</Text>}
           </View>
           <View style={styles.flex1}>
             <Text style={styles.label}>When</Text>
-            <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowDatePicker(true)} disabled={submitting}>
+            <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowDatePicker(true)} disabled={submitting} testID="edit-expense-date-picker-button">
               <Text style={{ color: '#333', fontSize: 14, fontWeight: '500' }}>{formState.date}</Text>
             </TouchableOpacity>
           </View>
@@ -309,7 +309,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Select Category</Text>
-                <TouchableOpacity onPress={() => setShowCategoryPicker(false)}>
+                <TouchableOpacity onPress={() => setShowCategoryPicker(false)} testID="edit-expense-category-modal-close-button">
                   <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -322,6 +322,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
                       updateField('category', cat.id);
                       setShowCategoryPicker(false);
                     }}
+                    testID={`edit-expense-category-option-${cat.id}`}
                   >
                     <Text style={[styles.pickerItemText, formState.category === cat.id && { color: '#0066cc', fontWeight: '600' }]}>
                       {cat.label}
@@ -341,7 +342,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Split Type</Text>
-                <TouchableOpacity onPress={() => setShowSplitTypeModal(false)}>
+                <TouchableOpacity onPress={() => setShowSplitTypeModal(false)} testID="edit-expense-split-type-modal-close-button">
                   <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -358,6 +359,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
                       setSplitType(option.value as any);
                       setShowSplitTypeModal(false);
                     }}
+                    testID={`edit-expense-split-type-option-${option.value}`}
                   >
                     <Text style={[styles.pickerItemText, splitState.splitType === option.value && { color: '#0066cc', fontWeight: '600' }]}>
                       {option.label}
@@ -387,10 +389,10 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
               <Text style={styles.buttonText}>{deleting ? 'Deleting...' : 'Delete'}</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={[styles.button, styles.updateButton]} onPress={handleUpdate} disabled={submitting || deleting}>
+          <TouchableOpacity style={[styles.button, styles.updateButton]} onPress={handleUpdate} disabled={submitting || deleting} testID="edit-expense-save-button">
             <Text style={styles.buttonText}>{submitting ? 'Saving...' : 'Save'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => navigation.goBack()} disabled={submitting || deleting}>
+          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => navigation.goBack()} disabled={submitting || deleting} testID="edit-expense-cancel-button">
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>

@@ -287,6 +287,7 @@ export default function CheckEmailScreen({ navigation, route }: Props) {
               editable={!state.isResending}
               keyboardType="email-address"
               autoCapitalize="none"
+              testID="check-email-resend-input"
             />
             <TouchableOpacity
               testID="resend-button"

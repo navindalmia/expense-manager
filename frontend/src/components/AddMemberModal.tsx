@@ -323,11 +323,13 @@ export default function AddMemberModal({
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!loading && !success}
+                testID="add-member-email-input"
               />
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={handleAddMember}
                 disabled={loading || success || !email.trim()}
+                testID="add-member-add-button"
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
@@ -386,6 +388,7 @@ export default function AddMemberModal({
                         paddingHorizontal: 8,
                         paddingVertical: 4,
                       }}
+                      testID={`add-member-remove-button-${member.id}`}
                     >
                       <Text style={{ color: '#dc3545', fontSize: 12, fontWeight: '600' }}>
                         Remove
@@ -400,6 +403,7 @@ export default function AddMemberModal({
             <TouchableOpacity
               style={styles.shareButton}
               onPress={handleShareViaWhatsApp}
+              testID="add-member-whatsapp-share-button"
             >
               <Text style={styles.shareButtonText}>📱 Share via WhatsApp</Text>
             </TouchableOpacity>
@@ -409,6 +413,7 @@ export default function AddMemberModal({
           <TouchableOpacity
             style={styles.closeButton}
             onPress={handleClose}
+            testID="add-member-close-button"
           >
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>

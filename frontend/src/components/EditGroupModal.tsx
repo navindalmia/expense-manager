@@ -306,6 +306,7 @@ export default function EditGroupModal({
               onChangeText={setName}
               maxLength={100}
               editable={!loading}
+              testID="edit-group-name-input"
             />
             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
@@ -320,6 +321,7 @@ export default function EditGroupModal({
               multiline
               numberOfLines={4}
               editable={!loading}
+              testID="edit-group-description-input"
             />
             {errors.description && (
               <Text style={styles.errorText}>{errors.description}</Text>
@@ -340,6 +342,7 @@ export default function EditGroupModal({
                     ]}
                     onPress={() => setCurrency(curr.code)}
                     disabled={loading}
+                    testID={`edit-group-currency-option-${curr.code}`}
                   >
                     <Text
                       style={[
@@ -385,6 +388,7 @@ export default function EditGroupModal({
               style={[styles.button, styles.manageButton]}
               onPress={() => setShowMemberModal(true)}
               disabled={loading}
+              testID="edit-group-manage-members-button"
             >
               <Text style={[styles.buttonText, styles.saveButtonText]}>
                 + Add or Invite Members
@@ -398,6 +402,7 @@ export default function EditGroupModal({
               style={[styles.button, styles.cancelButton]}
               onPress={onClose}
               disabled={loading}
+              testID="edit-group-cancel-button"
             >
               <Text style={[styles.buttonText, styles.cancelButtonText]}>
                 Cancel
@@ -408,6 +413,7 @@ export default function EditGroupModal({
               style={[styles.button, styles.saveButton]}
               onPress={handleSave}
               disabled={loading}
+              testID="edit-group-save-button"
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />

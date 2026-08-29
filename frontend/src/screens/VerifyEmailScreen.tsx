@@ -415,12 +415,14 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
                   editable={!state.isResending}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  testID="verify-email-resend-input"
                 />
 
                 <TouchableOpacity
                   style={[styles.button, state.isResending && styles.buttonDisabled]}
                   onPress={handleResend}
                   disabled={state.isResending || !state.resendingEmail.trim()}
+                  testID="verify-email-resend-button"
                 >
                   {state.isResending ? (
                     <>

@@ -244,13 +244,13 @@ function SimpleCalendar({
   return (
     <View style={styles.calendarContainer}>
       <View style={styles.calendarHeader}>
-        <TouchableOpacity onPress={prevMonth} style={styles.calendarButton}>
+        <TouchableOpacity onPress={prevMonth} style={styles.calendarButton} testID="date-picker-prev-month-button">
           <Text style={styles.calendarButtonText}>← Prev</Text>
         </TouchableOpacity>
         <Text style={styles.calendarTitle}>
           {monthNames[month]} {year}
         </Text>
-        <TouchableOpacity onPress={nextMonth} style={styles.calendarButton}>
+        <TouchableOpacity onPress={nextMonth} style={styles.calendarButton} testID="date-picker-next-month-button">
           <Text style={styles.calendarButtonText}>Next →</Text>
         </TouchableOpacity>
       </View>
@@ -276,6 +276,7 @@ function SimpleCalendar({
             ]}
             onPress={() => handleSelectDay(dayObj.day, dayObj.currentMonth)}
             disabled={!dayObj.currentMonth || isFutureDate(dayObj.day)}
+            testID={`date-picker-day-${year}-${month}-${idx}`}
           >
             <Text
               style={[
@@ -308,7 +309,7 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
         <View style={styles.modalContent}>
           <View style={styles.header}>
             <Text style={styles.title}>Select Date</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton} testID="date-picker-close-button">
               <Text style={styles.closeButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
