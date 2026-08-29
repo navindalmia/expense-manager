@@ -1,31 +1,40 @@
 ---
 # SHARED FLOW: Verify Email State in Database
 # After UI action, verify backend state
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: VerifyEmailState
 
 params:
   - email
   - expectedEmailVerified
   - expectedTokenIsUsed
+---
+# Call backend API to get email verification state
+- evalScript: |
+    const response = http.post('http://localhost:4000/api/internal/verify-user', {
+        body: JSON.stringify({ email: email }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+    const userState = json(response.body);
+    output.userEmailVerified = userState.emailVerified;
+    output.userActiveTokenCount = userState.activeTokenCount;
 
-commands:
-  # Call backend API to get email verification state
-  - callAPI:
-      method: POST
-      url: "http://localhost:4000/api/internal/verify-user"
-      body:
-        email: ${email}
-      variable: userState
+# Verify email verification flag.
+# KNOWN OPEN ISSUE: this assertion fails even though a direct curl to the
+# same internal API endpoint with the same test email confirms the backend
+# returns the correct emailVerified value. Root cause not yet confirmed -
+# see docs/solutions or ai_workflow.md memory for investigation notes
+# (Maestro flow env params vs output object type handling, or a possible
+# query-before-write-commits race). Needs a fresh investigation pass.
+- assertTrue:
+    condition: ${output.userEmailVerified == expectedEmailVerified}
+    label: "User ${email} emailVerified should be ${expectedEmailVerified}"
 
-  # Verify email verification flag
-  - assert:
-      condition: "${userState.emailVerified} == ${expectedEmailVerified}"
-      description: "User ${email} emailVerified should be ${expectedEmailVerified}"
-
-  # Verify token status if applicable
-  - if: ${expectedTokenIsUsed}
-      commands:
-        - assert:
-            condition: "${userState.activeTokenCount} == 0"
-            description: "User should have no active tokens after verification"
+# Verify token status if applicable
+- runFlow:
+    when:
+      true: ${expectedTokenIsUsed}
+    commands:
+      - assertTrue:
+          condition: ${output.userActiveTokenCount == 0}
+          label: "User should have no active tokens after verification"

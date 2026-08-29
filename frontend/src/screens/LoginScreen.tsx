@@ -335,11 +335,12 @@ export default function LoginScreen({ navigation }: Props) {
       {/* Error Banner */}
       {error && (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text testID="login-error-banner" style={styles.errorText}>{error}</Text>
           
           {/* Resend Verification Email Button */}
           {isEmailNotVerified && !isSignupMode && (
             <TouchableOpacity
+              testID="login-resend-button"
               style={styles.resendButton}
               onPress={handleResendVerification}
               disabled={isResending}
@@ -363,6 +364,7 @@ export default function LoginScreen({ navigation }: Props) {
           <View style={[styles.inputContainer, styles.nameInput]}>
             <Text style={styles.label}>Full Name</Text>
             <TextInput
+              testID="name-input"
               style={[
                 styles.input,
                 focusedField === 'name' && styles.inputFocused,
@@ -382,6 +384,7 @@ export default function LoginScreen({ navigation }: Props) {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Email</Text>
           <TextInput
+            testID="email-input"
             style={[
               styles.input,
               focusedField === 'email' && styles.inputFocused,
@@ -402,6 +405,7 @@ export default function LoginScreen({ navigation }: Props) {
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Password</Text>
           <TextInput
+            testID="password-input"
             style={[
               styles.input,
               focusedField === 'password' && styles.inputFocused,
@@ -419,6 +423,7 @@ export default function LoginScreen({ navigation }: Props) {
 
         {/* Submit button */}
         <TouchableOpacity
+          testID="submit-button"
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={isSignupMode ? handleSignup : handleLogin}
           disabled={isLoading}

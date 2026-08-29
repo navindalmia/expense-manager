@@ -182,6 +182,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
         <TouchableOpacity
           style={[styles.checkboxRow, { backgroundColor: '#f9f9f9', borderBottomWidth: 1, borderBottomColor: '#e0e0e0', marginBottom: 4 }]}
           onPress={handleSelectAll}
+          testID="split-members-select-all-button"
         >
           <View style={[styles.checkbox, allSelected && styles.checkboxChecked]}>
             {allSelected && <Text style={styles.checkboxMark}>✓</Text>}
@@ -214,6 +215,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                     onAddMember(member.id);
                   }
                 }}
+                testID={`split-member-toggle-${member.id}`}
               >
                 <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
                   {isSelected && <Text style={styles.checkboxMark}>✓</Text>}
@@ -228,6 +230,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                   onChangeText={val => onUpdateAmount(member.id, val)}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
+                  testID={`split-member-amount-input-${member.id}`}
                 />
               ) : isSelected && splitType === 'PERCENTAGE' ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: 'auto' }}>
@@ -237,6 +240,7 @@ function SplitMembersInputComponent(props: SplitMembersInputProps) {
                     onChangeText={val => onUpdatePercentage(member.id, val)}
                     keyboardType="decimal-pad"
                     placeholder="0"
+                    testID={`split-member-percentage-input-${member.id}`}
                   />
                   <Text style={{ fontSize: 12, color: '#999', fontWeight: '500' }}>%</Text>
                   <Text style={{ fontSize: 12, fontWeight: '600', color: '#333', width: 50, textAlign: 'right' }}>

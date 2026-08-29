@@ -1,62 +1,67 @@
 ---
 # TC6: After email verification, user can login
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC6 - Login Succeeds After Verification
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-verified-' + Date.now() + '@example.com'}
+- evalScript: ${output.testPassword = 'TestPass123!'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-verified-${timestamp}@example.com"
-      testPassword: "TestPass123!"
-
-  # Create user
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
-      password: ${testPassword}
+# Create user
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
+      password: ${output.testPassword}
       name: "Test User"
 
-  # Get verification token
-  - runFlow: GetVerificationToken
-    params:
-      email: ${testEmail}
+# Get verification token
+- runFlow:
+    file: shared-get-token-flow.yaml
+    env:
+      email: ${output.testEmail}
 
-  # Verify email via deep link with REAL token
-  - openLink:
-      url: "expensemanager://verify-email/${verificationToken}"
+# Verify email via deep link with REAL token
+- openLink:
+    link: "expensemanager://verify-email/${output.verificationToken}"
 
-  - wait: 1000
-  - assertVisible:
-      text: "Verifying email"
+- assertVisible:
+    text: "Verifying email"
 
-  - wait: 3000
 
-  # Success screen should appear
-  - assertVisible:
+# Success screen should appear
+- extendedWaitUntil:
+    visible:
       text: "Email verified successfully"
-      timeout: 5000
+    timeout: 5000
+- assertVisible:
+    text: "Email verified successfully"
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # DATABASE: Confirm user is verified
-  - runFlow: VerifyEmailState
-    params:
-      email: ${testEmail}
+# DATABASE: Confirm user is verified
+- runFlow:
+    file: shared-verify-email-state.yaml
+    env:
+      email: ${output.testEmail}
       expectedEmailVerified: true
       expectedTokenIsUsed: true
 
-  # Now login should succeed
-  - runFlow: LoginFlow
-    params:
-      email: ${testEmail}
-      password: ${testPassword}
+# Now login should succeed
+- runFlow:
+    file: shared-login-flow.yaml
+    env:
+      email: ${output.testEmail}
+      password: ${output.testPassword}
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # Verify: Logged in (should see home screen or dashboard)
-  - assertVisible:
+# Verify: Logged in (should see home screen or dashboard)
+- extendedWaitUntil:
+    visible:
       id: home-screen
-      timeout: 5000
-      description: "User should be logged in and see home screen"
+    timeout: 5000
+- assertVisible:
+    id: home-screen

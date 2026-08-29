@@ -415,10 +415,11 @@ export default function CreateExpenseScreen({
           <Text style={styles.label}>
             Category <Text style={styles.required}>*</Text>
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.input, { justifyContent: 'center' }]}
             onPress={() => setShowCategoryModal(true)}
             disabled={loading || isLoadingData}
+            testID="create-expense-category-picker-button"
           >
             <Text style={{ color: category ? '#333' : '#999', fontSize: 14 }}>
               {categories.find(c => c.id === category)?.label || 'Select...'}
@@ -438,7 +439,7 @@ export default function CreateExpenseScreen({
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Select Category</Text>
-                <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
+                <TouchableOpacity onPress={() => setShowCategoryModal(false)} testID="create-expense-category-modal-close-button">
                   <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -451,6 +452,7 @@ export default function CreateExpenseScreen({
                       setCategory(cat.id);
                       setShowCategoryModal(false);
                     }}
+                    testID={`create-expense-category-option-${cat.id}`}
                   >
                     <Text style={[styles.pickerItemText, category === cat.id && { color: '#0066cc', fontWeight: '600' }]}>
                       {cat.label}
@@ -467,10 +469,11 @@ export default function CreateExpenseScreen({
           <View style={styles.row}>
             <View style={styles.flex1}>
               <Text style={styles.label}>Split Type</Text>
-              <TouchableOpacity 
-                style={[styles.input, { justifyContent: 'center' }]} 
+              <TouchableOpacity
+                style={[styles.input, { justifyContent: 'center' }]}
                 onPress={() => setShowSplitTypeModal(true)}
                 disabled={loading}
+                testID="create-expense-split-type-picker-button"
               >
                 <Text style={{ color: '#333' }}>
                   {splitState.splitType === 'EQUAL' ? 'Equal' : splitState.splitType === 'AMOUNT' ? 'Amount' : 'Percentage'}
@@ -491,7 +494,7 @@ export default function CreateExpenseScreen({
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Split Type</Text>
-                <TouchableOpacity onPress={() => setShowSplitTypeModal(false)}>
+                <TouchableOpacity onPress={() => setShowSplitTypeModal(false)} testID="create-expense-split-type-modal-close-button">
                   <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -508,6 +511,7 @@ export default function CreateExpenseScreen({
                       setSplitType(option.value as 'EQUAL' | 'AMOUNT' | 'PERCENTAGE');
                       setShowSplitTypeModal(false);
                     }}
+                    testID={`create-expense-split-type-option-${option.value}`}
                   >
                     <Text style={[styles.pickerItemText, splitState.splitType === option.value && { color: '#0066cc', fontWeight: '600' }]}>
                       {option.label}
@@ -548,6 +552,7 @@ export default function CreateExpenseScreen({
             style={[styles.input, { justifyContent: 'center' }]}
             onPress={() => setShowPayerModal(true)}
             disabled={loading || isLoadingData}
+            testID="create-expense-paid-by-picker-button"
           >
             <Text style={{ color: paidBy ? '#333' : '#999', fontSize: 14 }}>
               {groupMembers.find(m => m.id === paidBy)?.name || 'Select who paid...'}
@@ -567,7 +572,7 @@ export default function CreateExpenseScreen({
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Who Paid?</Text>
-                <TouchableOpacity onPress={() => setShowPayerModal(false)}>
+                <TouchableOpacity onPress={() => setShowPayerModal(false)} testID="create-expense-paid-by-modal-close-button">
                   <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -583,6 +588,7 @@ export default function CreateExpenseScreen({
                       setPaidBy(member.id);
                       setShowPayerModal(false);
                     }}
+                    testID={`create-expense-paid-by-option-${member.id}`}
                   >
                     <Text
                       style={[
@@ -608,6 +614,7 @@ export default function CreateExpenseScreen({
               setShowDatePicker(true);
             }}
             disabled={loading}
+            testID="create-expense-date-picker-button"
           >
             <TextInput
               style={[styles.input, styles.readonlyInput]}
@@ -642,6 +649,7 @@ export default function CreateExpenseScreen({
             style={[styles.button, styles.cancelButton]}
             onPress={() => navigation.goBack()}
             disabled={loading}
+            testID="create-expense-cancel-button"
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -649,6 +657,7 @@ export default function CreateExpenseScreen({
             style={[styles.button, styles.createButton]}
             onPress={handleCreate}
             disabled={loading}
+            testID="create-expense-submit-button"
           >
             <Text style={styles.buttonText}>{loading ? 'Creating...' : 'Create Expense'}</Text>
           </TouchableOpacity>
@@ -665,7 +674,7 @@ export default function CreateExpenseScreen({
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Select Date</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)} testID="create-expense-date-modal-close-button">
                   <Text style={{ fontSize: 16, color: '#0066cc', fontWeight: '600' }}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -677,6 +686,7 @@ export default function CreateExpenseScreen({
                   value={tempDate}
                   onChangeText={setTempDate}
                   keyboardType="numbers-and-punctuation"
+                  testID="create-expense-date-modal-input"
                 />
                 <Text style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
                   Format: YYYY-MM-DD (e.g., 2026-04-12)
@@ -687,6 +697,7 @@ export default function CreateExpenseScreen({
                     setDate(tempDate);
                     setShowDatePicker(false);
                   }}
+                  testID="create-expense-date-modal-apply-button"
                 >
                   <Text style={styles.buttonText}>Apply Date</Text>
                 </TouchableOpacity>

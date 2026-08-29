@@ -56,13 +56,14 @@ Chose React Native (Expo) over React/Vite — mobile-first decision.
 
 ## 🟡 Phase 4 — Authentication & Email Verification (Partially Working)
 
-**Priority note (2026-07-27):** this is the top usability blocker in the app. Between the broken web verify route below and the non-functional WhatsApp invite (5d), a real new user currently has no working path to join — everyone who's used the app so far got in via a manually DB-verified test account. Fix this before anything else in Phase 5/6.
+**Status update (2026-08-16, commit `421c575`):** the "new user has no working path to join" blocker is resolved. On the live Render deployment, `REQUIRE_EMAIL_VERIFICATION=false` (SendGrid isn't configured there) — signup and login now correctly skip verification when the flag is off, mirroring each other, so a new user is logged in immediately after signup instead of being stranded on a dead-end "check your email" screen. See `docs/solutions/logic-errors/signup-always-shows-check-email-regardless-of-verification-flag.md`. No longer the top priority; the remaining items below are lower-priority follow-ups, relevant mainly if `REQUIRE_EMAIL_VERIFICATION` is ever flipped to `true` in production.
 
 - [x] JWT authentication (stateless, 24hr expiry)
 - [x] Secure token format (`vrf_` prefix, single-use, 24hr expiry)
 - [x] Account lockout after failed login attempts
 - [x] `emailVerificationMiddleware` guards sensitive routes
-- [ ] **Broken:** web `/verify-email?token=...` route doesn't call the verify API — falls back to Login silently. Regressed when deep-linking config was removed to fix a `NavigationContainer` crash on web; never re-wired.
+- [x] Signup/login correctly skip verification when `REQUIRE_EMAIL_VERIFICATION=false` — fixed 2026-08-16, commit `421c575`
+- [ ] **Still broken, lower priority:** web `/verify-email?token=...` route doesn't call the verify API — falls back to Login silently. Only matters if verification is ever required in production. Regressed when deep-linking config was removed to fix a `NavigationContainer` crash on web; never re-wired.
 - [ ] SendGrid not configured in dev — flow untested end-to-end
 - Current dev workaround: a pre-verified test user is inserted directly into the DB (`test@test.com` / `Test1234!`)
 
@@ -125,7 +126,8 @@ The app works but has known gaps that must close before production.
 - [ ] Helmet.js headers audit
 - [ ] CORS locked to known origins in production
 - [ ] Secrets management via Azure Key Vault (not `.env` files)
-- [ ] Dependency audit (`npm audit`) and automated updates
+- [x] Dependency audit and automated updates — Dependabot added 2026-08-22 (`.github/dependabot.yml`), weekly, covers npm deps + GitHub Actions versions
+- [ ] **Known gap, not covered by Dependabot:** the literal `node-version: "20"` pins inside `.github/workflows/*.yml` won't auto-update when Node 20 reaches end-of-life (~2026-2027) — Dependabot doesn't parse that string as a version reference. Needs a periodic manual/AI-assisted check (roughly annual, matching Node's LTS cadence) rather than an automated mechanism. Logged 2026-08-22.
 
 ### 6d. API Quality
 - [ ] OpenAPI/Swagger spec for all routes

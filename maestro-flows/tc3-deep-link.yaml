@@ -1,34 +1,33 @@
 ---
 # TC3: Deep link navigation with REAL token triggers VerifyEmailScreen
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC3 - Deep Link Navigation with Real Token
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-deeplink-' + Date.now() + '@example.com'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-deeplink-${timestamp}@example.com"
-
-  # Create user
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
+# Create user
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
       password: "TestPass123!"
       name: "Test User"
 
-  # Get real verification token from database
-  - runFlow: GetVerificationToken
-    params:
-      email: ${testEmail}
+# Get real verification token from database
+- runFlow:
+    file: shared-get-token-flow.yaml
+    env:
+      email: ${output.testEmail}
 
-  # Use REAL token in deep link
-  - openLink:
-      url: "expensemanager://verify-email/${verificationToken}"
+# Use REAL token in deep link
+- openLink:
+    link: "expensemanager://verify-email/${output.verificationToken}"
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # Verify: VerifyEmailScreen appears
-  - assertVisible:
-      text: "Verifying email"
-      description: "Deep link should trigger verification screen"
+# Verify: VerifyEmailScreen appears
+- assertVisible:
+    text: "Verifying email"

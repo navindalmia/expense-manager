@@ -104,6 +104,7 @@ export function AccordionSection({
         style={styles.header}
         onPress={toggleExpanded}
         activeOpacity={0.7}
+        testID="accordion-section-header-toggle"
       >
         <View style={styles.headerContent}>
           <Text style={styles.headerIcon}>{expanded ? '▼' : '▶'}</Text>

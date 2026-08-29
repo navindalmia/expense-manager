@@ -260,6 +260,7 @@ export default function CheckEmailScreen({ navigation, route }: Props) {
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
+              testID="back-to-login-button"
               style={styles.button}
               onPress={handleBackToLogin}
             >
@@ -286,8 +287,10 @@ export default function CheckEmailScreen({ navigation, route }: Props) {
               editable={!state.isResending}
               keyboardType="email-address"
               autoCapitalize="none"
+              testID="check-email-resend-input"
             />
             <TouchableOpacity
+              testID="resend-button"
               style={[styles.button, state.isResending && styles.buttonDisabled]}
               onPress={handleResend}
               disabled={state.isResending || !state.resendingEmail.trim()}

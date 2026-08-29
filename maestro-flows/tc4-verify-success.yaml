@@ -1,50 +1,52 @@
 ---
 # TC4: Email verification with valid (real) token shows success
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC4 - Email Verification Success with Real Token
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-verify-' + Date.now() + '@example.com'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-verify-${timestamp}@example.com"
-
-  # Create user
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
+# Create user
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
       password: "TestPass123!"
       name: "Test User"
 
-  # Get real token from database
-  - runFlow: GetVerificationToken
-    params:
-      email: ${testEmail}
+# Get real token from database
+- runFlow:
+    file: shared-get-token-flow.yaml
+    env:
+      email: ${output.testEmail}
 
-  # Open deep link with real token
-  - openLink:
-      url: "expensemanager://verify-email/${verificationToken}"
+# Open deep link with real token
+- openLink:
+    link: "expensemanager://verify-email/${output.verificationToken}"
 
-  - wait: 1000
 
-  # Verify: During verification
-  - assertVisible:
+# Verify: During verification
+- extendedWaitUntil:
+    visible:
       text: "Verifying email"
-      timeout: 5000
+    timeout: 5000
+- assertVisible:
+    text: "Verifying email"
 
-  # Wait for verification to complete
-  - wait: 3000
-
-  # Verify: Success screen appears
-  - assertVisible:
+# Verify: Success screen appears
+- extendedWaitUntil:
+    visible:
       text: "Email verified successfully"
-      timeout: 5000
-      description: "Success screen should appear after token verified"
+    timeout: 5000
+- assertVisible:
+    text: "Email verified successfully"
 
-  # DATABASE VERIFICATION: User should now be verified
-  - runFlow: VerifyEmailState
-    params:
-      email: ${testEmail}
+# DATABASE VERIFICATION: User should now be verified
+- runFlow:
+    file: shared-verify-email-state.yaml
+    env:
+      email: ${output.testEmail}
       expectedEmailVerified: true
       expectedTokenIsUsed: true

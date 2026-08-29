@@ -8,7 +8,7 @@
 
 **Stable and working end-to-end (mobile, Expo Go):** auth, groups, expense CRUD, splits (EQUAL/AMOUNT/PERCENTAGE), settlement summaries.
 
-**Known broken:** web email-verification link (`/verify-email?token=...` falls back silently to Login instead of verifying) — see ROADMAP Phase 4/5d.
+**Known broken (low priority):** web email-verification deep link (`/verify-email?token=...` falls back silently to Login instead of verifying) — only matters if `REQUIRE_EMAIL_VERIFICATION` is ever set `true` in production; signup/login already skip verification cleanly when it's `false` (fixed 2026-08-16, commit `421c575`). See ROADMAP Phase 4/5d.
 
 **Test suites:** drift fixed and priority coverage added (authorization, security middleware, key screens) in PR [#1](https://github.com/navindalmia/expense-manager/pull/1) (`test/baseline-and-priority-coverage`), **not yet merged to master**. No CI configured on this repo — check current run before relying on a number once merged.
 

@@ -30,8 +30,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (personal overrides only — .env.development is the committed
+# shared default and is intentionally NOT matched by these patterns)
 .env*.local
+frontend/.env
 
 # typescript
 *.tsbuildinfo
@@ -39,9 +41,12 @@ yarn-error.*
 # test coverage reports
 coverage/
 
-# generated native folders
+# generated native folders (root-level, and frontend/ where expo prebuild
+# actually generates them — the /pattern above only anchors to repo root)
 /ios
 /android
+frontend/ios
+frontend/android
 
 # Development rules (not for git)
 .cursorrules

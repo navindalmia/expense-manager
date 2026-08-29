@@ -1,57 +1,53 @@
 ---
 # TC7: Resend verification email
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC7 - Resend Verification Email
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-resend-' + Date.now() + '@example.com'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-resend-${timestamp}@example.com"
-
-  # Create user
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
+# Create user
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
       password: "TestPass123!"
       name: "Test User"
 
-  # On CheckEmailScreen
-  - assertVisible:
-      text: "Resend"
+# On CheckEmailScreen
+- assertVisible:
+    text: "Resend"
 
-  # Record initial token count
-  - callAPI:
-      method: POST
-      url: "http://localhost:4000/api/internal/verify-user"
-      body:
-        email: ${testEmail}
-      variable: userStateBefore
+# Record initial token count
+- evalScript: |
+    const response = http.post('http://localhost:4000/api/internal/verify-user', {
+        body: JSON.stringify({ email: output.testEmail }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+    output.userStateBefore = json(response.body);
 
-  # Click resend
-  - tapOn:
-      text: "Resend"
+# Click resend
+- tapOn:
+    text: "Resend"
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # Verify: Success message shown
-  - assertVisible:
-      text: "sent"
-      isRegex: true
-      description: "Confirmation that resend was successful"
+# Verify: Success message shown
+- assertVisible:
+    text: "sent"
 
-  - wait: 2000
 
-  # DATABASE: Verify new token was created
-  - callAPI:
-      method: POST
-      url: "http://localhost:4000/api/internal/verify-user"
-      body:
-        email: ${testEmail}
-      variable: userStateAfter
+# DATABASE: Verify new token was created
+- evalScript: |
+    const response = http.post('http://localhost:4000/api/internal/verify-user', {
+        body: JSON.stringify({ email: output.testEmail }),
+        headers: { 'Content-Type': 'application/json' }
+    });
+    output.userStateAfter = json(response.body);
 
-  # Token count should increase (new token created)
-  - assert:
-      condition: "${userStateAfter.activeTokenCount} > 0"
-      description: "New token should be available after resend"
+# Token count should increase (new token created)
+- assertTrue:
+    condition: ${output.userStateAfter.activeTokenCount > 0}
+    label: "New token should be available after resend"

@@ -1,41 +1,50 @@
 ---
 # SHARED FLOW: User Signup
 # Used by: TC1, TC2, TC5, TC6, TC7
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: SignupFlow
 
 params:
   - email
   - password
   - name
+---
+# Navigate to signup
+- tapOn:
+    text: "Signup"
 
-commands:
-  # Navigate to signup
-  - tapOn:
-      text: "Don't have account?"
+- waitForAnimationToEnd
 
-  - waitForAnimationToEnd
+# Fill signup form
+- tapOn:
+    id: email-input
+- inputText: ${email}
 
-  # Fill signup form
-  - tapOn:
-      id: email-input
-  - inputText: ${email}
+- tapOn:
+    id: password-input
+- inputText: ${password}
 
-  - tapOn:
-      id: password-input
-  - inputText: ${password}
+- tapOn:
+    id: name-input
+- inputText: ${name}
 
-  - tapOn:
-      id: name-input
-  - inputText: ${name}
+# Keyboard is still open after the last input and likely overlaps the
+# submit button's bounds - dismiss it first so the tap actually lands
+# on the button, not the keyboard.
+- hideKeyboard
 
-  # Submit signup
-  - tapOn:
-      text: Sign Up
+# Submit signup (id, not text: "Create Account" also matches the screen's
+# header subtitle in signup mode - text-tap was hitting that non-touchable
+# header instead of the button, so the form never actually submitted)
+- tapOn:
+    id: submit-button
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # Wait for CheckEmailScreen to appear
-  - assertVisible:
+# Wait for CheckEmailScreen to appear
+- extendedWaitUntil:
+    visible:
       text: "Check your email"
-      timeout: 5000
+    timeout: 5000
+- assertVisible:
+    text: "Check your email"

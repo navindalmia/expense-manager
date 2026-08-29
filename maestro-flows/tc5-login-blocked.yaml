@@ -1,44 +1,62 @@
 ---
 # TC5: Login is blocked for unverified email
-appId: com.expensemanager.dev
+appId: com.navindalmia.expensemanager
 name: TC5 - Login Blocked for Unverified Email
+---
+- launchApp
 
-commands:
-  - launchApp
+# Generate unique test email
+- evalScript: ${output.testEmail = 'e2e-blocked-' + Date.now() + '@example.com'}
+- evalScript: ${output.testPassword = 'TestPass123!'}
 
-  # Generate unique test email
-  - setVariable:
-      testEmail: "e2e-blocked-${timestamp}@example.com"
-      testPassword: "TestPass123!"
-
-  # Create unverified user
-  - runFlow: SignupFlow
-    params:
-      email: ${testEmail}
-      password: ${testPassword}
+# Create unverified user
+- runFlow:
+    file: shared-signup-flow.yaml
+    env:
+      email: ${output.testEmail}
+      password: ${output.testPassword}
       name: "Test User"
 
-  # Go back to login screen
-  - back
+# Go back to login screen - tap the app's actual "Back to Login" button,
+# not the OS back gesture. CheckEmailScreen is reached via navigation.reset()
+# from signup, making it the sole stack entry, so hardware back has no
+# defined relationship to the app's own navigation.reset() call in
+# handleBackToLogin() - it was never reliably going to land on Login.
+- tapOn:
+    id: back-to-login-button
 
-  # Run login flow
-  - runFlow: LoginFlow
-    params:
-      email: ${testEmail}
-      password: ${testPassword}
+# Run login flow
+- runFlow:
+    file: shared-login-flow.yaml
+    env:
+      email: ${output.testEmail}
+      password: ${output.testPassword}
 
-  - waitForAnimationToEnd
+- waitForAnimationToEnd
 
-  # Verify: Login is blocked with email verification error
-  - assertVisible:
-      text: "verify your email"
-      isRegex: true
-      timeout: 5000
-      description: "Login should be blocked for unverified email"
+# Verify: Login is blocked with email verification error.
+# Assert by id, not raw text - the correct error text is genuinely rendered
+# (confirmed via screen-hierarchy dump), but React Native's dev-mode LogBox
+# overlay ("Open debugger to view warnings") occludes it in Maestro's
+# visibility check. id-based lookup sidesteps the overlay entirely.
+- extendedWaitUntil:
+    visible:
+      id: login-error-banner
+    timeout: 5000
+- assertVisible:
+    id: login-error-banner
 
-  # DATABASE: Confirm user still unverified
-  - runFlow: VerifyEmailState
-    params:
-      email: ${testEmail}
+# The banner id alone doesn't prove it's specifically EMAIL_NOT_VERIFIED
+# (any login failure sets the same testID). login-resend-button only renders
+# when isEmailNotVerified is true, so its presence is the actual proof this
+# is the right error type, not just "some" login failure.
+- assertVisible:
+    id: login-resend-button
+
+# DATABASE: Confirm user still unverified
+- runFlow:
+    file: shared-verify-email-state.yaml
+    env:
+      email: ${output.testEmail}
       expectedEmailVerified: false
       expectedTokenIsUsed: false
