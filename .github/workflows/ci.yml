@@ -130,13 +130,20 @@ jobs:
           profile: pixel_6
           working-directory: frontend
           script: |
-            npx expo run:android --variant debug --no-install --no-bundler &
-            BUILD_PID=$!
-            wait $BUILD_PID
-            APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -1)
-            adb install -r "$APK_PATH"
+            # A debug-variant build doesn't embed the JS bundle - it needs Metro
+            # live via `adb reverse`, unlike a release build. Start it first,
+            # build+install with --no-bundler (reuse the already-running Metro
+            # instead of expo run:android starting its own), then wire the port.
+            npx expo start &
+            METRO_PID=$!
+            npx wait-on tcp:8081 --timeout 120000
+            npx expo run:android --variant debug --no-bundler
+            adb reverse tcp:8081 tcp:8081
             cd ..
             maestro test maestro-flows/visual/
+            TEST_EXIT=$?
+            kill "$METRO_PID" || true
+            exit $TEST_EXIT
       - name: Upload Maestro debug artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
