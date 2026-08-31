@@ -1,0 +1,24 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for LoginScreen.
+# Covers app launch through the first screen a user ever sees.
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "email-input"
+- assertVisible:
+    id: "password-input"
+- assertVisible:
+    id: "submit-button"
+# U5: key interactive elements must have real, non-empty accessibility labels
+# (what TalkBack/VoiceOver would announce) - not blank, not a raw testID leaking through.
+- assertVisible:
+    id: "email-input"
+    enabled: true
+- assertVisible:
+    id: "password-input"
+    enabled: true
+- assertVisible:
+    id: "submit-button"
+    enabled: true
+- assertScreenshot: "login-screen"

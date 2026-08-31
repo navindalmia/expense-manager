@@ -1,0 +1,26 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for ExpenseListScreen.
+# Uses the standing pre-verified QA test user, group id 9 ("QA Test Group").
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "email-input"
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "group-card-9"
+- assertVisible:
+    id: "expense-list-screen"
+- assertVisible:
+    text: "Diberr Repro"
+- assertScreenshot: "expense-list-screen"

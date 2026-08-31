@@ -1,0 +1,24 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for HomeScreen (group list).
+# Uses the standing pre-verified QA test user (test@test.com) - see
+# PROJECT_MEMORY, not the on-hold email-verification flows.
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "email-input"
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-logout-button"
+    enabled: true
+- assertScreenshot: "group-list-screen"

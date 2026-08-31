@@ -1,14 +1,14 @@
 appId: com.navindalmia.expensemanager
 workspacePath: .
-flows:
-  - SignupCreateUserFlow
-  - CheckEmailScreenDisplaysFlow
-  - DeepLinkVerificationFlow
-  - VerifyEmailSuccessFlow
-  - LoginBlockedUnverifiedFlow
-  - VerifyEmailThenLoginFlow
-  - ResendVerificationEmailFlow
-  - InvalidTokenErrorFlow
+# The email-verification suite (maestro-flows/on-hold-email-verification/) is
+# intentionally excluded — REQUIRE_EMAIL_VERIFICATION=false makes its target
+# UI unreachable right now. See that folder's README before reactivating.
+# `maestro test` reads flows from the directory passed on the command line
+# (see .github/workflows/ci.yml's e2e-mobile job), not from this `flows:` key -
+# that key is only consumed by `maestro cloud`. Active local/CI suite:
+# maestro-flows/visual/ (U4 visual-regression + U5 accessibility, combined
+# per screen). maestro-flows/on-hold-email-verification/ is excluded - see
+# that folder's README.
 
 # Test configuration
 testTimeout: 60000
