@@ -176,8 +176,9 @@ These are desirable but not on the critical path:
 | Live currency exchange rates | Integrate open exchange rates API |
 | Receipt photo attachments | Azure Blob Storage |
 | Push notifications | Expo Notifications — settlement reminders |
-| Dashboard analytics | Spending by category, trends over time |
-| Recurring expenses | Monthly bills auto-created |
+| **Intelligence layer (infra) — requirements plan exists** | Themes (reusable, editable, links groups across time), user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete/prefill (global, fuzzy-match past expenses), keyword-dictionary category auto-suggestion for new titles. Explicitly infra-first — no dashboard/Q&A UI built by this item. Full spec, decided trade-offs, and rejected alternatives: [`docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md`](docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md). **Blocked until the CI/Maestro plan (Phase 7 CI/CD, U3–U6) is finished first** — see PROJECT_MEMORY/01-MASTER_STATE.md. |
+| Dashboard analytics (settlement/KPI view) | Spending by category, per-person balance trends, settlement status — over time, across the Themes above once they exist. A concrete candidate: per-person balance trend, total-spend + category breakdown, settlement-status-per-month, discussed but deliberately deferred during the intelligence-layer brainstorm above. |
+| Recurring expenses — **superseded by intelligence layer above**, not built as scheduled auto-generation | Explored as a theme-scheduled background job that auto-drafts an expense for review on a fixed date each month; rejected in favor of the simpler autocomplete-prefill mechanism (see plan above, KTD1). May be revisited as a real enhancement once autocomplete is live and missed-entry frequency is known. |
 | Export to CSV/PDF | For tax or record keeping |
 | Role-based group permissions | Admin vs member distinctions |
 

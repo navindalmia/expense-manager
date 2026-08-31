@@ -10,7 +10,11 @@
 
 **Known broken (low priority):** web email-verification deep link (`/verify-email?token=...` falls back silently to Login instead of verifying) — only matters if `REQUIRE_EMAIL_VERIFICATION` is ever set `true` in production; signup/login already skip verification cleanly when it's `false` (fixed 2026-08-16, commit `421c575`). See ROADMAP Phase 4/5d.
 
-**Test suites:** drift fixed and priority coverage added (authorization, security middleware, key screens) in PR [#1](https://github.com/navindalmia/expense-manager/pull/1) (`test/baseline-and-priority-coverage`), **not yet merged to master**. No CI configured on this repo — check current run before relying on a number once merged.
+**Test suites:** priority coverage (authorization, security middleware, key screens) merged long ago (PR #1). Real CI is live on `master` (GitHub Actions, `backend-test`/`frontend-test` required checks, branch protection enforced) since 2026-08-22.
+
+**⚠️ PRIORITY, blocks new feature work (set 2026-08-31): finish `docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md` (U3–U6) before starting anything else.** PR #9 for this plan merged 2026-08-31, but the merge only closed the PR — it did **not** mean the plan's units were done; U1/U2/U7 are complete, U3 (Maestro flow repair) is partial and never verified end-to-end against a real Android build, and **U4 (visual-regression baselines), U5 (accessibility assertions), and U6 (wiring Maestro into CI as an enforced gate) were never started at all** — `ci.yml`'s `e2e-mobile` job is still hard-disabled (`if: false`). Explicit user instruction: complete this plan before picking up any new feature (including the intelligence-layer plan below). Do not treat "PR merged" as "plan done" again — check the plan's own unit list, not just PR/merge state.
+
+**Next candidate work (parked until the above is done):** `docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md` — requirements-only, not yet planned/implemented. Themes, extensible Categories, cross-group Labels, expense-title autocomplete, keyword-based category auto-suggestion. Explicitly infra-first; a settlement/KPI dashboard and NL expense Q&A (Phase 8) are deferred future consumers of this, not built here.
 
 Full list of open gaps, bugs, and planned phases: [`ROADMAP.md`](../ROADMAP.md).
 
