@@ -18,6 +18,14 @@ appId: com.navindalmia.expensemanager
     id: "password-input"
 - assertVisible:
     id: "submit-button"
+# The ANR dialog above was confirmed (2026-09-01, run 33518292719) to
+# recur mid-flow, not just once at launch - it blocked the enabled-check
+# assertions below in that run's screenshots. Root cause is addressed in
+# ci.yml (disable-animations + lighter emulator-options); this is
+# defense-in-depth for whatever CPU pressure remains.
+- tapOn:
+    text: "Wait"
+    optional: true
 # U5: key interactive elements must have real, non-empty accessibility labels
 # (what TalkBack/VoiceOver would announce) - not blank, not a raw testID leaking through.
 - assertVisible:

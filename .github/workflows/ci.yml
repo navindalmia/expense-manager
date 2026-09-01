@@ -227,6 +227,20 @@ jobs:
           arch: x86_64
           profile: pixel_6
           working-directory: frontend
+          # Found 2026-09-01 (run 33518292719): even with the launcher-ANR
+          # dismiss tap added to each flow, the "Pixel Launcher isn't
+          # responding" dialog kept recurring mid-flow (confirmed via
+          # screenshots - it reappeared after a successful dismiss, later in
+          # the same flow), not just once at startup. That's sustained CPU/
+          # GPU starvation on the runner while Postgres+backend+Gradle+
+          # emulator all compete, not a one-off hiccup a single dismiss can
+          # fix. disable-animations plus dropping GPU/audio/boot-anim
+          # overhead are the standard mitigations for this exact class of
+          # flake (documented by reactivecircus/android-emulator-runner
+          # itself) - cutting background CPU load rather than reacting to
+          # the symptom after the fact.
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -camera-back none -no-snapshot
           # NOTE: reactivecircus/android-emulator-runner runs each line of `script`
           # as its OWN separate `sh -c` subprocess, not one shared shell - state
           # (background PIDs, `cd`, exported vars) does NOT carry across lines.

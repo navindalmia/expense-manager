@@ -22,6 +22,14 @@ appId: com.navindalmia.expensemanager
 - tapOn:
     id: "email-input"
 - inputText: "test@test.com"
+# The ANR dialog above was confirmed (2026-09-01, run 33518292719) to
+# recur mid-flow, not just once at launch - it reappeared here, right
+# before the password field, in that run's screenshots. Root cause is
+# addressed in ci.yml (disable-animations + lighter emulator-options);
+# this is defense-in-depth for whatever CPU pressure remains.
+- tapOn:
+    text: "Wait"
+    optional: true
 - tapOn:
     id: "password-input"
 - inputText: "Test1234!"
