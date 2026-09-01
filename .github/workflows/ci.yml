@@ -292,6 +292,19 @@ jobs:
           # proving the hang is unconditional and entirely inside the
           # action's own post-kill code, not reachable from this script.
           # Left unfixed; timeout-minutes: 18/25 already bounds the cost.
+          #
+          # Flakiness reduced but not eliminated (run 33534417700, 2026-09-01):
+          # even with disable-animations + emulator-options above, the same
+          # ANR dialog recurred in a spot none of the flows' own dismiss taps
+          # cover (confirmed via screenshot - it's genuinely probabilistic,
+          # not fixable by instrumenting every possible dialog-appearance
+          # point one at a time). Retrying the whole `maestro test` invocation
+          # up to 3x is the standard mitigation for this class of environmental
+          # flake: a real app regression fails the same way every attempt,
+          # while a transient system dialog won't. Reruns all 3 flows on any
+          # single failure (Maestro doesn't retry per-flow), but each attempt
+          # only takes ~1.5min so 3 attempts still comfortably fits the
+          # timeout-minutes: 18 budget alongside the ~9min build.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
@@ -299,7 +312,7 @@ jobs:
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
-            maestro test ../maestro-flows/visual/
+            (for i in 1 2 3; do maestro test ../maestro-flows/visual/ && exit 0; echo "Maestro attempt $i failed, retrying..."; done; exit 1)
       - name: Upload Maestro debug artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
