@@ -57,19 +57,27 @@ npx expo install --fix     # resolves and installs all of them to Expo-endorsed 
 npx tsc --noEmit           # confirm nothing else broke
 ```
 
-**For the CI debug-build bug:** start Metro explicitly before building, wait for it to be ready, then build with `--no-bundler` (reusing the already-running instance) and wire the port:
+**For the CI debug-build bug:** start Metro explicitly before building, wait for it to be ready, then build with `--no-bundler` (reusing the already-running instance) and wire the port. The snippet below was corrected 2026-09-01 (see the [Update note](#update-2026-09-01) below) — the naive multi-line version this doc originally showed here does not work inside `reactivecircus/android-emulator-runner`'s `script:` input, and caused a real 6-hour CI hang:
 
 ```bash
-npx expo start &
-METRO_PID=$!
+# Must be ONE physical line if this runs inside reactivecircus/android-emulator-runner's
+# `script:` input - see the Update note below for why.
+set -m
+npx expo start & METRO_PID=$!
+trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true' EXIT
 npx wait-on tcp:8081 --timeout 120000
 npx expo run:android --variant debug --no-bundler
 adb reverse tcp:8081 tcp:8081
 # ...run tests...
-kill "$METRO_PID" || true
 ```
 
 ## Prevention
 
 - After any Dependabot merge that touches `frontend/package.json` (especially anything Expo/React-Native related), run `npx expo install --check` before assuming the merge was safe — a green `tsc`/test run does **not** catch this class of bug, since it's a native-build-time failure, not a type error.
 - If a future CI job needs to run a *debug*-variant Android build, remember it needs a live Metro instance reachable via `adb reverse` — only a *release* build embeds the JS bundle. This is easy to get backwards when copying patterns from release-build CI examples.
+
+## Update (2026-09-01)
+
+The CI debug-build snippet above was corrected. The original multi-line version shown in this doc (plain `npx expo start &` / `METRO_PID=$!` / ... / `kill "$METRO_PID" || true`, each on its own line) works fine in an ordinary shell script, but **not** when embedded in `reactivecircus/android-emulator-runner`'s `script:` input — that action runs each line as its own independent `sh -c` subprocess, so the backgrounded Metro PID captured on one line is empty by the next line, and `kill "$METRO_PID"` kills nothing. The orphaned Metro process then blocked the emulator-runner's own shutdown cleanup and hung an actual CI job for 6 hours before GitHub force-cancelled it.
+
+This doc's own scope is the Expo-SDK-compatibility bug and the general "debug builds need live Metro" principle — both still accurate as originally written. The full incident, the process-group-kill fix (`set -m` + `kill -- -"$PID"`), and everything else needed to get the `e2e-mobile` job to a trustworthy green run (backend service, E2E fixtures, an emulator ANR, and a known unresolved upstream action bug) is documented separately: see [`e2e-mobile-ci-hang-and-cascading-fixes.md`](./e2e-mobile-ci-hang-and-cascading-fixes.md).
