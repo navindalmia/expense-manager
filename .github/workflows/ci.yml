@@ -102,6 +102,13 @@ jobs:
     # see that folder's README (REQUIRE_EMAIL_VERIFICATION=false makes its
     # target UI unreachable in the current app config).
     runs-on: ubuntu-latest
+    # Hard ceiling so a stuck build/emulator/Maestro run fails fast and loud
+    # instead of silently eating hours before GitHub's own 6h job cap kicks in
+    # (that's exactly what happened on run 33502440934/33412573855 - no logs
+    # are visible for an in-progress run, so a hang here is otherwise invisible
+    # until it's force-cancelled). Tune up if a legitimately slow cold build
+    # starts tripping this.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
