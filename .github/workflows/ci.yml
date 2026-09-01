@@ -162,6 +162,19 @@ jobs:
           npm run dev &
           echo $! > /tmp/backend.pid
           npx wait-on tcp:4000 --timeout 60000
+      - name: Seed the standing QA test user (test@test.com)
+        # prisma/seed.ts deliberately skips user creation ("create via signup
+        # flow" - real accounts are made by hand there), so the maestro-flows/
+        # visual/ flows' hardcoded test@test.com / Test1234! user (see
+        # group-list-screen.yaml / expense-list-screen.yaml) doesn't exist in
+        # a freshly migrated CI database. Found 2026-09-01 (run 33510026360):
+        # login got a real 401 AUTH_FAILED once the backend was actually
+        # reachable. REQUIRE_EMAIL_VERIFICATION=false means signup alone is
+        # enough - no verification step needed before login.
+        run: |
+          curl -sf -X POST http://localhost:4000/api/auth/signup \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@test.com","password":"Test1234!","name":"QA Test User"}'
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps
@@ -175,6 +188,16 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Build debug APK and run Maestro suite on an Android emulator
+        # Step-level cap tighter than the job's own timeout-minutes: 25.
+        # Confirmed 2026-09-01 (runs 33502440934, 33506976320, 33510026360)
+        # that reactivecircus/android-emulator-runner's own "Terminate
+        # Emulator" cleanup can hang indefinitely after `adb emu kill`
+        # succeeds - reproduced even with Metro/Gradle-daemon cleanup working
+        # correctly in our own script, so it's inside the action itself, not
+        # fixable from here. Build+tests finish in ~11-12min in every run
+        # observed so far; 18min leaves headroom for that while still cutting
+        # the action's own hang short well before the job-level cap.
+        timeout-minutes: 18
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
