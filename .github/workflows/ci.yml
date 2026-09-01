@@ -95,9 +95,19 @@ jobs:
     # U6: runs maestro-flows/visual/ (U4 visual-regression + U5 accessibility,
     # verified locally 2026-08-31 - see docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md)
     # against a real Android emulator, on every PR. Does not depend on
-    # backend-test/frontend-test (runs in parallel) but should be added as a
-    # required status check in branch protection alongside them - manual
-    # GitHub UI step, outside this workflow file's reach.
+    # backend-test/frontend-test (runs in parallel).
+    #
+    # Do NOT add this as a required branch-protection check (corrected
+    # 2026-09-01 - a prior version of this comment recommended doing so).
+    # The "Build debug APK and run Maestro suite" step's own cleanup can hang
+    # on a confirmed, unfixable upstream bug in reactivecircus/android-
+    # emulator-runner (see that step's comments) even when all 3 Maestro
+    # flows pass - so this job's overall conclusion is not a reliable signal
+    # of test health on its own. Check the job log for "3/3 Flows Passed"
+    # (or similar) before treating a `failure` conclusion here as a real
+    # regression. Making this required would block every future PR whenever
+    # that upstream bug fires, regardless of whether the code under test is
+    # actually broken.
     # maestro-flows/on-hold-email-verification/ is intentionally excluded -
     # see that folder's README (REQUIRE_EMAIL_VERIFICATION=false makes its
     # target UI unreachable in the current app config).
