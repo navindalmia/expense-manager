@@ -129,21 +129,24 @@ jobs:
           arch: x86_64
           profile: pixel_6
           working-directory: frontend
-          script: |
-            # A debug-variant build doesn't embed the JS bundle - it needs Metro
-            # live via `adb reverse`, unlike a release build. Start it first,
-            # build+install with --no-bundler (reuse the already-running Metro
-            # instead of expo run:android starting its own), then wire the port.
-            npx expo start &
-            METRO_PID=$!
-            npx wait-on tcp:8081 --timeout 120000
-            npx expo run:android --variant debug --no-bundler
-            adb reverse tcp:8081 tcp:8081
-            cd ..
-            maestro test maestro-flows/visual/
-            TEST_EXIT=$?
-            kill "$METRO_PID" || true
-            exit $TEST_EXIT
+          # NOTE: reactivecircus/android-emulator-runner runs each line of `script`
+          # as its OWN separate `sh -c` subprocess, not one shared shell - state
+          # (background PIDs, `cd`, exported vars) does NOT carry across lines.
+          # Learned the hard way: a multi-line version of this script backgrounded
+          # Metro on one line (PID lost on the next), and used `cd ..` on another
+          # line with no effect on the following `maestro test` line - which then
+          # resolved its path against `frontend/` and failed instantly. Worse, the
+          # orphaned Metro process was never reachable to kill, so it lingered and
+          # hung the whole job for 6h until GitHub force-cancelled it. Keeping this
+          # as ONE physical line (with a trap for cleanup) keeps everything in a
+          # single shell so backgrounding/cleanup and relative paths behave as expected.
+          script: >
+            npx expo start & METRO_PID=$!;
+            trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT;
+            npx wait-on tcp:8081 --timeout 120000 &&
+            npx expo run:android --variant debug --no-bundler &&
+            adb reverse tcp:8081 tcp:8081 &&
+            maestro test ../maestro-flows/visual/
       - name: Upload Maestro debug artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
