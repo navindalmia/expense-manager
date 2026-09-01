@@ -263,10 +263,26 @@ jobs:
           # cleanup log). Explicitly killing Metro's process group and stopping
           # the Gradle daemon before the script exits lets that cleanup proceed
           # immediately instead of stalling on live child processes.
+          #
+          # Third hang, still present after both fixes above (run 33520968296,
+          # 2026-09-01): the action's own post-script "Terminate Emulator" step
+          # hangs on `ERROR | stop: Not implemented` right after its own
+          # `adb emu kill` succeeds - reproduced even with 3/3 flows passing
+          # and no orphaned Metro/Gradle processes left behind, so it's inside
+          # the action itself. This is a known, unresolved upstream bug -
+          # see reactivecircus/android-emulator-runner#385 (identical log
+          # line, open, no fix) and #381 (closed, points at an orphaned
+          # crashpad_handler subprocess surviving `adb emu kill` on another
+          # platform). Pre-emptively killing the emulator ourselves - via
+          # $ANDROID_SERIAL, which the action itself sets in this script's
+          # environment - before it exits is an experiment based on #381's
+          # workaround, not a confirmed fix: if the action's hang comes from
+          # waiting on a still-alive subprocess, killing it first may let the
+          # action's own kill find nothing left to wait on.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
-            trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
+            trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true; adb -s "$ANDROID_SERIAL" emu kill 2>/dev/null || true; sleep 2' EXIT;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
