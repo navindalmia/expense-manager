@@ -109,13 +109,59 @@ jobs:
     # until it's force-cancelled). Tune up if a legitimately slow cold build
     # starts tripping this.
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: expense_manager_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # The app's real backend, not the mocked/skipped one - Maestro flows
+      # past the login screen make real network calls (10.0.2.2:4000 is the
+      # Android emulator's alias for the runner's localhost). Found missing
+      # 2026-09-01: run 33506976320 hit a real `AxiosError: Network Error`
+      # on POST /auth/login because nothing was listening on 4000.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/expense_manager_ci
+      JWT_SECRET: ci-e2e-test-secret-key-not-for-production-use-only-32chars
+      JWT_EXPIRES_IN: 24h
+      NODE_ENV: development
+      APP_FRONTEND_URL: http://localhost:8081
+      APP_SCHEME: expensemanager://
+      APP_NAME: Expense Manager
+      PORT: 4000
+      # Matches the app's actual live config (set 2026-08-16) - see the
+      # maestro-flows/on-hold-email-verification/README for why that suite
+      # is excluded from this job.
+      REQUIRE_EMAIL_VERIFICATION: "false"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run backend migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          npm run dev &
+          echo $! > /tmp/backend.pid
+          npx wait-on tcp:4000 --timeout 60000
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps
@@ -147,9 +193,21 @@ jobs:
           # hung the whole job for 6h until GitHub force-cancelled it. Keeping this
           # as ONE physical line (with a trap for cleanup) keeps everything in a
           # single shell so backgrounding/cleanup and relative paths behave as expected.
+          #
+          # Second hang found 2026-09-01 (run 33506976320): even with the fix
+          # above, `kill "$METRO_PID"` only signals Metro's direct launcher
+          # process, not the actual bundler/worker children it spawns, nor the
+          # Gradle daemon `expo run:android` leaves running. Those orphans
+          # survived the script and blocked the action's own emulator-shutdown
+          # cleanup for 13+ min until the job timeout cut it off (confirmed by
+          # "Terminate orphan process" node/java entries in that run's final
+          # cleanup log). Explicitly killing Metro's process group and stopping
+          # the Gradle daemon before the script exits lets that cleanup proceed
+          # immediately instead of stalling on live child processes.
           script: >
+            set -m;
             npx expo start & METRO_PID=$!;
-            trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT;
+            trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
@@ -161,3 +219,6 @@ jobs:
           name: maestro-debug-output
           path: ~/.maestro/tests/
           retention-days: 7
+      - name: Stop backend server
+        if: always()
+        run: kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
