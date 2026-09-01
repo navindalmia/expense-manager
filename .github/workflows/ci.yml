@@ -156,25 +156,47 @@ jobs:
       - name: Run backend migrations
         working-directory: backend
         run: npx prisma migrate deploy
+      - name: Seed reference data (currencies & categories)
+        working-directory: backend
+        run: npm run seed
       - name: Start backend server
         working-directory: backend
         run: |
           npm run dev &
           echo $! > /tmp/backend.pid
           npx wait-on tcp:4000 --timeout 60000
-      - name: Seed the standing QA test user (test@test.com)
+      - name: Seed E2E fixtures (QA user, group, expense)
         # prisma/seed.ts deliberately skips user creation ("create via signup
         # flow" - real accounts are made by hand there), so the maestro-flows/
-        # visual/ flows' hardcoded test@test.com / Test1234! user (see
-        # group-list-screen.yaml / expense-list-screen.yaml) doesn't exist in
-        # a freshly migrated CI database. Found 2026-09-01 (run 33510026360):
-        # login got a real 401 AUTH_FAILED once the backend was actually
-        # reachable. REQUIRE_EMAIL_VERIFICATION=false means signup alone is
-        # enough - no verification step needed before login.
+        # visual/ flows' fixtures (test@test.com QA user, "QA Test Group",
+        # the "Diberr Repro" expense) don't exist in a freshly migrated CI
+        # database. Built through the real API (not direct Prisma inserts)
+        # so it exercises the same validation/business logic a real user
+        # would hit, and exercises signup+group+expense creation as a side
+        # effect of every e2e-mobile run. REQUIRE_EMAIL_VERIFICATION=false
+        # means signup alone is enough to log in - no verification step.
+        #
+        # Deliberately does NOT hardcode the resulting group/expense id -
+        # expense-list-screen.yaml was found (2026-09-01) asserting on
+        # `group-card-9`, a raw Postgres autoincrement id copied from a
+        # real dev database that will never match a freshly seeded CI
+        # database. Fixed there by asserting on the group's visible name
+        # instead; this step doesn't need to know the id it gets back.
         run: |
-          curl -sf -X POST http://localhost:4000/api/auth/signup \
+          set -e
+          SIGNUP=$(curl -sf -X POST http://localhost:4000/api/auth/signup \
             -H "Content-Type: application/json" \
-            -d '{"email":"test@test.com","password":"Test1234!","name":"QA Test User"}'
+            -d '{"email":"test@test.com","password":"Test1234!","name":"QA Test User"}')
+          TOKEN=$(echo "$SIGNUP" | jq -r '.data.token')
+          USER_ID=$(echo "$SIGNUP" | jq -r '.data.user.id')
+          CATEGORY_ID=$(curl -sf http://localhost:4000/api/categories | jq -r '.data[] | select(.code=="FOOD") | .id')
+          GROUP=$(curl -sf -X POST http://localhost:4000/api/groups \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"QA Test Group","currency":"GBP"}')
+          GROUP_ID=$(echo "$GROUP" | jq -r '.data.id')
+          curl -sf -X POST http://localhost:4000/api/expenses \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d "{\"title\":\"Diberr Repro\",\"amount\":42.50,\"groupId\":$GROUP_ID,\"paidById\":$USER_ID,\"categoryId\":$CATEGORY_ID,\"expenseDate\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}"
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps

@@ -1,9 +1,22 @@
 appId: com.navindalmia.expensemanager
 ---
 # U4 (visual-regression baseline) + U5 (accessibility) for ExpenseListScreen.
-# Uses the standing pre-verified QA test user, group id 9 ("QA Test Group").
+# Uses the standing pre-verified QA test user and "QA Test Group". Taps by
+# the group's visible name, not its testID (`group-card-${id}` embeds a raw
+# Postgres autoincrement id - see HomeScreen.tsx - which is whatever a real
+# dev database happened to assign, not something a freshly seeded CI
+# database will ever reproduce; found hardcoded as `group-card-9` here on
+# 2026-09-01 and failing against CI's own seeded fixture).
 - launchApp:
     clearState: true
+# Dismiss the emulator's own "Pixel Launcher isn't responding" ANR dialog if
+# it's up - a standing OS-level dialog (not app state, so clearState doesn't
+# touch it), seen persisting across every flow in a single CI run once it
+# appears under CPU pressure (confirmed via screenshot 2026-09-01, run
+# 33512863222). optional: true means this is a no-op when it's not showing.
+- tapOn:
+    text: "Wait"
+    optional: true
 - assertVisible:
     id: "email-input"
 - tapOn:
@@ -18,7 +31,7 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "home-screen"
 - tapOn:
-    id: "group-card-9"
+    text: "QA Test Group"
 - assertVisible:
     id: "expense-list-screen"
 - assertVisible:

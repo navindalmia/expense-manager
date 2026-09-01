@@ -5,6 +5,14 @@ appId: com.navindalmia.expensemanager
 # PROJECT_MEMORY, not the on-hold email-verification flows.
 - launchApp:
     clearState: true
+# Dismiss the emulator's own "Pixel Launcher isn't responding" ANR dialog if
+# it's up - a standing OS-level dialog (not app state, so clearState doesn't
+# touch it), seen persisting across every flow in a single CI run once it
+# appears under CPU pressure (confirmed via screenshot 2026-09-01, run
+# 33512863222). optional: true means this is a no-op when it's not showing.
+- tapOn:
+    text: "Wait"
+    optional: true
 - assertVisible:
     id: "email-input"
 - tapOn:
