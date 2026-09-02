@@ -1,0 +1,40 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for HomeScreen (group list).
+# Uses the standing pre-verified QA test user (test@test.com) - see
+# PROJECT_MEMORY, not the on-hold email-verification flows.
+- launchApp:
+    clearState: true
+# Dismiss the emulator's own "Pixel Launcher isn't responding" ANR dialog if
+# it's up - a standing OS-level dialog (not app state, so clearState doesn't
+# touch it), seen persisting across every flow in a single CI run once it
+# appears under CPU pressure (confirmed via screenshot 2026-09-01, run
+# 33512863222). optional: true means this is a no-op when it's not showing.
+- tapOn:
+    text: "Wait"
+    optional: true
+- assertVisible:
+    id: "email-input"
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+# The ANR dialog above was confirmed (2026-09-01, run 33518292719) to
+# recur mid-flow, not just once at launch - it reappeared here, right
+# before the password field, in that run's screenshots. Root cause is
+# addressed in ci.yml (disable-animations + lighter emulator-options);
+# this is defense-in-depth for whatever CPU pressure remains.
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- assertVisible:
+    id: "home-logout-button"
+    enabled: true
+- assertScreenshot: "group-list-screen"
