@@ -92,15 +92,234 @@ jobs:
             https://api.render.com/v1/services/srv-d9n52drl550s739au83g/deploys
 
   e2e-mobile:
+    # U6: runs maestro-flows/visual/ (U4 visual-regression + U5 accessibility,
+    # verified locally 2026-08-31 - see docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md)
+    # against a real Android emulator, on every PR. Does not depend on
+    # backend-test/frontend-test (runs in parallel).
+    #
+    # Do NOT add this as a required branch-protection check (corrected
+    # 2026-09-01 - a prior version of this comment recommended doing so).
+    # The "Build debug APK and run Maestro suite" step's own cleanup can hang
+    # on a confirmed, unfixable upstream bug in reactivecircus/android-
+    # emulator-runner (see that step's comments) even when all 3 Maestro
+    # flows pass - so this job's overall conclusion is not a reliable signal
+    # of test health on its own. Check the job log for "3/3 Flows Passed"
+    # (or similar) before treating a `failure` conclusion here as a real
+    # regression. Making this required would block every future PR whenever
+    # that upstream bug fires, regardless of whether the code under test is
+    # actually broken.
+    # maestro-flows/on-hold-email-verification/ is intentionally excluded -
+    # see that folder's README (REQUIRE_EMAIL_VERIFICATION=false makes its
+    # target UI unreachable in the current app config).
     runs-on: ubuntu-latest
-    # NOTE: Not yet wired to a real emulator/Maestro run. This job is scaffolded but
-    # intentionally not enforced by branch protection until U3-U5 land (see
-    # docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md) — there is
-    # no Android SDK/emulator/Maestro CLI available to develop or verify this job against
-    # in this environment yet. Implementing this step for real requires Android Studio /
-    # SDK to be set up first (see plan's KTD4 / Risks section).
-    if: false
+    # Hard ceiling so a stuck build/emulator/Maestro run fails fast and loud
+    # instead of silently eating hours before GitHub's own 6h job cap kicks in
+    # (that's exactly what happened on run 33502440934/33412573855 - no logs
+    # are visible for an in-progress run, so a hang here is otherwise invisible
+    # until it's force-cancelled). Tune up if a legitimately slow cold build
+    # starts tripping this.
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: expense_manager_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # The app's real backend, not the mocked/skipped one - Maestro flows
+      # past the login screen make real network calls (10.0.2.2:4000 is the
+      # Android emulator's alias for the runner's localhost). Found missing
+      # 2026-09-01: run 33506976320 hit a real `AxiosError: Network Error`
+      # on POST /auth/login because nothing was listening on 4000.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/expense_manager_ci
+      JWT_SECRET: ci-e2e-test-secret-key-not-for-production-use-only-32chars
+      JWT_EXPIRES_IN: 24h
+      NODE_ENV: development
+      APP_FRONTEND_URL: http://localhost:8081
+      APP_SCHEME: expensemanager://
+      APP_NAME: Expense Manager
+      PORT: 4000
+      # Matches the app's actual live config (set 2026-08-16) - see the
+      # maestro-flows/on-hold-email-verification/README for why that suite
+      # is excluded from this job.
+      REQUIRE_EMAIL_VERIFICATION: "false"
     steps:
       - uses: actions/checkout@v7
-      - name: Placeholder - see plan for Android emulator + Maestro wiring
-        run: echo "e2e-mobile job not yet implemented - blocked on local Android tooling setup"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run backend migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Seed reference data (currencies & categories)
+        working-directory: backend
+        run: npm run seed
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          npm run dev &
+          echo $! > /tmp/backend.pid
+          npx wait-on tcp:4000 --timeout 60000
+      - name: Seed E2E fixtures (QA user, group, expense)
+        # prisma/seed.ts deliberately skips user creation ("create via signup
+        # flow" - real accounts are made by hand there), so the maestro-flows/
+        # visual/ flows' fixtures (test@test.com QA user, "QA Test Group",
+        # the "Diberr Repro" expense) don't exist in a freshly migrated CI
+        # database. Built through the real API (not direct Prisma inserts)
+        # so it exercises the same validation/business logic a real user
+        # would hit, and exercises signup+group+expense creation as a side
+        # effect of every e2e-mobile run. REQUIRE_EMAIL_VERIFICATION=false
+        # means signup alone is enough to log in - no verification step.
+        #
+        # Deliberately does NOT hardcode the resulting group/expense id -
+        # expense-list-screen.yaml was found (2026-09-01) asserting on
+        # `group-card-9`, a raw Postgres autoincrement id copied from a
+        # real dev database that will never match a freshly seeded CI
+        # database. Fixed there by asserting on the group's visible name
+        # instead; this step doesn't need to know the id it gets back.
+        run: |
+          set -e
+          SIGNUP=$(curl -sf -X POST http://localhost:4000/api/auth/signup \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@test.com","password":"Test1234!","name":"QA Test User"}')
+          TOKEN=$(echo "$SIGNUP" | jq -r '.data.token')
+          USER_ID=$(echo "$SIGNUP" | jq -r '.data.user.id')
+          CATEGORY_ID=$(curl -sf http://localhost:4000/api/categories | jq -r '.data[] | select(.code=="FOOD") | .id')
+          GROUP=$(curl -sf -X POST http://localhost:4000/api/groups \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"QA Test Group","currency":"GBP"}')
+          GROUP_ID=$(echo "$GROUP" | jq -r '.data.id')
+          curl -sf -X POST http://localhost:4000/api/expenses \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d "{\"title\":\"Diberr Repro\",\"amount\":42.50,\"groupId\":$GROUP_ID,\"paidById\":$USER_ID,\"categoryId\":$CATEGORY_ID,\"expenseDate\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}"
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+      - name: Install Maestro CLI
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM (required for the Android emulator to run at usable speed)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Build debug APK and run Maestro suite on an Android emulator
+        # Step-level cap tighter than the job's own timeout-minutes: 25.
+        # Confirmed 2026-09-01 (runs 33502440934, 33506976320, 33510026360)
+        # that reactivecircus/android-emulator-runner's own "Terminate
+        # Emulator" cleanup can hang indefinitely after `adb emu kill`
+        # succeeds - reproduced even with Metro/Gradle-daemon cleanup working
+        # correctly in our own script, so it's inside the action itself, not
+        # fixable from here. Build+tests finish in ~11-12min in every run
+        # observed so far; 18min leaves headroom for that while still cutting
+        # the action's own hang short well before the job-level cap.
+        timeout-minutes: 18
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          working-directory: frontend
+          # Found 2026-09-01 (run 33518292719): even with the launcher-ANR
+          # dismiss tap added to each flow, the "Pixel Launcher isn't
+          # responding" dialog kept recurring mid-flow (confirmed via
+          # screenshots - it reappeared after a successful dismiss, later in
+          # the same flow), not just once at startup. That's sustained CPU/
+          # GPU starvation on the runner while Postgres+backend+Gradle+
+          # emulator all compete, not a one-off hiccup a single dismiss can
+          # fix. disable-animations plus dropping GPU/audio/boot-anim
+          # overhead are the standard mitigations for this exact class of
+          # flake (documented by reactivecircus/android-emulator-runner
+          # itself) - cutting background CPU load rather than reacting to
+          # the symptom after the fact.
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -camera-back none -no-snapshot
+          # NOTE: reactivecircus/android-emulator-runner runs each line of `script`
+          # as its OWN separate `sh -c` subprocess, not one shared shell - state
+          # (background PIDs, `cd`, exported vars) does NOT carry across lines.
+          # Learned the hard way: a multi-line version of this script backgrounded
+          # Metro on one line (PID lost on the next), and used `cd ..` on another
+          # line with no effect on the following `maestro test` line - which then
+          # resolved its path against `frontend/` and failed instantly. Worse, the
+          # orphaned Metro process was never reachable to kill, so it lingered and
+          # hung the whole job for 6h until GitHub force-cancelled it. Keeping this
+          # as ONE physical line (with a trap for cleanup) keeps everything in a
+          # single shell so backgrounding/cleanup and relative paths behave as expected.
+          #
+          # Second hang found 2026-09-01 (run 33506976320): even with the fix
+          # above, `kill "$METRO_PID"` only signals Metro's direct launcher
+          # process, not the actual bundler/worker children it spawns, nor the
+          # Gradle daemon `expo run:android` leaves running. Those orphans
+          # survived the script and blocked the action's own emulator-shutdown
+          # cleanup for 13+ min until the job timeout cut it off (confirmed by
+          # "Terminate orphan process" node/java entries in that run's final
+          # cleanup log). Explicitly killing Metro's process group and stopping
+          # the Gradle daemon before the script exits lets that cleanup proceed
+          # immediately instead of stalling on live child processes.
+          #
+          # Third hang, still present after both fixes above (run 33520968296,
+          # 2026-09-01): the action's own post-script "Terminate Emulator" step
+          # hangs on `ERROR | stop: Not implemented` right after its own
+          # `adb emu kill` succeeds - reproduced even with 3/3 flows passing
+          # and no orphaned Metro/Gradle processes left behind, so it's inside
+          # the action itself. This is a known, unresolved upstream bug - see
+          # reactivecircus/android-emulator-runner#385 (identical log line,
+          # open, no fix).
+          #
+          # Tried and ruled out (run 33524592934, 2026-09-01): killing the
+          # emulator ourselves via $ANDROID_SERIAL before this script exits,
+          # on the theory (from #381's workaround on another platform) that
+          # the action's own kill might be hanging on a still-alive
+          # subprocess. Didn't help - the action's "Terminate Emulator" step
+          # hung the same way even against an emulator we'd already killed,
+          # proving the hang is unconditional and entirely inside the
+          # action's own post-kill code, not reachable from this script.
+          # Left unfixed; timeout-minutes: 18/25 already bounds the cost.
+          #
+          # Flakiness reduced but not eliminated (run 33534417700, 2026-09-01):
+          # even with disable-animations + emulator-options above, the same
+          # ANR dialog recurred in a spot none of the flows' own dismiss taps
+          # cover (confirmed via screenshot - it's genuinely probabilistic,
+          # not fixable by instrumenting every possible dialog-appearance
+          # point one at a time). Retrying the whole `maestro test` invocation
+          # up to 3x is the standard mitigation for this class of environmental
+          # flake: a real app regression fails the same way every attempt,
+          # while a transient system dialog won't. Reruns all 3 flows on any
+          # single failure (Maestro doesn't retry per-flow), but each attempt
+          # only takes ~1.5min so 3 attempts still comfortably fits the
+          # timeout-minutes: 18 budget alongside the ~9min build.
+          script: >
+            set -m;
+            npx expo start & METRO_PID=$!;
+            trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
+            npx wait-on tcp:8081 --timeout 120000 &&
+            npx expo run:android --variant debug --no-bundler &&
+            adb reverse tcp:8081 tcp:8081 &&
+            (for i in 1 2 3; do maestro test ../maestro-flows/visual/ && exit 0; echo "Maestro attempt $i failed, retrying..."; done; exit 1)
+      - name: Upload Maestro debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-debug-output
+          path: ~/.maestro/tests/
+          retention-days: 7
+      - name: Stop backend server
+        if: always()
+        run: kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
