@@ -1,6 +1,7 @@
 ---
 title: "Fix branches with committed, working commits sat unmerged across three sessions"
 date: 2026-08-09
+last_updated: 2026-09-03
 category: workflow-issues
 module: git workflow / session handoff
 problem_type: workflow_issue
@@ -30,20 +31,47 @@ Auditing found 12 commits orphaned this way — real fixes with tests, not WIP �
 brand-new backend file (`splitCalculation.ts`, 66 lines + tests) that never reached `master` at
 all.
 
+**Update 2026-09-03 — same failure mode, different shape: an *open PR*, not just an unmerged
+branch.** A `git branch --no-merged master` audit (prompted by the user asking "how many such
+unmerged code we have in diff places") found PR #28 (head branch `docs/priority-note-ci-plan-and-intelligence-layer-plan`, since deleted
+after merge)
+had been open, unreviewed, and unmerged for 2 days — a real feature plan (the "intelligence layer"
+doc) plus a priority note that itself said "finish the CI plan before starting new work," sitting
+invisible on a branch nobody revisited. The original guidance below (`git for-each-ref` /
+`git log master..<branch>`) would have caught this too, but the audit also surfaced a **false-positive
+trap** the original check doesn't guard against: 4 other branches showed up as "unmerged" by that
+same check but were actually already-squash-merged (their content is on `master`, just under a
+different, rewritten commit SHA) — `git log`-only auditing can't tell a real orphan from this git-log
+artifact, and incorrectly flagging (or worse, re-merging) a squash-merged branch wastes a full
+session on non-existent work. See the refined check below.
+
 ## Guidance
 
 At the start of any session touching this repo (and especially before reporting "current status"
-to the user), check for stranded work, not just the current branch:
+to the user), check for stranded work, not just the current branch — and check both local and
+remote branches, plus open PRs, since orphaned work can be a branch nobody pushed *or* a PR nobody
+merged:
 
 ```bash
-git for-each-ref --format='%(refname:short) %(committerdate:relative)' refs/heads/ | grep -v master
+git branch --no-merged master
+git branch -r --no-merged origin/master
 ```
 
-If a non-master local branch exists with commits not reachable from `master`
-(`git log master..<branch> --oneline`), that is stranded work until proven otherwise — surface it
-proactively, don't wait for the user to ask "where were we." A branch a user explicitly asked to
-pause is not resolved; it is deferred, and deferred work needs an explicit re-visit trigger, not
-silent abandonment.
+**Then, for each hit, distinguish a real orphan from a squash-merge false positive before acting**
+— `--no-merged` flags a branch as unmerged whenever its exact commits aren't reachable from
+`master`, which is also true of a branch that squash-merged cleanly (the content landed, but under
+a new commit hash the branch itself never advanced to):
+
+```bash
+gh pr list --state all --search "head:<branch-name>" --json number,state,mergedAt
+```
+
+If that returns a `MERGED` PR, the branch is stale-but-harmless (safe to delete, no real gap) — not
+an orphan. Only a branch with an **open** PR, or **no PR at all**, and real diff content
+(`git diff master...<branch> --stat`) is genuine stranded work worth surfacing. A branch a user
+explicitly asked to pause is not resolved; it is deferred, and deferred work needs an explicit
+re-visit trigger, not silent abandonment — the same is true of an open PR nobody circled back to
+merge.
 
 Before merging a rescued branch, rebase onto current `master` first (not merge) — this cleanly
 drops any commits whose patch content already landed via a different, unrelated PR in the
