@@ -160,11 +160,11 @@ describe('EditExpenseScreen (EDIT mode)', () => {
 
   describe('Delete expense (web, Platform.OS === "web")', () => {
     const originalOS = Platform.OS;
-    let confirmSpy: ReturnType<typeof vi.fn<[string?], boolean>>;
+    let confirmSpy: ReturnType<typeof vi.fn<(message?: string) => boolean>>;
 
     beforeEach(() => {
       Platform.OS = 'web';
-      confirmSpy = vi.spyOn(window, 'confirm') as unknown as ReturnType<typeof vi.fn<[string?], boolean>>;
+      confirmSpy = vi.spyOn(window, 'confirm') as unknown as ReturnType<typeof vi.fn<(message?: string) => boolean>>;
     });
 
     afterEach(() => {
