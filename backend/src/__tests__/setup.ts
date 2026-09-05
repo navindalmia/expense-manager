@@ -43,6 +43,7 @@ jest.mock('../lib/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
+      update: jest.fn(),
     },
     currency: {
       create: jest.fn(),
@@ -55,6 +56,22 @@ jest.mock('../lib/prisma', () => ({
       findUnique: jest.fn(),
       update: jest.fn(),
       deleteMany: jest.fn(),
+    },
+    theme: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    label: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    categorySuggestionAudit: {
+      create: jest.fn(),
+      findMany: jest.fn(),
     },
     $transaction: jest.fn(),
   },

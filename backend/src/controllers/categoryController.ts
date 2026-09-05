@@ -1,122 +1,72 @@
 /**
  * Category Controller
- * 
- * Handles category-related endpoints.
- * Fetches categories from database (single source of truth).
+ *
+ * HTTP handlers for category listing and custom-category management.
+ * Validates input via Zod, calls the service layer, returns JSON.
  */
 
-import { Request, Response } from 'express';
-import prisma from '../lib/prisma';
-import { logger } from '../utils/logger';
+import { Request, Response, NextFunction } from 'express';
+import * as categoryService from '../services/categoryService';
+import { validateCreateCategoryInput } from '../schemas/categorySchema';
 
 /**
  * GET /api/categories
- * 
- * Fetch all available expense categories from database.
- * Returns ordered list of categories sorted by label.
- * 
- * No authentication required (public data).
- * 
- * Response:
- * {
- *   "statusCode": 200,
- *   "data": [
- *     { "id": 1, "code": "FOOD", "label": "Food" },
- *     { "id": 2, "code": "TRAVEL", "label": "Travel" },
- *     ...
- *   ]
- * }
+ *
+ * Returns the 7 seeded system categories plus the caller's own active
+ * custom categories.
  */
-export async function getCategories(req: Request, res: Response): Promise<void> {
+export async function getCategories(req: Request, res: Response, next: NextFunction) {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: { label: 'asc' },
-    });
-
-    logger.info('Categories fetched successfully', {
-      action: 'getCategories',
-      count: categories.length,
-    });
+    const userId = req.user!.id;
+    const categories = await categoryService.listCategories(userId);
 
     res.status(200).json({
       statusCode: 200,
       data: categories,
     });
   } catch (error) {
-    logger.error('Failed to fetch categories', error, {
-      action: 'getCategories',
-    });
-
-    res.status(500).json({
-      statusCode: 500,
-      error: 'Failed to fetch categories',
-    });
+    next(error);
   }
 }
 
 /**
  * POST /api/categories
- * 
- * Create a new expense category in database.
- * Used by admin or users to add custom categories.
- * 
- * Request body:
- * {
- *   "code": "CUSTOM_CAT",
- *   "label": "Custom Category"
- * }
+ *
+ * Create a custom category owned by the calling user.
  */
-export async function createCategory(req: Request, res: Response): Promise<void> {
-  const { code, label } = req.body;
-
+export async function createCategory(req: Request, res: Response, next: NextFunction) {
   try {
-    if (!code || !label) {
-      res.status(400).json({
-        statusCode: 400,
-        error: 'code and label are required',
-      });
-      return;
-    }
+    const validated = validateCreateCategoryInput(req.body);
+    const userId = req.user!.id;
 
-    const category = await prisma.category.create({
-      data: {
-        code: code.toUpperCase(),
-        label,
-      },
-    });
-
-    logger.info('Category created successfully', {
-      action: 'createCategory',
-      categoryId: category.id,
-      code: category.code,
-    });
+    const category = await categoryService.createCategory(userId, validated.label);
 
     res.status(201).json({
       statusCode: 201,
       data: category,
     });
-  } catch (error: any) {
-    // Handle unique constraint violation on code
-    if (error.code === 'P2002') {
-      logger.warn('Category code already exists', {
-        action: 'createCategory',
-        code,
-      });
+  } catch (error) {
+    next(error);
+  }
+}
 
-      res.status(409).json({
-        statusCode: 409,
-        error: 'Category with this code already exists',
-      });
-      return;
-    }
+/**
+ * PATCH /api/categories/:id/disable
+ *
+ * Disable (not delete) a custom category the calling user owns.
+ */
+export async function disableCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const categoryId = Number(req.params.id);
 
-    logger.error('Failed to create category', error, {
-      action: 'createCategory',
+    const category = await categoryService.disableCategory(userId, categoryId);
+
+    res.status(200).json({
+      statusCode: 200,
+      data: category,
     });
-
-    res.status(500).json({
-      statusCode: 500,
-      error: 'Failed to create category',
-    });
+  } catch (error) {
+    next(error);
   }
 }

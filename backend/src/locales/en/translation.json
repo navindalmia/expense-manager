@@ -18,7 +18,10 @@
     "NOT_FOUND": "User not found."
   },
   "CATEGORY": {
-    "NOT_FOUND": "Category not found."
+    "NOT_FOUND": "Category not found.",
+    "LABEL_REQUIRED": "Category label is required.",
+    "ALREADY_DISABLED": "Category is already disabled.",
+    "NOT_OWNER": "You can only disable a category you created."
   },
   "GROUP": {
     "NAME_REQUIRED": "Group name is required.",

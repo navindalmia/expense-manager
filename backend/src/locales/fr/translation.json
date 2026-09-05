@@ -19,7 +19,10 @@
     "NOT_FOUND": "Utilisateur non trouvé."
   },
   "CATEGORY": {
-    "NOT_FOUND": "Catégorie non trouvée."
+    "NOT_FOUND": "Catégorie non trouvée.",
+    "LABEL_REQUIRED": "Le libellé de la catégorie est requis.",
+    "ALREADY_DISABLED": "La catégorie est déjà désactivée.",
+    "NOT_OWNER": "Vous ne pouvez désactiver qu'une catégorie que vous avez créée."
   },
   "GROUP": {
     "NAME_REQUIRED": "Le nom du groupe est requis.",
