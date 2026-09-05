@@ -9,6 +9,7 @@ import prisma from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
+import { assertThemeVisible } from './themeService';
 
 /**
  * Expense data from database with required fields for split calculations
@@ -79,6 +80,7 @@ export async function createGroup(data: {
   description?: string;
   createdById: number;
   currency?: string;
+  themeId?: number;
 }) {
   // Validate input
   if (!data.name || data.name.trim().length === 0) {
@@ -100,12 +102,17 @@ export async function createGroup(data: {
       throw new AppError('GROUP.CURRENCY_NOT_FOUND', 400, 'GROUP_CURRENCY_NOT_FOUND', { currencyCode });
     }
 
+    if (data.themeId !== undefined) {
+      await assertThemeVisible(data.createdById, data.themeId);
+    }
+
     const group = await prisma.group.create({
       data: {
         name: data.name.trim(),
         description: data.description?.trim() || undefined,
         createdById: data.createdById,
         currencyId: currencyRecord.id,
+        themeId: data.themeId,
         members: {
           connect: { id: data.createdById }, // Add creator as member
         },
@@ -626,7 +633,7 @@ export async function removeMemberFromGroup(
 export async function updateGroup(
   groupId: number,
   requestorId: number,
-  data: Partial<{ name: string; description: string; currency: string }>
+  data: Partial<{ name: string; description: string; currency: string; themeId: number }>
 ) {
   try {
     const group = await prisma.group.findUnique({ where: { id: groupId } });
@@ -678,6 +685,11 @@ export async function updateGroup(
         throw new AppError(`Currency ${data.currency} not found`, 400, 'CURRENCY_NOT_FOUND');
       }
       updateData.currencyId = currencyRecord.id;
+    }
+
+    if (data.themeId !== undefined) {
+      await assertThemeVisible(requestorId, data.themeId);
+      updateData.themeId = data.themeId;
     }
 
     // If no fields to update, fetch and return group with all relationships

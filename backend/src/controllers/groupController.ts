@@ -30,6 +30,7 @@ export async function createGroup(
       description: validated.description,
       createdById: userId,
       currency: validated.currency,
+      themeId: validated.themeId,
     });
 
     res.status(201).json({

@@ -23,6 +23,11 @@
     "ALREADY_DISABLED": "Category is already disabled.",
     "NOT_OWNER": "You can only disable a category you created."
   },
+  "THEME": {
+    "NOT_FOUND": "Theme not found.",
+    "ALREADY_DISABLED": "Theme is already disabled.",
+    "NOT_OWNER": "You can only rename or disable a theme you created."
+  },
   "GROUP": {
     "NAME_REQUIRED": "Group name is required.",
     "NAME_TOO_LONG": "Group name must be less than 100 characters.",

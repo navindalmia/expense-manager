@@ -25,6 +25,7 @@ export const createGroupSchema = z.object({
     .enum(['GBP', 'INR', 'USD', 'EUR', 'AUD', 'CAD', 'JPY', 'CNY', 'OTHER'])
     .optional()
     .default('GBP'),
+  themeId: z.number().int().positive().optional(),
 });
 
 /**
