@@ -12,6 +12,7 @@ export const createExpenseSchema = z.object({
 
   paidById: z.number().int().positive("Invalid payer ID"),
   categoryId: z.number().int().positive("Invalid category ID"),
+  labelId: z.number().int().positive("Invalid label ID").optional(),
   splitWithIds: z.array(z.number().int().positive()).optional().default([]),
   splitAmount: z.array(z.number().positive()).optional().default([]),
   splitPercentage: z.array(z.number().positive()).optional().default([]),
@@ -33,6 +34,7 @@ export const updateExpenseSchema = z.object({
   splitType: z.enum(Object.values(SplitType) as [string, ...string[]]).optional(),
   paidById: z.number().int().positive("Invalid payer ID").optional(),
   categoryId: z.number().int().positive("Invalid category ID").optional(),
+  labelId: z.number().int().positive("Invalid label ID").optional(),
   splitWithIds: z.array(z.number().int().positive()).optional(),
   splitAmount: z.array(z.number().positive()).optional(),
   splitPercentage: z.array(z.number().positive()).optional(),

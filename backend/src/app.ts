@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import currencyRoutes from "./routes/currencyRoutes";
 import themeRoutes from "./routes/themeRoutes";
+import labelRoutes from "./routes/labelRoutes";
 import internalRoutes from "./routes/internalRoutes"; // Internal/test endpoints
 import { errorHandler } from "./middlewares/errorHandler"; 
 import { i18nMiddleware } from "./middlewares/i18nMiddleware";
@@ -26,6 +27,7 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/currencies", currencyRoutes);
 app.use("/api/themes", themeRoutes);
+app.use("/api/labels", labelRoutes);
 
 // Internal/Test routes (only in development mode)
 if (process.env.NODE_ENV !== 'production') {

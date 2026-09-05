@@ -29,6 +29,11 @@
     "ALREADY_DISABLED": "Le thème est déjà désactivé.",
     "NOT_OWNER": "Vous ne pouvez renommer ou désactiver qu'un thème que vous avez créé."
   },
+  "LABEL": {
+    "NOT_FOUND": "Étiquette non trouvée.",
+    "ALREADY_DISABLED": "L'étiquette est déjà désactivée.",
+    "NOT_OWNER": "Vous ne pouvez désactiver qu'une étiquette que vous avez créée."
+  },
   "GROUP": {
     "NAME_REQUIRED": "Le nom du groupe est requis.",
     "NAME_TOO_LONG": "Le nom du groupe doit contenir moins de 100 caractères.",

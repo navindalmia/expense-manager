@@ -28,6 +28,11 @@
     "ALREADY_DISABLED": "Theme is already disabled.",
     "NOT_OWNER": "You can only rename or disable a theme you created."
   },
+  "LABEL": {
+    "NOT_FOUND": "Label not found.",
+    "ALREADY_DISABLED": "Label is already disabled.",
+    "NOT_OWNER": "You can only disable a label you created."
+  },
   "GROUP": {
     "NAME_REQUIRED": "Group name is required.",
     "NAME_TOO_LONG": "Group name must be less than 100 characters.",

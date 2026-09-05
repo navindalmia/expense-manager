@@ -51,6 +51,14 @@ describe('ExpenseService', () => {
         members: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 5 }],
       },
     });
+
+    // labelId validation (createExpense/updateExpense) resolves to a
+    // visible label by default; individual tests override for the
+    // not-visible case.
+    (prisma.label.findUnique as jest.Mock).mockImplementation(
+      ({ where }: { where: { id: number } }) =>
+        Promise.resolve({ id: where.id, name: 'Liverpool', userId: 1 })
+    );
   });
 
   // TODO: Update all createExpense tests to include groupId parameter
@@ -414,6 +422,40 @@ describe('ExpenseService', () => {
       expect(callArgs.data.paidBy).toEqual({ connect: { id: 5 } });
       expect(callArgs.data.category).toEqual({ connect: { id: 3 } });
     });
+
+    it('persists a valid, visible labelId', async () => {
+      (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await expenseService.createExpense({
+        title: 'Fuel',
+        amount: 50,
+        paidById: 1,
+        categoryId: 1,
+        groupId: 1,
+        labelId: 7,
+        expenseDate: new Date().toISOString(),
+      });
+
+      const callArgs = (prisma.expense.create as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.label).toEqual({ connect: { id: 7 } });
+    });
+
+    it('throws AppError when labelId is invalid or not visible to the caller', async () => {
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          labelId: 999,
+          expenseDate: new Date().toISOString(),
+        })
+      ).rejects.toThrow('LABEL.NOT_FOUND');
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateExpense', () => {
@@ -525,6 +567,22 @@ describe('ExpenseService', () => {
         expenseService.updateExpense(1, 1, { splitAmount: [150, -50] })
       ).rejects.toThrow(AppError);
 
+      expect(prisma.expense.update).not.toHaveBeenCalled();
+    });
+
+    it('persists a valid, visible labelId', async () => {
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1 });
+
+      await expenseService.updateExpense(1, 1, { labelId: 7 });
+
+      const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.label).toEqual({ connect: { id: 7 } });
+    });
+
+    it('throws AppError when labelId is invalid or not visible to the requestor', async () => {
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(expenseService.updateExpense(1, 1, { labelId: 999 })).rejects.toThrow('LABEL.NOT_FOUND');
       expect(prisma.expense.update).not.toHaveBeenCalled();
     });
   });
