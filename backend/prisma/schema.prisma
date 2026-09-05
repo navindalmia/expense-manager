@@ -41,6 +41,9 @@ model User {
   groupsMember           Group[]   @relation("GroupMembers")
   expensesSplit          Expense[] @relation("ExpenseSplitWith")
   verificationTokens     EmailVerificationToken[]
+  themes                 Theme[]
+  categories             Category[]
+  labels                 Label[]
 }
 
 // -------------------- EMAIL VERIFICATION TOKEN --------------------
@@ -60,10 +63,63 @@ model EmailVerificationToken {
 
 // -------------------- CATEGORY --------------------
 model Category {
-  id       Int       @id @default(autoincrement())
-  code     String    @unique           // e.g., FOOD, TRAVEL
-  label    String                         // e.g., "Food", "Travel"
-  expenses Expense[]
+  id        Int       @id @default(autoincrement())
+  code      String    @unique           // e.g., FOOD, TRAVEL
+  label     String                         // e.g., "Food", "Travel"
+  userId    Int?      // null = system/global (seeded defaults); set = user-created custom category
+  user      User?     @relation(fields: [userId], references: [id])
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+  suggestedInAudits CategorySuggestionAudit[] @relation("SuggestedCategory")
+  acceptedInAudits  CategorySuggestionAudit[] @relation("AcceptedCategory")
+
+  @@index([userId])
+}
+
+// -------------------- THEME (Group-level, reusable) --------------------
+model Theme {
+  id        Int      @id @default(autoincrement())
+  name      String
+  userId    Int?     // null = system/global; set = user-created
+  user      User?    @relation(fields: [userId], references: [id])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  groups    Group[]
+
+  @@index([userId])
+}
+
+// -------------------- LABEL (Expense-level, cross-group, free-text) --------------------
+model Label {
+  id        Int       @id @default(autoincrement())
+  name      String
+  userId    Int?      // null = system/global (unused in v1 -- all labels are user-created)
+  user      User?     @relation(fields: [userId], references: [id])
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+
+  @@index([userId])
+}
+
+// -------------------- CATEGORY SUGGESTION AUDIT --------------------
+// Logs every keyword-dictionary category suggestion and what the user
+// ultimately chose, to build a labeled dataset for a possible future
+// graduation to a smarter suggestion mechanism (see KTD3/KTD10 in
+// docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md).
+model CategorySuggestionAudit {
+  id                  Int      @id @default(autoincrement())
+  expenseId           Int
+  expense             Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  suggestedCategoryId Int
+  suggestedCategory   Category @relation("SuggestedCategory", fields: [suggestedCategoryId], references: [id])
+  acceptedCategoryId  Int
+  acceptedCategory    Category @relation("AcceptedCategory", fields: [acceptedCategoryId], references: [id])
+  titleText           String
+  createdAt           DateTime @default(now())
+
+  @@index([expenseId])
 }
 
 // -------------------- CURRENCY --------------------
@@ -86,13 +142,16 @@ model Group {
   expenses    Expense[]
   currency    Currency  @relation(fields: [currencyId], references: [id])
   currencyId  Int       // Foreign key to Currency
+  theme       Theme?    @relation(fields: [themeId], references: [id])
+  themeId     Int?      // Optional -- links groups across time (e.g. "Monthly Expense" reused every month)
   isActive    Boolean   @default(true) // Soft delete flag
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
+
   @@index([createdById])
   @@index([currencyId])
   @@index([isActive])
+  @@index([themeId])
 }
 
 // -------------------- EXPENSE --------------------
@@ -112,16 +171,20 @@ model Expense {
   splitType    SplitType @default(EQUAL)
   category     Category  @relation(fields: [categoryId], references: [id])
   categoryId   Int
+  label        Label?    @relation(fields: [labelId], references: [id])
+  labelId      Int?      // Optional -- free-text, cross-group tag (e.g. "Liverpool")
   notes        String?
   expenseDate  DateTime  @default(now())  // Defaults to today's date (current timestamp)
   isSettled    Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  
+  suggestionAudits CategorySuggestionAudit[]
+
   @@index([groupId])
   @@index([paidById])
   @@index([currencyId])
   @@index([expenseDate])
+  @@index([labelId])
 }
 
 
