@@ -45,3 +45,12 @@ export const updateExpenseSchema = z.object({
 });
 
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
+
+/**
+ * Schema for the expense-title autocomplete search query param (U5, R5).
+ */
+export const suggestQuerySchema = z.object({
+  title: z.string().min(1, "Title is required").max(200, "Title is too long"),
+});
+
+export type SuggestQueryInput = z.infer<typeof suggestQuerySchema>;

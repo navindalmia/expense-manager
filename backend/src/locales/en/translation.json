@@ -12,7 +12,8 @@
     "NOT_FOUND": "Expense not found.",
     "CREATION_FAILED": "Failed to create expense.",
     "FETCH_FAILED": "Failed to fetch expenses.",
-    "DELETE_FAILED": "Failed to delete expense."
+    "DELETE_FAILED": "Failed to delete expense.",
+    "SUGGEST_FAILED": "Failed to search similar expenses."
   },
   "USER": {
     "NOT_FOUND": "User not found."

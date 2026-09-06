@@ -11,6 +11,22 @@ import { cleanData } from "../utils/cleanData";
 import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
+import { rankMatches } from "../lib/fuzzyMatch";
+
+const SUGGESTION_LIMIT = 5;
+
+/**
+ * Prefill payload returned alongside each suggested match -- deliberately
+ * omits expenseDate (AE2): the frontend always defaults the date to today
+ * rather than reusing a past expense's date.
+ */
+export interface SimilarExpenseMatch {
+  expenseId: number;
+  title: string;
+  amount: number;
+  categoryId: number;
+  splitWithIds: number[];
+}
 
 /**
  * Get all expenses for a specific group with permission check
@@ -596,6 +612,61 @@ export async function updateExpense(
       'Failed to update expense',
       500,
       'UPDATE_EXPENSE_ERROR',
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
+}
+
+/**
+ * Fuzzy-match a typed expense title against the user's own past expenses,
+ * globally across all of that user's groups (R5, KTD4 -- not scoped to the
+ * group/theme currently being edited).
+ *
+ * Authorization mirrors getLabelTotals's accessibleGroups pattern: a user
+ * can only ever see expenses from groups they are a member of or created,
+ * even when another group has a textually identical title.
+ *
+ * @param userId - The current user ID
+ * @param titleQuery - The partial/full title text typed so far
+ * @returns Up to SUGGESTION_LIMIT ranked matches with a date-free prefill payload
+ */
+export async function findSimilarExpenses(
+  userId: number,
+  titleQuery: string
+): Promise<SimilarExpenseMatch[]> {
+  try {
+    const accessibleGroups = await prisma.group.findMany({
+      where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+      select: { id: true },
+    });
+    const accessibleGroupIds = accessibleGroups.map((g) => g.id);
+
+    if (accessibleGroupIds.length === 0) {
+      return [];
+    }
+
+    const candidates = await prisma.expense.findMany({
+      where: { groupId: { in: accessibleGroupIds } },
+      include: { splitWith: { select: { id: true } } },
+    });
+
+    const ranked = rankMatches(titleQuery, candidates, (expense) => expense.title, SUGGESTION_LIMIT);
+
+    return ranked.map(({ item }) => ({
+      expenseId: item.id,
+      title: item.title,
+      amount: item.amount,
+      categoryId: item.categoryId,
+      splitWithIds: item.splitWith.map((member: { id: number }) => member.id),
+    }));
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      'EXPENSE.SUGGEST_FAILED',
+      500,
+      'SUGGEST_EXPENSES_ERROR',
       { error: error instanceof Error ? error.message : String(error) }
     );
   }

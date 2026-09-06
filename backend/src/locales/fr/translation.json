@@ -13,7 +13,8 @@
     "NOT_FOUND": "Dépense non trouvée.",
     "CREATION_FAILED": "Échec de la création de la dépense.",
     "FETCH_FAILED": "Échec du chargement des dépenses.",
-    "DELETE_FAILED": "Échec de la suppression de la dépense."
+    "DELETE_FAILED": "Échec de la suppression de la dépense.",
+    "SUGGEST_FAILED": "Échec de la recherche de dépenses similaires."
   },
   "USER": {
     "NOT_FOUND": "Utilisateur non trouvé."

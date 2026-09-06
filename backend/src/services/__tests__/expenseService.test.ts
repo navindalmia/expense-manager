@@ -619,4 +619,75 @@ describe('ExpenseService', () => {
       expect(prisma.expense.delete).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('findSimilarExpenses', () => {
+    beforeEach(() => {
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([{ id: 1 }, { id: 2 }]);
+    });
+
+    it('should return a match from a different group than the one currently being edited (AE2 -- global search)', async () => {
+      (prisma.expense.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 10,
+          title: 'Fuel',
+          amount: 45,
+          categoryId: 3,
+          groupId: 2, // a different group than "the one currently being edited"
+          splitWith: [{ id: 1 }, { id: 2 }],
+        },
+      ]);
+
+      const matches = await expenseService.findSimilarExpenses(1, 'Fuel');
+
+      expect(matches).toEqual([
+        { expenseId: 10, title: 'Fuel', amount: 45, categoryId: 3, splitWithIds: [1, 2] },
+      ]);
+    });
+
+    it('should never return an expense from a group the requesting user is not a member of, even with an identical title', async () => {
+      // findMany is scoped by the accessibleGroupIds where clause, so a
+      // group the user isn't in never appears in the candidate set.
+      (prisma.expense.findMany as jest.Mock).mockResolvedValue([]);
+
+      const matches = await expenseService.findSimilarExpenses(1, 'Fuel');
+
+      expect(prisma.expense.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { groupId: { in: [1, 2] } } })
+      );
+      expect(matches).toEqual([]);
+    });
+
+    it("should return an empty array without querying expenses when the user has no accessible groups", async () => {
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([]);
+
+      const matches = await expenseService.findSimilarExpenses(1, 'Fuel');
+
+      expect(matches).toEqual([]);
+      expect(prisma.expense.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should return a prefill payload matching the source expense exactly, with no expenseDate field', async () => {
+      (prisma.expense.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 10,
+          title: 'Fuel',
+          amount: 45.5,
+          categoryId: 3,
+          expenseDate: new Date('2026-01-01'),
+          splitWith: [{ id: 1 }, { id: 5 }],
+        },
+      ]);
+
+      const [match] = await expenseService.findSimilarExpenses(1, 'Fuel');
+
+      expect(match).toEqual({
+        expenseId: 10,
+        title: 'Fuel',
+        amount: 45.5,
+        categoryId: 3,
+        splitWithIds: [1, 5],
+      });
+      expect(match).not.toHaveProperty('expenseDate');
+    });
+  });
 });
