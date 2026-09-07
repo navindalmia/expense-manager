@@ -456,6 +456,90 @@ describe('ExpenseService', () => {
       ).rejects.toThrow('LABEL.NOT_FOUND');
       expect(prisma.expense.create).not.toHaveBeenCalled();
     });
+
+    describe('category suggestion audit (U6, R8, KTD10)', () => {
+      it('writes a CategorySuggestionAudit row when suggestedCategoryId differs from the final categoryId (an override)', async () => {
+        (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 42 });
+
+        await expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 2, // final choice
+          groupId: 1,
+          expenseDate: new Date().toISOString(),
+          suggestedCategoryId: 1, // dictionary suggested something else
+        });
+
+        expect(prisma.categorySuggestionAudit.create).toHaveBeenCalledWith({
+          data: {
+            expenseId: 42,
+            suggestedCategoryId: 1,
+            acceptedCategoryId: 2,
+            titleText: 'Fuel',
+          },
+        });
+      });
+
+      it('still writes the audit row when suggestedCategoryId equals the final categoryId (accepted, not overridden)', async () => {
+        (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 43 });
+
+        await expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          expenseDate: new Date().toISOString(),
+          suggestedCategoryId: 1,
+        });
+
+        expect(prisma.categorySuggestionAudit.create).toHaveBeenCalledWith({
+          data: {
+            expenseId: 43,
+            suggestedCategoryId: 1,
+            acceptedCategoryId: 1,
+            titleText: 'Fuel',
+          },
+        });
+      });
+
+      it('writes no audit row at all when suggestedCategoryId is absent (autocomplete matched, R8 never fired)', async () => {
+        (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 44 });
+
+        await expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          expenseDate: new Date().toISOString(),
+        });
+
+        expect(prisma.categorySuggestionAudit.create).not.toHaveBeenCalled();
+      });
+
+      it('still persists the expense when the audit write fails (best-effort/non-blocking, not save-blocking)', async () => {
+        (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 45 });
+        (prisma.categorySuggestionAudit.create as jest.Mock).mockRejectedValue(
+          new Error('FK constraint: suggestedCategoryId not visible to user')
+        );
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        const expense = await expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          expenseDate: new Date().toISOString(),
+          suggestedCategoryId: 999,
+        });
+
+        expect(expense).toEqual({ id: 45 });
+        consoleErrorSpy.mockRestore();
+      });
+    });
   });
 
   describe('updateExpense', () => {
@@ -688,6 +772,34 @@ describe('ExpenseService', () => {
         splitWithIds: [1, 5],
       });
       expect(match).not.toHaveProperty('expenseDate');
+    });
+  });
+
+  describe('suggestCategoryForTitle', () => {
+    it('resolves a dictionary match to a category id visible to the user', async () => {
+      (prisma.category.findFirst as jest.Mock).mockResolvedValue({ id: 3, code: 'TRAVEL' });
+
+      const suggestion = await expenseService.suggestCategoryForTitle(1, 'Gas station fill-up');
+
+      expect(suggestion).toEqual({ categoryId: 3, code: 'TRAVEL' });
+      expect(prisma.category.findFirst).toHaveBeenCalledWith({
+        where: { code: 'TRAVEL', isActive: true, OR: [{ userId: null }, { userId: 1 }] },
+      });
+    });
+
+    it('returns null when the title has no dictionary keyword', async () => {
+      const suggestion = await expenseService.suggestCategoryForTitle(1, 'Unrelated title xyz');
+
+      expect(suggestion).toBeNull();
+      expect(prisma.category.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the matched category code is not visible to this user', async () => {
+      (prisma.category.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const suggestion = await expenseService.suggestCategoryForTitle(1, 'Gas station fill-up');
+
+      expect(suggestion).toBeNull();
     });
   });
 });

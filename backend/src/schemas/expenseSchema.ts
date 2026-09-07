@@ -20,6 +20,7 @@ export const createExpenseSchema = z.object({
   expenseDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format",
   }),
+  suggestedCategoryId: z.number().int().positive("Invalid suggested category ID").optional(),
 });
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;

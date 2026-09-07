@@ -89,9 +89,14 @@ export async function suggestExpenses(req: Request, res: Response, next?: NextFu
 
     const matches = await expenseService.findSimilarExpenses(userId, title);
 
+    // Dictionary category suggestion only fires when autocomplete found
+    // nothing (R8's trigger condition -- see U6's Approach).
+    const categorySuggestion =
+      matches.length === 0 ? await expenseService.suggestCategoryForTitle(userId, title) : null;
+
     res.status(200).json({
       statusCode: 200,
-      data: matches,
+      data: { matches, categorySuggestion },
     });
   } catch (err) {
     if (next) {

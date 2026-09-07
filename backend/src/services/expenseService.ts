@@ -12,6 +12,7 @@ import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue 
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
 import { rankMatches } from "../lib/fuzzyMatch";
+import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 
 const SUGGESTION_LIMIT = 5;
 
@@ -117,6 +118,7 @@ export async function createExpense(data: {
   splitPercentage?: number[];
   notes?: string;
   expenseDate: string;
+  suggestedCategoryId?: number;
 }) {
   const {
     title,
@@ -132,6 +134,7 @@ export async function createExpense(data: {
     splitPercentage = [],
     notes,
     expenseDate,
+    suggestedCategoryId,
   } = data;
 
   // Validation
@@ -252,7 +255,7 @@ export async function createExpense(data: {
       }
     }
 
-    return prisma.expense.create({
+    const expense = await prisma.expense.create({
       data: expenseData,
       include: {
         currency: { select: { id: true, code: true, label: true } },
@@ -261,6 +264,26 @@ export async function createExpense(data: {
         splitWith: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Best-effort audit write (KTD10) -- only when R8's suggestion flow
+    // actually fired. Diagnostic/historical data, not a source of truth,
+    // so a failure here must never fail expense creation itself.
+    if (suggestedCategoryId !== undefined) {
+      try {
+        await prisma.categorySuggestionAudit.create({
+          data: {
+            expenseId: expense.id,
+            suggestedCategoryId,
+            acceptedCategoryId: categoryId,
+            titleText: title,
+          },
+        });
+      } catch (auditError) {
+        console.error('Failed to write category suggestion audit:', auditError);
+      }
+    }
+
+    return expense;
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -670,4 +693,31 @@ export async function findSimilarExpenses(
       { error: error instanceof Error ? error.message : String(error) }
     );
   }
+}
+
+/**
+ * Resolve a keyword-dictionary category suggestion (R8) into a category id
+ * the given user can actually see (KTD7's userId-null-or-own visibility
+ * model), falling back to null (caller then falls back to "Other" per
+ * KTD8) when the dictionary has no match or the matched category code
+ * isn't visible to this user.
+ *
+ * @param userId - The current user ID
+ * @param titleQuery - The expense title text to run through the dictionary
+ */
+export async function suggestCategoryForTitle(
+  userId: number,
+  titleQuery: string
+): Promise<{ categoryId: number; code: string } | null> {
+  const code = suggestCategoryCode(titleQuery);
+
+  if (!code) {
+    return null;
+  }
+
+  const category = await prisma.category.findFirst({
+    where: { code, isActive: true, OR: [{ userId: null }, { userId }] },
+  });
+
+  return category ? { categoryId: category.id, code: category.code } : null;
 }
