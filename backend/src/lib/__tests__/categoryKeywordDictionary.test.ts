@@ -29,4 +29,8 @@ describe('suggestCategoryCode', () => {
   it('should prefer a multi-word keyword ("gas bill") over a shorter single-word keyword ("gas") it contains', () => {
     expect(suggestCategoryCode('Gas bill for March')).toBe('UTILITIES');
   });
+
+  it('should match multi-word keywords on whole-word boundaries only, not as a raw substring ("phone bill" must not match "phone Billy")', () => {
+    expect(suggestCategoryCode('Call Billy, phone Billy about the trip')).toBeNull();
+  });
 });
