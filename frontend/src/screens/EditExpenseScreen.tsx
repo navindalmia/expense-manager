@@ -15,10 +15,12 @@ import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { useAuth } from '../context/AuthContext';
 import { updateExpense, createExpense, deleteExpense } from '../services/expenseService';
-import { getCategories } from '../services/categoryService';
+import { createCategory } from '../services/categoryService';
+import { createLabel } from '../services/labelService';
 import { useExpenseData, useExpenseForm, useSplitCalculator, DatePickerModal, SplitMembersInput } from './EditExpenseScreen/index';
 import { AccordionSection } from '../components/AccordionSection';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
+import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
@@ -64,16 +66,25 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const isCreateMode = !expenseId;
   const screenTitle = isCreateMode ? 'Create Expense' : 'Edit Expense';
 
-  const { expense, categories, groupMembers, loading: dataLoading, error: dataError } = useExpenseData(expenseId, groupId);
+  const { expense, categories: fetchedCategories, labels: fetchedLabels, groupMembers, loading: dataLoading, error: dataError } = useExpenseData(expenseId, groupId);
   const { formState, updateField, setError, clearErrors, prefillFromExpense } = useExpenseForm(expense);
   const { splitState, addMember, removeMember, updateAmount, updatePercentage, setSplitType, getValidationError, getSplitPayload } = useSplitCalculator(formState.amount, formState.paidById, groupMembers, expense);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showLabelPicker, setShowLabelPicker] = useState(false);
   const [showPayerModal, setShowPayerModal] = useState(false);
   const [showSplitTypeModal, setShowSplitTypeModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Newly created categories/labels (via TypeAheadDropdown's "Add new") so
+  // the freshly created item's name is available for display immediately,
+  // without needing to refetch the full list.
+  const [extraCategories, setExtraCategories] = useState<typeof fetchedCategories>([]);
+  const [extraLabels, setExtraLabels] = useState<typeof fetchedLabels>([]);
+  const categories = [...fetchedCategories, ...extraCategories];
+  const labels = [...fetchedLabels, ...extraLabels];
 
   // Set header with group name on the right and title
   useEffect(() => {
@@ -198,15 +209,16 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
       console.log('   Split Members:', splitState.splitWithIds);
       console.log('   Split Payload:', splitPayload);
       
-      const payload: any = { 
-        title: formState.title.trim(), 
-        amount: parseFloat(formState.amount), 
-        categoryId: formState.category, 
-        paidById: formState.paidById, 
+      const payload: any = {
+        title: formState.title.trim(),
+        amount: parseFloat(formState.amount),
+        categoryId: formState.category,
+        labelId: formState.labelId || undefined,
+        paidById: formState.paidById,
         expenseDate: formState.date,
         currency: currency,  // ← ADD CURRENCY!
-        notes: formState.notes.trim() || undefined, 
-        ...splitPayload 
+        notes: formState.notes.trim() || undefined,
+        ...splitPayload
       };
       
       console.log('📦 FULL PAYLOAD:', JSON.stringify(payload, null, 2));
@@ -303,36 +315,42 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
           </View>
         </View>
 
-        {/* Category Picker Modal */}
-        <Modal visible={showCategoryPicker} transparent animationType="slide" onRequestClose={() => setShowCategoryPicker(false)}>
-          <View style={styles.pickerModal}>
-            <View style={styles.pickerContent}>
-              <View style={styles.pickerHeader}>
-                <Text style={styles.pickerTitle}>Select Category</Text>
-                <TouchableOpacity onPress={() => setShowCategoryPicker(false)} testID="edit-expense-category-modal-close-button">
-                  <Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView>
-                {categories.map(cat => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[styles.pickerItem, formState.category === cat.id && { backgroundColor: '#e6f0ff' }]}
-                    onPress={() => {
-                      updateField('category', cat.id);
-                      setShowCategoryPicker(false);
-                    }}
-                    testID={`edit-expense-category-option-${cat.id}`}
-                  >
-                    <Text style={[styles.pickerItemText, formState.category === cat.id && { color: '#0066cc', fontWeight: '600' }]}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Label (optional)</Text>
+          <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowLabelPicker(true)} disabled={submitting} testID="edit-expense-label-picker-button">
+            <Text style={{ color: formState.labelId ? '#333' : '#666', fontSize: 14, fontWeight: '500' }}>{labels.find(l => l.id === formState.labelId)?.name || 'Select label...'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TypeAheadDropdown
+          visible={showCategoryPicker}
+          title="Select Category"
+          items={categories.map((cat): TypeAheadItem => ({ id: cat.id, name: cat.label }))}
+          onSelect={(item) => updateField('category', item.id)}
+          onCreateNew={async (name) => {
+            const created = await createCategory(name);
+            setExtraCategories(prev => [...prev, created]);
+            return { id: created.id, name: created.label };
+          }}
+          onClose={() => setShowCategoryPicker(false)}
+          placeholder="Search categories..."
+          testIDPrefix="edit-expense-category"
+        />
+
+        <TypeAheadDropdown
+          visible={showLabelPicker}
+          title="Select Label"
+          items={labels.map((label): TypeAheadItem => ({ id: label.id, name: label.name }))}
+          onSelect={(item) => updateField('labelId', item.id)}
+          onCreateNew={async (name) => {
+            const created = await createLabel(name);
+            setExtraLabels(prev => [...prev, created]);
+            return { id: created.id, name: created.name };
+          }}
+          onClose={() => setShowLabelPicker(false)}
+          placeholder="Search labels..."
+          testIDPrefix="edit-expense-label"
+        />
 
         <DatePickerModal visible={showDatePicker} selectedDate={formState.date} onSelectDate={date => updateField('date', date)} onClose={() => setShowDatePicker(false)} />
 

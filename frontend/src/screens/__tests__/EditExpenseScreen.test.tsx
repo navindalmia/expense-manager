@@ -33,6 +33,12 @@ vi.mock('../../context/AuthContext', () => ({
 
 vi.mock('../../services/categoryService', () => ({
   getCategories: vi.fn(),
+  createCategory: vi.fn(),
+}));
+
+vi.mock('../../services/labelService', () => ({
+  getLabels: vi.fn(),
+  createLabel: vi.fn(),
 }));
 
 vi.mock('../../services/groupService', () => ({
@@ -46,9 +52,18 @@ vi.mock('../../services/expenseService', () => ({
   deleteExpense: vi.fn(),
 }));
 
-import { getCategories } from '../../services/categoryService';
+import { getCategories, createCategory } from '../../services/categoryService';
+import { getLabels, createLabel } from '../../services/labelService';
 import { getGroup } from '../../services/groupService';
-import { getExpenseById, deleteExpense } from '../../services/expenseService';
+import { getExpenseById, deleteExpense, createExpense, updateExpense } from '../../services/expenseService';
+
+// RN's testID renders as a lowercase `testid` attribute on web, not the
+// `data-testid` @testing-library/react's getByTestId expects.
+function getByTestId(container: HTMLElement, id: string): HTMLElement {
+  const el = container.querySelector(`[testid="${id}"]`);
+  if (!el) throw new Error(`Unable to find element with testid: ${id}`);
+  return el as HTMLElement;
+}
 
 function renderEditScreen(expenseId: number) {
   const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as any;
@@ -81,6 +96,7 @@ describe('EditExpenseScreen (CREATE mode)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (getCategories as any).mockResolvedValue(mockCategories);
+    (getLabels as any).mockResolvedValue([]);
     (getGroup as any).mockResolvedValue({ id: 1, members: mockGroupMembers });
   });
 
@@ -126,6 +142,7 @@ describe('EditExpenseScreen (EDIT mode)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (getCategories as any).mockResolvedValue(mockCategories);
+    (getLabels as any).mockResolvedValue([]);
     (getGroup as any).mockResolvedValue({ id: 1, members: editModeMembers });
     (getExpenseById as any).mockResolvedValue({
       id: 42,
@@ -213,6 +230,89 @@ describe('EditExpenseScreen (EDIT mode)', () => {
       expect(confirmSpy).toHaveBeenCalled();
       expect(deleteExpense).not.toHaveBeenCalled();
       expect(navigation.goBack).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Category and Label (U8, R2, R3, R7)', () => {
+    it('shows the already-set category and label correctly on first render, not reset once categories/labels finish loading (hydration regression guard)', async () => {
+      (getLabels as any).mockResolvedValue([{ id: 5, name: 'Liverpool', userId: 1, isActive: true }]);
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => {
+        expect(getByTestId(container, 'edit-expense-category-picker-button').textContent).toContain('Other');
+      });
+
+      // Still correct after categories/labels have finished loading -- no
+      // later effect clobbers the hydrated value (see the split-amount
+      // regression test above for the same class of bug).
+      expect(getByTestId(container, 'edit-expense-category-picker-button').textContent).toContain('Other');
+    });
+
+    it('selecting an existing category persists categoryId on expense save', async () => {
+      const user = userEvent.setup();
+      (updateExpense as any).mockResolvedValue({ id: 42 });
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-category-picker-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-category-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-category-option-1'));
+      await user.click(getByTestId(container, 'edit-expense-save-button'));
+
+      await waitFor(() => {
+        expect(updateExpense).toHaveBeenCalledWith(42, expect.objectContaining({ categoryId: 1 }));
+      });
+    });
+
+    it('selecting an existing label persists labelId on expense save', async () => {
+      const user = userEvent.setup();
+      (getLabels as any).mockResolvedValue([{ id: 5, name: 'Liverpool', userId: 1, isActive: true }]);
+      (updateExpense as any).mockResolvedValue({ id: 42 });
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-label-picker-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-label-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-label-option-5'));
+      await user.click(getByTestId(container, 'edit-expense-save-button'));
+
+      await waitFor(() => {
+        expect(updateExpense).toHaveBeenCalledWith(42, expect.objectContaining({ labelId: 5 }));
+      });
+    });
+
+    it('using "Add new" on the category dropdown creates it via createCategory, then selects it without reopening the dropdown', async () => {
+      const user = userEvent.setup();
+      const created = { id: 9, code: 'ENTERTAINMENT', label: 'Entertainment' };
+      (createCategory as any).mockResolvedValue(created);
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-category-picker-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-category-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-category-add-new-button'));
+      await user.type(getByTestId(container, 'edit-expense-category-create-input'), 'Entertainment');
+      await user.click(getByTestId(container, 'edit-expense-category-create-submit-button'));
+
+      await waitFor(() => {
+        expect(createCategory).toHaveBeenCalledWith('Entertainment');
+        expect(getByTestId(container, 'edit-expense-category-picker-button').textContent).toContain('Entertainment');
+      });
+    });
+
+    it('using "Add new" on the label dropdown creates it via createLabel, then selects it without reopening the dropdown', async () => {
+      const user = userEvent.setup();
+      const created = { id: 6, name: 'Liverpool', userId: 1, isActive: true };
+      (createLabel as any).mockResolvedValue(created);
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-label-picker-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-label-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-label-add-new-button'));
+      await user.type(getByTestId(container, 'edit-expense-label-create-input'), 'Liverpool');
+      await user.click(getByTestId(container, 'edit-expense-label-create-submit-button'));
+
+      await waitFor(() => {
+        expect(createLabel).toHaveBeenCalledWith('Liverpool');
+        expect(getByTestId(container, 'edit-expense-label-picker-button').textContent).toContain('Liverpool');
+      });
     });
   });
 });

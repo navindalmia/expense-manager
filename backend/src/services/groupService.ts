@@ -127,6 +127,9 @@ export async function createGroup(data: {
         members: {
           select: { id: true, name: true, email: true },
         },
+        theme: {
+          select: { id: true, name: true },
+        },
       },
     });
 
@@ -170,6 +173,9 @@ export async function getUserGroups(userId: number) {
         },
         members: {
           select: { id: true, name: true, email: true },
+        },
+        theme: {
+          select: { id: true, name: true },
         },
         expenses: {
           select: {
@@ -235,6 +241,9 @@ export async function getGroupById(groupId: number, userId: number) {
         },
         members: {
           select: { id: true, name: true, email: true },
+        },
+        theme: {
+          select: { id: true, name: true },
         },
         expenses: {
           select: {
@@ -706,6 +715,9 @@ export async function updateGroup(
           members: {
             select: { id: true, name: true, email: true },
           },
+          theme: {
+            select: { id: true, name: true },
+          },
           _count: {
             select: {
               expenses: true,
@@ -728,6 +740,9 @@ export async function updateGroup(
         },
         members: {
           select: { id: true, name: true, email: true },
+        },
+        theme: {
+          select: { id: true, name: true },
         },
         _count: {
           select: { expenses: true, members: true },

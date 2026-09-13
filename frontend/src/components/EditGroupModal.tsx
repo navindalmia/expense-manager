@@ -19,7 +19,9 @@ import {
 } from 'react-native';
 import { updateGroup, Group } from '../services/groupService';
 import { getCurrencies, type Currency } from '../services/currencyService';
+import { getThemes, createTheme, type Theme } from '../services/themeService';
 import AddMemberModal from './AddMemberModal';
+import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 
@@ -193,6 +195,9 @@ export default function EditGroupModal({
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [themes, setThemes] = useState<Theme[]>([]);
+  const [themeId, setThemeId] = useState<number | null>(null);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -214,6 +219,13 @@ export default function EditGroupModal({
     fetchCurrencies();
   }, []);
 
+  // Fetch themes from database on component mount
+  useEffect(() => {
+    getThemes()
+      .then(setThemes)
+      .catch((error) => logger.error('Failed to load themes', error));
+  }, []);
+
   // Initialize form with group data when modal opens
   useEffect(() => {
     if (group && visible) {
@@ -221,6 +233,7 @@ export default function EditGroupModal({
       setDescription(group.description || '');
       // group.currency is now { id, code, label }
       setCurrency(group.currency?.code || 'USD');
+      setThemeId(group.theme?.id ?? null);
       setErrors({});
     }
   }, [group, visible]);
@@ -256,6 +269,7 @@ export default function EditGroupModal({
         name: name.trim(),
         description: description.trim() || undefined,
         currency,
+        themeId: themeId || undefined,
       });
 
       logger.info('Group updated successfully', {
@@ -357,9 +371,22 @@ export default function EditGroupModal({
               </View>
             )}
 
+            {/* Theme */}
+            <Text style={styles.label}>Theme (optional)</Text>
+            <TouchableOpacity
+              style={styles.input}
+              onPress={() => setShowThemePicker(true)}
+              disabled={loading}
+              testID="edit-group-theme-picker-button"
+            >
+              <Text style={{ color: themeId ? '#333' : '#999' }}>
+                {themes.find((t) => t.id === themeId)?.name || group?.theme?.name || 'Select theme...'}
+              </Text>
+            </TouchableOpacity>
+
             {/* Divider */}
             <View style={styles.sectionDivider} />
-            
+
             {/* Members Section */}
             <Text style={styles.sectionLabel}>
               👥 Members {group?.members ? `(${group.members.length})` : ''}
@@ -433,6 +460,21 @@ export default function EditGroupModal({
         group={group}
         onClose={() => setShowMemberModal(false)}
         onMemberAdded={handleMemberAdded}
+      />
+
+      <TypeAheadDropdown
+        visible={showThemePicker}
+        title="Select Theme"
+        items={themes.map((t): TypeAheadItem => ({ id: t.id, name: t.name }))}
+        onSelect={(item) => setThemeId(item.id)}
+        onCreateNew={async (themeName) => {
+          const created = await createTheme(themeName);
+          setThemes((prev) => [...prev, created]);
+          return { id: created.id, name: created.name };
+        }}
+        onClose={() => setShowThemePicker(false)}
+        placeholder="Search themes..."
+        testIDPrefix="edit-group-theme"
       />
     </Modal>
   );
