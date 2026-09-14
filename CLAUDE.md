@@ -118,6 +118,8 @@ CE's `security-reviewer` persona already hunts injection, auth/authz bypass, sec
 - Tests exist for new/changed code; happy path + error cases + edge cases covered
 - No hardcoded delays/sleeps; tests independent of execution order; descriptive names (`should X when Y`, not `test create`)
 - Specific untested branches that matter (new error paths, lifecycle guards, early returns) — not aggregate coverage percentages
+- **User-facing/UI changes have real E2E coverage** (a Maestro flow, or an integration test against a real running backend+DB) — mocked unit/component tests alone don't prove a user-facing feature works end-to-end
+- **Bug fixes show red-before-green evidence** — the regression test was confirmed failing against the pre-fix code before the fix, not just "tests pass now"; note explicitly if this step was skipped
 
 **Verdict format:** ✅ APPROVED or ❌ FAILED with specific file:line evidence per failure — same as the old review template, still expected from `/ce-code-review`.
 
