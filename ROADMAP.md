@@ -4,7 +4,7 @@ A multilingual, mobile-first expense splitting and settlement app. Built for gro
 
 **Stack:** React Native (Expo) · Express 5 · TypeScript · PostgreSQL · Prisma · SendGrid · JWT  
 **Target platforms:** iOS, Android, Web (via Expo)  
-**Deployment target:** Azure (Container Apps + Static Web Apps + PostgreSQL)
+**Deployment target:** Render (backend) + Neon (Postgres) + EAS (mobile builds) — live since 2026-08-01, see README.md. Azure (Container Apps + Static Web Apps + PostgreSQL, Phase 7 below) was the original long-term target; deferred indefinitely 2026-08-01 in favor of the free-tier stack actually in use.
 
 ---
 
@@ -139,7 +139,7 @@ The app works but has known gaps that must close before production.
 
 ---
 
-## 🚀 Phase 7 — Deployment (Planned)
+## 🚀 Phase 7 — Deployment (Superseded by live Render+Neon+EAS deployment — see README.md and the top-of-file Deployment target note. This section is the original Azure plan, kept for reference; not current state.)
 
 ### Infrastructure (Azure Free Tier → Pay-as-you-go)
 | Component | Service |
@@ -151,12 +151,12 @@ The app works but has known gaps that must close before production.
 | Secrets | Azure Key Vault |
 | Monitoring | Azure Application Insights |
 
-### CI/CD (GitHub Actions)
-- [ ] On PR: TypeScript check + full test suite
-- [ ] On merge to `main`: build + deploy backend container
-- [ ] On merge to `main`: build + deploy Expo web frontend
+### CI/CD (GitHub Actions) — done, but for the Render/Neon stack, not Azure containers
+- [x] On PR: TypeScript check + full test suite (`backend-test`/`frontend-test`, required checks since 2026-08-22)
+- [x] On merge to `master`: deploy backend (`deploy-backend` job → Render, gated on tests passing, since 2026-08-22)
+- [ ] On merge to `master`: build + deploy Expo web frontend (not done — no web deployment target exists yet)
 - [ ] Separate staging and production environments
-- [ ] Database migration step in deploy pipeline (not manual)
+- [ ] Database migration step in deploy pipeline (currently manual against Neon)
 
 ### Mobile App Distribution
 - [ ] Expo EAS Build for iOS and Android
