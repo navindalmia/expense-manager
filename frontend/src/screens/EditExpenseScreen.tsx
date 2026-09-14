@@ -4,7 +4,7 @@
  * Orchestrates extracted hooks and components for editing expenses.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
   KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator,
@@ -14,7 +14,7 @@ import type { EditExpenseScreenProps } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { useAuth } from '../context/AuthContext';
-import { updateExpense, createExpense, deleteExpense } from '../services/expenseService';
+import { updateExpense, createExpense, deleteExpense, suggestExpenses, type SuggestedExpenseMatch } from '../services/expenseService';
 import { createCategory } from '../services/categoryService';
 import { createLabel } from '../services/labelService';
 import { useExpenseData, useExpenseForm, useSplitCalculator, DatePickerModal, SplitMembersInput } from './EditExpenseScreen/index';
@@ -85,6 +85,63 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const [extraLabels, setExtraLabels] = useState<typeof fetchedLabels>([]);
   const categories = [...fetchedCategories, ...extraCategories];
   const labels = [...fetchedLabels, ...extraLabels];
+
+  // Title autocomplete + category suggestion (U9, R5, R8) -- CREATE mode
+  // only; re-triggering this on an EDIT-mode title edit would prefill
+  // members/amount/category over an already-saved expense's real data.
+  const [suggestedMatches, setSuggestedMatches] = useState<SuggestedExpenseMatch[]>([]);
+  const [suggestedCategoryId, setSuggestedCategoryId] = useState<number | null>(null);
+  const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTitleChange = useCallback((val: string) => {
+    updateField('title', val);
+
+    if (!isCreateMode) {
+      return;
+    }
+
+    if (suggestDebounceRef.current) {
+      clearTimeout(suggestDebounceRef.current);
+    }
+
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setSuggestedMatches([]);
+      setSuggestedCategoryId(null);
+      return;
+    }
+
+    suggestDebounceRef.current = setTimeout(() => {
+      suggestExpenses(trimmed)
+        .then((result) => {
+          setSuggestedMatches(result.matches);
+          if (result.matches.length === 0 && result.categorySuggestion) {
+            updateField('category', result.categorySuggestion.categoryId);
+            setSuggestedCategoryId(result.categorySuggestion.categoryId);
+          } else {
+            setSuggestedCategoryId(null);
+          }
+        })
+        .catch((error) => {
+          // Non-critical enhancement -- fail silently, never block manual
+          // form entry with an error banner.
+          logger.error('Failed to fetch expense suggestions', error);
+        });
+    }, 300);
+  }, [isCreateMode, updateField]);
+
+  const selectSuggestedMatch = useCallback((match: SuggestedExpenseMatch) => {
+    updateField('amount', match.amount.toString());
+    updateField('category', match.categoryId);
+    // Belt-and-suspenders per AE2: always default to today client-side even
+    // though the backend already omits expenseDate from the payload.
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    updateField('date', todayStr);
+    match.splitWithIds.forEach((memberId) => addMember(memberId));
+    setSuggestedMatches([]);
+    setSuggestedCategoryId(null);
+  }, [updateField, addMember]);
 
   // Set header with group name on the right and title
   useEffect(() => {
@@ -218,6 +275,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         expenseDate: formState.date,
         currency: currency,  // ← ADD CURRENCY!
         notes: formState.notes.trim() || undefined,
+        ...(isCreateMode && suggestedCategoryId !== null ? { suggestedCategoryId } : {}),
         ...splitPayload
       };
       
@@ -291,7 +349,25 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><View style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)} testID="edit-expense-paid-by-modal-close-button"><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }} testID={`edit-expense-paid-by-option-${member.id}`}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></View></Modal>
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
-        <View style={styles.formSection}><Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={val => updateField('title', val)} editable={!submitting} testID="edit-expense-title-input" />{formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}</View>
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
+          <TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} editable={!submitting} testID="edit-expense-title-input" />
+          {formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}
+          {suggestedMatches.length > 0 && (
+            <View testID="edit-expense-title-suggestions">
+              {suggestedMatches.map((match) => (
+                <TouchableOpacity
+                  key={match.expenseId}
+                  style={styles.pickerItem}
+                  onPress={() => selectSuggestedMatch(match)}
+                  testID={`edit-expense-title-suggestion-${match.expenseId}`}
+                >
+                  <Text style={styles.pickerItemText}>{match.title} — {currency} {match.amount}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
         <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onChangeText={val => {
               // Reject negative amounts
               if (val.startsWith('-')) {

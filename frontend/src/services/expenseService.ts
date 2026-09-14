@@ -187,3 +187,38 @@ export async function updateExpense(expenseId: number, data: UpdateExpenseDTO): 
   const response = await http.patch<{ statusCode: number; data: Expense }>(`/expenses/${expenseId}`, data);
   return response.data.data;
 }
+
+/**
+ * A single fuzzy-matched past expense, with a date-free prefill payload
+ * (U5, AE2 -- the frontend always defaults date to today rather than
+ * reusing the matched expense's date).
+ */
+export interface SuggestedExpenseMatch {
+  expenseId: number;
+  title: string;
+  amount: number;
+  categoryId: number;
+  splitWithIds: number[];
+}
+
+export interface CategorySuggestion {
+  categoryId: number;
+  code: string;
+}
+
+export interface SuggestExpensesResult {
+  matches: SuggestedExpenseMatch[];
+  categorySuggestion: CategorySuggestion | null;
+}
+
+/**
+ * Search past expenses by title for autocomplete/prefill (U5, U6, R5, R8).
+ *
+ * GET /api/expenses/suggest?title=
+ */
+export async function suggestExpenses(title: string): Promise<SuggestExpensesResult> {
+  const response = await http.get<{ statusCode: number; data: SuggestExpensesResult }>('/expenses/suggest', {
+    params: { title },
+  });
+  return response.data.data;
+}
