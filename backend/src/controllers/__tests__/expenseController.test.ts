@@ -358,6 +358,20 @@ describe('Expense Controller', () => {
       expect(expenseService.suggestCategoryForTitle).toHaveBeenCalledWith(1, 'Gas station fill-up');
     });
 
+    it('should still return matches with a null categorySuggestion when the category-suggestion lookup fails (non-critical, must not fail the whole request)', async () => {
+      req.query = { title: 'Gas station fill-up' };
+      (expenseService.findSimilarExpenses as jest.Mock).mockResolvedValue([]);
+      (expenseService.suggestCategoryForTitle as jest.Mock).mockRejectedValue(new Error('DB error'));
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(200);
+      expect(jsonData).toEqual({
+        statusCode: 200,
+        data: { matches: [], categorySuggestion: null },
+      });
+    });
+
     it('should reject a missing title query param with a 400 validation error', async () => {
       req.query = {};
 
