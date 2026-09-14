@@ -475,6 +475,7 @@ export default function EditGroupModal({
         onClose={() => setShowThemePicker(false)}
         placeholder="Search themes..."
         testIDPrefix="edit-group-theme"
+        selectedId={themeId}
       />
     </Modal>
   );

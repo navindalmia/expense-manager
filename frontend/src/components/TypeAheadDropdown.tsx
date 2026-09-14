@@ -38,6 +38,8 @@ interface TypeAheadDropdownProps {
   onClose: () => void;
   placeholder?: string;
   testIDPrefix?: string;
+  /** id of the currently-selected item, if any -- highlights that row. */
+  selectedId?: number | null;
 }
 
 const styles = StyleSheet.create({
@@ -48,7 +50,9 @@ const styles = StyleSheet.create({
   doneText: { fontSize: 14, color: '#0066cc', fontWeight: '600' },
   filterInput: { marginHorizontal: 12, marginTop: 10, marginBottom: 4, borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 4, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: '#333' },
   pickerItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  pickerItemSelected: { backgroundColor: '#e6f0ff' },
   pickerItemText: { fontSize: 15, color: '#333' },
+  pickerItemTextSelected: { color: '#0066cc', fontWeight: '600' },
   addNewItem: { flexDirection: 'row', alignItems: 'center' },
   addNewText: { fontSize: 15, color: '#0066cc', fontWeight: '600' },
   createRow: { paddingHorizontal: 12, paddingVertical: 10 },
@@ -80,6 +84,7 @@ export default function TypeAheadDropdown({
   onClose,
   placeholder = 'Search...',
   testIDPrefix = 'typeahead',
+  selectedId = null,
 }: TypeAheadDropdownProps) {
   const [filterText, setFilterText] = useState('');
   const [creating, setCreating] = useState(false);
@@ -184,19 +189,26 @@ export default function TypeAheadDropdown({
                 >
                   <Text style={styles.addNewText}>+ Add new</Text>
                 </TouchableOpacity>
-                {filteredItems.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.pickerItem}
-                    onPress={() => {
-                      onSelect(item);
-                      resetAndClose();
-                    }}
-                    testID={`${testIDPrefix}-option-${item.id}`}
-                  >
-                    <Text style={styles.pickerItemText}>{item.name}</Text>
-                  </TouchableOpacity>
-                ))}
+                {filteredItems.map((item) => {
+                  const isSelected = item.id === selectedId;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                      onPress={() => {
+                        onSelect(item);
+                        resetAndClose();
+                      }}
+                      accessibilityState={{ selected: isSelected }}
+                      testID={`${testIDPrefix}-option-${item.id}`}
+                    >
+                      <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                        {isSelected && <Text testID={`${testIDPrefix}-option-${item.id}-selected-mark`}>✓ </Text>}
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </>
           )}

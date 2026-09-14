@@ -103,6 +103,13 @@ describe('TypeAheadDropdown', () => {
     expect(onSelect).toHaveBeenCalledWith(baseItems[0]);
   });
 
+  it('highlights the currently-selected item via selectedId (regression: the old inline Modal picker had this, TypeAheadDropdown initially dropped it)', () => {
+    const { getByTestId, queryByTestId } = renderDropdown({ selectedId: 2 });
+
+    expect(getByTestId('cat-option-2-selected-mark')).toBeTruthy();
+    expect(queryByTestId('cat-option-1-selected-mark')).toBeNull();
+  });
+
   it('renders "Add new" as a usable option even when items is empty', () => {
     const { getByTestId } = renderDropdown({ items: [] });
 

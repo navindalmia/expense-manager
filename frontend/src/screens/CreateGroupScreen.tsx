@@ -339,6 +339,7 @@ function CreateGroupScreen({ navigation }: Props) {
           onClose={() => setShowThemePicker(false)}
           placeholder="Search themes..."
           testIDPrefix="group-theme"
+          selectedId={themeId}
         />
 
         {/* Action Buttons */}

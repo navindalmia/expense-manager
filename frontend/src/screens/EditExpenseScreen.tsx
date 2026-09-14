@@ -437,6 +437,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
           onClose={() => setShowCategoryPicker(false)}
           placeholder="Search categories..."
           testIDPrefix="edit-expense-category"
+          selectedId={formState.category}
         />
 
         <TypeAheadDropdown
@@ -452,6 +453,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
           onClose={() => setShowLabelPicker(false)}
           placeholder="Search labels..."
           testIDPrefix="edit-expense-label"
+          selectedId={formState.labelId}
         />
 
         <DatePickerModal visible={showDatePicker} selectedDate={formState.date} onSelectDate={date => updateField('date', date)} onClose={() => setShowDatePicker(false)} />
