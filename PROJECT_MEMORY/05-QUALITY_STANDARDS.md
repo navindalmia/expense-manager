@@ -1,7 +1,7 @@
 # Quality Standards & Review Gates
 
 **For code reviews, security checks, and architectural decisions**  
-**Last Updated:** 2026-07-21  
+**Last Updated:** 2026-09-14  
 **Status:** Detailed reference — the condensed, always-in-context version that `/ce-code-review` actually applies lives in [CLAUDE.md](../CLAUDE.md#code-review-standards-applies-to-ce-code-review). Keep both in sync when either changes.  
 **Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md) for current project status
 
