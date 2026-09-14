@@ -161,6 +161,27 @@ describe('EditExpenseScreen (CREATE mode)', () => {
       expect(queryByTestId(container, 'edit-expense-title-suggestion-10')).toBeNull();
     });
 
+    it('filters a matched split member who is not in the current group before prefilling (regression: a match can come from a different group than the one being edited)', async () => {
+      const user = userEvent.setup();
+      (suggestExpenses as any).mockResolvedValue({
+        matches: [{ expenseId: 10, title: 'Fuel', amount: 45, categoryId: 1, splitWithIds: [1, 999] }], // 999 is not a member of this group
+        categorySuggestion: null,
+      });
+      const { container } = renderScreen();
+      await waitFor(() => expect(screen.getByText('Other')).toBeTruthy());
+
+      fireEvent.change(getByTestId(container, 'edit-expense-title-input'), { target: { value: 'Fuel' } });
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-title-suggestion-10')).toBeTruthy(), { timeout: 2000 });
+      await user.click(getByTestId(container, 'edit-expense-title-suggestion-10'));
+
+      // 999 was never a real member so it has no toggle row at all -- but
+      // if it had wrongly landed in splitWithIds, the EQUAL split would
+      // divide 45 by 2 members instead of 1, showing 22.50 for Alice
+      // instead of the full 45.00.
+      expect(queryByTestId(container, 'split-member-toggle-999')).toBeNull();
+      await waitFor(() => expect(screen.getByText('45.00')).toBeTruthy());
+    });
+
     it('pre-selects the suggested category when no title match is found (AE3), still changeable by the user', async () => {
       (suggestExpenses as any).mockResolvedValue({
         matches: [],

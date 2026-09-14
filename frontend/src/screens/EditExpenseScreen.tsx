@@ -156,10 +156,18 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     updateField('date', todayStr);
-    match.splitWithIds.forEach((memberId) => addMember(memberId));
+    // findSimilarExpenses is deliberately global across all of the user's
+    // groups (AE2), so a match's splitWithIds can include members of a
+    // *different* group than the one currently being edited -- filter to
+    // this group's actual members before prefilling (the backend also
+    // rejects a non-member split on save, but silently dropping it here is
+    // better UX than letting the user hit that error after picking a
+    // suggestion that looked fine).
+    const groupMemberIds = new Set(groupMembers.map((member) => member.id));
+    match.splitWithIds.filter((memberId) => groupMemberIds.has(memberId)).forEach((memberId) => addMember(memberId));
     setSuggestedMatches([]);
     setSuggestedCategoryId(null);
-  }, [updateField, addMember]);
+  }, [updateField, addMember, groupMembers]);
 
   // Set header with group name on the right and title
   useEffect(() => {
