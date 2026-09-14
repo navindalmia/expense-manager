@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { getExpenseById, type Expense } from '../../../services/expenseService';
 import { getCategories, type Category } from '../../../services/categoryService';
+import { getLabels, type Label } from '../../../services/labelService';
 import { getGroup } from '../../../services/groupService';
 import { getErrorMessage } from '../../../utils/errorHandler';
 import { logger } from '../../../utils/logger';
@@ -21,6 +22,7 @@ export interface GroupMember {
 interface UseExpenseDataReturn {
   expense: Expense | null;
   categories: Category[];
+  labels: Label[];
   groupMembers: GroupMember[];
   loading: boolean;
   error: string | null;
@@ -38,6 +40,7 @@ interface UseExpenseDataReturn {
 export function useExpenseData(expenseId: number | null | undefined, groupId: number): UseExpenseDataReturn {
   const [expense, setExpense] = useState<Expense | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,9 +55,10 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
         const expensePromise = expenseId ? getExpenseById(expenseId) : Promise.resolve(null);
 
         // ✅ Fetch all data sources IN PARALLEL
-        const [fetchedExpense, fetchedCategories, group] = await Promise.all([
+        const [fetchedExpense, fetchedCategories, fetchedLabels, group] = await Promise.all([
           expensePromise,
           getCategories(),
+          getLabels(),
           getGroup(groupId),
         ]);
 
@@ -62,6 +66,7 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
         // For CREATE mode: expense will be null
         setExpense(fetchedExpense);
         setCategories(fetchedCategories);
+        setLabels(fetchedLabels);
         setGroupMembers(group.members);
         setLoading(false);
 
@@ -94,5 +99,5 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
     fetchAllData();
   }, [expenseId, groupId]);
 
-  return { expense, categories, groupMembers, loading, error };
+  return { expense, categories, labels, groupMembers, loading, error };
 }

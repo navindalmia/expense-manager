@@ -41,6 +41,12 @@ frontend/.env
 # test coverage reports
 coverage/
 
+# Playwright E2E output
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # generated native folders (root-level, and frontend/ where expo prebuild
 # actually generates them — the /pattern above only anchors to repo root)
 /ios

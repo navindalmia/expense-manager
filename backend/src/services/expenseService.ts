@@ -10,6 +10,24 @@ import { SplitType, Prisma } from "@prisma/client";
 import { cleanData } from "../utils/cleanData";
 import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
+import { assertLabelVisible } from "./labelService";
+import { rankMatches } from "../lib/fuzzyMatch";
+import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
+
+const SUGGESTION_LIMIT = 5;
+
+/**
+ * Prefill payload returned alongside each suggested match -- deliberately
+ * omits expenseDate (AE2): the frontend always defaults the date to today
+ * rather than reusing a past expense's date.
+ */
+export interface SimilarExpenseMatch {
+  expenseId: number;
+  title: string;
+  amount: number;
+  categoryId: number;
+  splitWithIds: number[];
+}
 
 /**
  * Get all expenses for a specific group with permission check
@@ -93,12 +111,14 @@ export async function createExpense(data: {
   groupId: number;
   paidById: number;
   categoryId: number;
+  labelId?: number;
   splitWithIds?: number[];
   splitType?: SplitType;
   splitAmount?: number[];
   splitPercentage?: number[];
   notes?: string;
   expenseDate: string;
+  suggestedCategoryId?: number;
 }) {
   const {
     title,
@@ -107,12 +127,14 @@ export async function createExpense(data: {
     groupId,
     paidById,
     categoryId,
+    labelId,
     splitWithIds = [],
     splitType = SplitType.EQUAL,
     splitAmount = [],
     splitPercentage = [],
     notes,
     expenseDate,
+    suggestedCategoryId,
   } = data;
 
   // Validation
@@ -176,6 +198,21 @@ export async function createExpense(data: {
       );
     }
 
+    // Verify every split participant is a member of this group -- e.g. U9's
+    // title autocomplete can prefill splitWithIds from a match found in a
+    // *different* group (findSimilarExpenses is deliberately global), so
+    // this can't be trusted from the client alone.
+    const groupMemberIds = new Set(group.members.map((m) => m.id));
+    const invalidSplitMemberId = splitWithIds.find((id) => !groupMemberIds.has(id) && id !== group.createdById);
+    if (invalidSplitMemberId !== undefined) {
+      throw new AppError(
+        'Split member is not a member of this group',
+        403,
+        'USER_NOT_GROUP_MEMBER',
+        { groupId, invalidSplitMemberId }
+      );
+    }
+
     // Look up category to verify it exists
     const categoryRecord = await prisma.category.findUnique({
       where: { id: categoryId },
@@ -204,6 +241,12 @@ export async function createExpense(data: {
       );
     }
 
+    if (labelId !== undefined) {
+      // paidById doubles as the requesting user's id -- the controller
+      // always sets it from the JWT (see expenseController.createExpense)
+      await assertLabelVisible(paidById, labelId);
+    }
+
     // Build the expense data object
     const expenseData: Prisma.ExpenseCreateInput = {
       title,
@@ -212,6 +255,7 @@ export async function createExpense(data: {
       group: { connect: { id: groupId } },
       paidBy: { connect: { id: paidById } },
       category: { connect: { id: categoryId } },
+      ...(labelId !== undefined ? { label: { connect: { id: labelId } } } : {}),
       splitType,
       notes: notes || null,
       expenseDate: new Date(expenseDate),
@@ -226,7 +270,7 @@ export async function createExpense(data: {
       }
     }
 
-    return prisma.expense.create({
+    const expense = await prisma.expense.create({
       data: expenseData,
       include: {
         currency: { select: { id: true, code: true, label: true } },
@@ -235,6 +279,26 @@ export async function createExpense(data: {
         splitWith: { select: { id: true, name: true, email: true } },
       },
     });
+
+    // Best-effort audit write (KTD10) -- only when R8's suggestion flow
+    // actually fired. Diagnostic/historical data, not a source of truth,
+    // so a failure here must never fail expense creation itself.
+    if (suggestedCategoryId !== undefined) {
+      try {
+        await prisma.categorySuggestionAudit.create({
+          data: {
+            expenseId: expense.id,
+            suggestedCategoryId,
+            acceptedCategoryId: categoryId,
+            titleText: title,
+          },
+        });
+      } catch (auditError) {
+        console.error('Failed to write category suggestion audit:', auditError);
+      }
+    }
+
+    return expense;
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -381,6 +445,7 @@ export async function updateExpense(
     title?: string;
     amount?: number;
     categoryId?: number;
+    labelId?: number;
     paidById?: number;
     splitWithIds?: number[];
     splitType?: SplitType;
@@ -423,6 +488,7 @@ export async function updateExpense(
       title,
       amount,
       categoryId,
+      labelId,
       paidById,
       splitWithIds,
       splitType = expense.splitType,
@@ -522,6 +588,10 @@ export async function updateExpense(
     if (title !== undefined) updateData.title = title;
     if (amount !== undefined) updateData.amount = amount;
     if (categoryId !== undefined) updateData.category = { connect: { id: categoryId } };
+    if (labelId !== undefined) {
+      await assertLabelVisible(userId, labelId);
+      updateData.label = { connect: { id: labelId } };
+    }
     if (paidById !== undefined) updateData.paidBy = { connect: { id: paidById } };
     if (notes !== undefined) updateData.notes = notes || null;
     if (expenseDate !== undefined) updateData.expenseDate = new Date(expenseDate);
@@ -580,6 +650,100 @@ export async function updateExpense(
       'Failed to update expense',
       500,
       'UPDATE_EXPENSE_ERROR',
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
+}
+
+/**
+ * Fuzzy-match a typed expense title against the user's own past expenses,
+ * globally across all of that user's groups (R5, KTD4 -- not scoped to the
+ * group/theme currently being edited).
+ *
+ * Authorization mirrors getLabelTotals's accessibleGroups pattern: a user
+ * can only ever see expenses from groups they are a member of or created,
+ * even when another group has a textually identical title.
+ *
+ * @param userId - The current user ID
+ * @param titleQuery - The partial/full title text typed so far
+ * @returns Up to SUGGESTION_LIMIT ranked matches with a date-free prefill payload
+ */
+export async function findSimilarExpenses(
+  userId: number,
+  titleQuery: string
+): Promise<SimilarExpenseMatch[]> {
+  try {
+    const accessibleGroups = await prisma.group.findMany({
+      where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+      select: { id: true },
+    });
+    const accessibleGroupIds = accessibleGroups.map((g) => g.id);
+
+    if (accessibleGroupIds.length === 0) {
+      return [];
+    }
+
+    const candidates = await prisma.expense.findMany({
+      where: { groupId: { in: accessibleGroupIds } },
+      include: { splitWith: { select: { id: true } } },
+    });
+
+    const ranked = rankMatches(titleQuery, candidates, (expense) => expense.title, SUGGESTION_LIMIT);
+
+    return ranked.map(({ item }) => ({
+      expenseId: item.id,
+      title: item.title,
+      amount: item.amount,
+      categoryId: item.categoryId,
+      splitWithIds: item.splitWith.map((member: { id: number }) => member.id),
+    }));
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      'EXPENSE.SUGGEST_FAILED',
+      500,
+      'SUGGEST_EXPENSES_ERROR',
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
+}
+
+/**
+ * Resolve a keyword-dictionary category suggestion (R8) into a category id
+ * the given user can actually see (KTD7's userId-null-or-own visibility
+ * model), falling back to null (caller then falls back to "Other" per
+ * KTD8) when the dictionary has no match or the matched category code
+ * isn't visible to this user.
+ *
+ * @param userId - The current user ID
+ * @param titleQuery - The expense title text to run through the dictionary
+ */
+export async function suggestCategoryForTitle(
+  userId: number,
+  titleQuery: string
+): Promise<{ categoryId: number; code: string } | null> {
+  const code = suggestCategoryCode(titleQuery);
+
+  if (!code) {
+    return null;
+  }
+
+  try {
+    const category = await prisma.category.findFirst({
+      where: { code, isActive: true, OR: [{ userId: null }, { userId }] },
+    });
+
+    return category ? { categoryId: category.id, code: category.code } : null;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      'EXPENSE.SUGGEST_CATEGORY_FAILED',
+      500,
+      'SUGGEST_CATEGORY_ERROR',
       { error: error instanceof Error ? error.message : String(error) }
     );
   }

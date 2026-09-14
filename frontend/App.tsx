@@ -12,6 +12,7 @@ import CreateGroupScreen from './src/screens/CreateGroupScreen';
 import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 import EditExpenseScreen from './src/screens/EditExpenseScreen';
 import { SettlementScreen } from './src/screens/SettlementScreen';
+import ManageLabelsScreen from './src/screens/ManageLabelsScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setOnUnauthorized } from './src/api/http/interceptors';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
@@ -121,6 +122,11 @@ function AppNavigator() {
               name="Settlement"
               component={SettlementScreen}
               options={{ title: 'Settlement Breakdown' }}
+            />
+            <Stack.Screen
+              name="ManageLabels"
+              component={ManageLabelsScreen}
+              options={{ title: 'Manage Labels' }}
             />
             {/* TODO: Add ExpenseDetailScreen component */}
             {/* <Stack.Screen 

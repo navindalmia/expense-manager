@@ -19,6 +19,10 @@ export interface Group {
     code: string;
     label: string;
   };
+  theme?: {
+    id: number;
+    name: string;
+  } | null;
   totalAmount: number;
   userPersonalTotal: number;
   createdBy: {
@@ -47,6 +51,7 @@ export interface UpdateGroupDTO {
   name?: string;
   description?: string;
   currency?: string;
+  themeId?: number;
 }
 
 /**
@@ -76,8 +81,8 @@ export async function getGroup(groupId: number): Promise<Group> {
  * @returns Updated group
  */
 export async function updateGroup(groupId: number, data: UpdateGroupDTO): Promise<Group> {
-  const response = await http.patch<Group>(`/groups/${groupId}`, data);
-  return response.data;
+  const response = await http.patch<{ success: boolean; data: Group }>(`/groups/${groupId}`, data);
+  return response.data.data;
 }
 
 /**
