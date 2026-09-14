@@ -97,6 +97,22 @@ describe('ExpenseService', () => {
   });
 
   describe('createExpense', () => {
+    it('rejects a splitWithIds entry who is not a member of the group (regression: peer-session review found this unvalidated, unlike paidById)', async () => {
+      await expect(
+        expenseService.createExpense({
+          title: 'Group Dinner',
+          amount: 120,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          splitWithIds: [1, 999], // 999 is not in the mocked group's members
+          splitType: 'EQUAL',
+          expenseDate: new Date().toISOString(),
+        })
+      ).rejects.toThrow('Split member is not a member of this group');
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+
     it('should calculate equal split amounts correctly (120 ÷ 2 split members = 60 each; payer is optional in the split)', async () => {
       const mockCreatedExpense = {
         id: 1,

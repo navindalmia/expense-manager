@@ -198,6 +198,21 @@ export async function createExpense(data: {
       );
     }
 
+    // Verify every split participant is a member of this group -- e.g. U9's
+    // title autocomplete can prefill splitWithIds from a match found in a
+    // *different* group (findSimilarExpenses is deliberately global), so
+    // this can't be trusted from the client alone.
+    const groupMemberIds = new Set(group.members.map((m) => m.id));
+    const invalidSplitMemberId = splitWithIds.find((id) => !groupMemberIds.has(id) && id !== group.createdById);
+    if (invalidSplitMemberId !== undefined) {
+      throw new AppError(
+        'Split member is not a member of this group',
+        403,
+        'USER_NOT_GROUP_MEMBER',
+        { groupId, invalidSplitMemberId }
+      );
+    }
+
     // Look up category to verify it exists
     const categoryRecord = await prisma.category.findUnique({
       where: { id: categoryId },
