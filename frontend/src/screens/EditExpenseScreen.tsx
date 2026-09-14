@@ -93,6 +93,14 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const [suggestedCategoryId, setSuggestedCategoryId] = useState<number | null>(null);
   const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (suggestDebounceRef.current) {
+        clearTimeout(suggestDebounceRef.current);
+      }
+    };
+  }, []);
+
   const handleTitleChange = useCallback((val: string) => {
     updateField('title', val);
 
