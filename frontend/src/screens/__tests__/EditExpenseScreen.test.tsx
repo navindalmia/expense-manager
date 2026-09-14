@@ -56,7 +56,7 @@ vi.mock('../../services/expenseService', () => ({
 import { getCategories, createCategory } from '../../services/categoryService';
 import { getLabels, createLabel } from '../../services/labelService';
 import { getGroup } from '../../services/groupService';
-import { getExpenseById, deleteExpense, createExpense, updateExpense, suggestExpenses } from '../../services/expenseService';
+import { getExpenseById, deleteExpense, createExpense, updateExpense, suggestExpenses, type SuggestedExpenseMatch } from '../../services/expenseService';
 
 // RN's testID renders as a lowercase `testid` attribute on web, not the
 // `data-testid` @testing-library/react's getByTestId expects.
@@ -217,6 +217,35 @@ describe('EditExpenseScreen (CREATE mode)', () => {
 
       expect(suggestExpenses).toHaveBeenCalledTimes(1);
       expect(suggestExpenses).toHaveBeenCalledWith('Fuel');
+    });
+
+    it('ignores an out-of-order response -- an older, slower request must not clobber a newer one that resolved first', async () => {
+      let resolveFirst!: (value: { matches: SuggestedExpenseMatch[]; categorySuggestion: null }) => void;
+      let resolveSecond!: (value: { matches: SuggestedExpenseMatch[]; categorySuggestion: null }) => void;
+      const firstResponse = new Promise((resolve) => { resolveFirst = resolve; });
+      const secondResponse = new Promise((resolve) => { resolveSecond = resolve; });
+      (suggestExpenses as any).mockReturnValueOnce(firstResponse).mockReturnValueOnce(secondResponse);
+
+      const { container } = renderScreen();
+      await waitFor(() => expect(screen.getByText('Other')).toBeTruthy());
+
+      const titleInput = getByTestId(container, 'edit-expense-title-input');
+      fireEvent.change(titleInput, { target: { value: 'Fu' } });
+      await waitFor(() => expect(suggestExpenses).toHaveBeenCalledTimes(1), { timeout: 2000 });
+
+      fireEvent.change(titleInput, { target: { value: 'Fuel' } });
+      await waitFor(() => expect(suggestExpenses).toHaveBeenCalledTimes(2), { timeout: 2000 });
+
+      // Newer request ("Fuel") resolves first; older, slower request ("Fu")
+      // resolves after it -- the stale one must be ignored.
+      resolveSecond({ matches: [{ expenseId: 20, title: 'Fuel', amount: 45, categoryId: 1, splitWithIds: [] }], categorySuggestion: null });
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-title-suggestion-20')).toBeTruthy(), { timeout: 2000 });
+
+      resolveFirst({ matches: [{ expenseId: 99, title: 'Furniture', amount: 200, categoryId: 5, splitWithIds: [] }], categorySuggestion: null });
+      await new Promise((resolve) => setTimeout(resolve, 0)); // flush the resolved microtask
+
+      expect(queryByTestId(container, 'edit-expense-title-suggestion-99')).toBeNull();
+      expect(getByTestId(container, 'edit-expense-title-suggestion-20')).toBeTruthy();
     });
 
     it('clears the suggestion list without leaving stale data when the title is cleared before a suggestion is selected', async () => {

@@ -92,6 +92,11 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const [suggestedMatches, setSuggestedMatches] = useState<SuggestedExpenseMatch[]>([]);
   const [suggestedCategoryId, setSuggestedCategoryId] = useState<number | null>(null);
   const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards against an out-of-order response: clearTimeout only cancels a
+  // still-pending timer, not an in-flight request. If a newer keystroke's
+  // request resolves before an older one, the older response must not
+  // clobber the newer state -- only the latest requestId's response applies.
+  const suggestRequestIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -114,14 +119,19 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
 
     const trimmed = val.trim();
     if (!trimmed) {
+      suggestRequestIdRef.current += 1;
       setSuggestedMatches([]);
       setSuggestedCategoryId(null);
       return;
     }
 
+    const requestId = ++suggestRequestIdRef.current;
     suggestDebounceRef.current = setTimeout(() => {
       suggestExpenses(trimmed)
         .then((result) => {
+          if (requestId !== suggestRequestIdRef.current) {
+            return; // a newer request has since superseded this one
+          }
           setSuggestedMatches(result.matches);
           if (result.matches.length === 0 && result.categorySuggestion) {
             updateField('category', result.categorySuggestion.categoryId);
