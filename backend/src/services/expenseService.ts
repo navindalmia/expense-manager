@@ -715,9 +715,21 @@ export async function suggestCategoryForTitle(
     return null;
   }
 
-  const category = await prisma.category.findFirst({
-    where: { code, isActive: true, OR: [{ userId: null }, { userId }] },
-  });
+  try {
+    const category = await prisma.category.findFirst({
+      where: { code, isActive: true, OR: [{ userId: null }, { userId }] },
+    });
 
-  return category ? { categoryId: category.id, code: category.code } : null;
+    return category ? { categoryId: category.id, code: category.code } : null;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      'EXPENSE.SUGGEST_CATEGORY_FAILED',
+      500,
+      'SUGGEST_CATEGORY_ERROR',
+      { error: error instanceof Error ? error.message : String(error) }
+    );
+  }
 }

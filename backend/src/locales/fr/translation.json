@@ -14,7 +14,8 @@
     "CREATION_FAILED": "Échec de la création de la dépense.",
     "FETCH_FAILED": "Échec du chargement des dépenses.",
     "DELETE_FAILED": "Échec de la suppression de la dépense.",
-    "SUGGEST_FAILED": "Échec de la recherche de dépenses similaires."
+    "SUGGEST_FAILED": "Échec de la recherche de dépenses similaires.",
+    "SUGGEST_CATEGORY_FAILED": "Échec de la suggestion de catégorie."
   },
   "USER": {
     "NOT_FOUND": "Utilisateur non trouvé."

@@ -801,5 +801,13 @@ describe('ExpenseService', () => {
 
       expect(suggestion).toBeNull();
     });
+
+    it('wraps a Prisma failure in AppError with an i18n key, not a raw error (regression: peer-session review found no try/catch here, unlike every sibling function in this file)', async () => {
+      (prisma.category.findFirst as jest.Mock).mockRejectedValue(new Error('connection lost'));
+
+      await expect(expenseService.suggestCategoryForTitle(1, 'Gas station fill-up')).rejects.toThrow(
+        'EXPENSE.SUGGEST_CATEGORY_FAILED'
+      );
+    });
   });
 });
