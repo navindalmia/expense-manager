@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ManageLabelsScreenProps } from '../types/navigation';
 import { getLabelTotals, disableLabel, type LabelTotal } from '../services/labelService';
@@ -69,6 +69,7 @@ export default function ManageLabelsScreen({ navigation }: ManageLabelsScreenPro
           await disableLabel(label.id);
           setLabels((prev) => prev.filter((l) => l.id !== label.id));
         } catch (err) {
+          Alert.alert('Error', getErrorMessage(err));
           logger.error('Failed to disable label', err, { screen: 'ManageLabelsScreen', labelId: label.id });
         }
       }

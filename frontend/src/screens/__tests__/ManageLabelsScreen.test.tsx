@@ -6,7 +6,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import ManageLabelsScreen from '../ManageLabelsScreen';
 import type { LabelTotal } from '../../services/labelService';
 
@@ -100,6 +100,22 @@ describe('ManageLabelsScreen', () => {
     await user.click(getByTestId(container, 'manage-labels-disable-1'));
 
     expect(mockDisableLabel).not.toHaveBeenCalled();
+    expect(screen.getByText('Liverpool')).toBeTruthy();
+  });
+
+  it('surfaces a visible error when disableLabel fails, not just a silent console log (regression: peer-session review found this only logger.error\'d)', async () => {
+    const user = userEvent.setup();
+    mockGetLabelTotals.mockResolvedValue(baseLabels);
+    mockDisableLabel.mockRejectedValue(new Error('Network error'));
+    confirmSpy.mockReturnValue(true);
+    const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
+    const { container } = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Liverpool')).toBeTruthy());
+    await user.click(getByTestId(container, 'manage-labels-disable-1'));
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith('Error', 'Network error'));
+    // The row stays -- disabling genuinely failed, so it must not disappear.
     expect(screen.getByText('Liverpool')).toBeTruthy();
   });
 
