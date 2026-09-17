@@ -199,7 +199,10 @@ jobs:
             -d '{"email":"test@test.com","password":"Test1234!","name":"QA Test User"}')
           TOKEN=$(echo "$SIGNUP" | jq -r '.data.token')
           USER_ID=$(echo "$SIGNUP" | jq -r '.data.user.id')
-          CATEGORY_ID=$(curl -sf http://localhost:4000/api/categories | jq -r '.data[] | select(.code=="FOOD") | .id')
+          # GET /api/categories now requires auth (this branch made categories
+          # user-extensible - see backend/src/routes/categoryRoutes.ts) - found
+          # 2026-09-17 when this call was 401ing under `set -e` with no token attached.
+          CATEGORY_ID=$(curl -sf -H "Authorization: Bearer $TOKEN" http://localhost:4000/api/categories | jq -r '.data[] | select(.code=="FOOD") | .id')
           GROUP=$(curl -sf -X POST http://localhost:4000/api/groups \
             -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
             -d '{"name":"QA Test Group","currency":"GBP"}')
@@ -425,9 +428,13 @@ jobs:
         # is false above, so the account is usable immediately after signup
         # with no separate verification step.
         run: |
+          # name must not contain digits - signupSchema's name regex
+          # (backend/src/schemas/authSchema.ts) is letters/spaces/'/- only, and
+          # "E2E" itself contains a digit ("2"), so this 400'd under `-sf` with
+          # no visible body. Found 2026-09-17 root-causing this job's failure.
           curl -sf -X POST http://localhost:4000/api/auth/signup \
             -H "Content-Type: application/json" \
-            -d '{"email":"test@test.com","password":"Test1234!","name":"E2E Test User"}' \
+            -d '{"email":"test@test.com","password":"Test1234!","name":"Web Test User"}' \
             > /dev/null
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
