@@ -379,15 +379,6 @@ jobs:
       # email-verification-completion flow wired into CI. Matches the app's
       # actual live config (set 2026-08-16).
       REQUIRE_EMAIL_VERIFICATION: "false"
-      # frontend/ENVIRONMENT_SETUP.md: .env.development ships
-      # EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:4000/api, the Android
-      # emulator's host alias - wrong for a web build, which needs to reach
-      # the backend via plain localhost. Expo's dotenv loading (via
-      # @expo/env) never overrides a variable already present in the
-      # process environment, so setting it here at the job level takes
-      # precedence over the committed .env.development value without
-      # editing that file.
-      EXPO_PUBLIC_API_BASE_URL: http://localhost:4000/api
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -438,6 +429,20 @@ jobs:
             > /dev/null
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
+      - name: Point Expo web at the local backend, not the Android emulator alias
+        # frontend/.env.development ships EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:4000/api
+        # (the Android emulator's host alias, per frontend/ENVIRONMENT_SETUP.md) -
+        # wrong for a real Chromium web build, which needs plain localhost.
+        # A job-level `env:` var here does NOT work: confirmed by inspecting the
+        # actual Metro web bundle (2026-09-17) that expo/virtual/env.js builds
+        # EXPO_PUBLIC_* values by re-parsing the .env* files directly and
+        # object-spreading them together - it never reads process.env, so nothing
+        # set at the job/step level can reach it. frontend/.env.development.local
+        # is the only override Expo's own documented precedence chain
+        # (.env.development.local > .env.local > .env.development) actually
+        # honors, and .env*.local is gitignored so this never risks a commit.
+        working-directory: frontend
+        run: echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:4000/api" > .env.development.local
       - name: Start Expo web
         working-directory: frontend
         run: |
