@@ -141,3 +141,22 @@ This cloud sandbox has PostgreSQL 16 installed locally (`service postgresql star
 2. #45, #46 — not yet investigated; both need live/runtime reproduction (the now-working local E2E stack should be used for this) rather than static code reading alone, per earlier attempts finding nothing obviously wrong on read-through.
 3. File GitHub issues for: (a) `deactivateGroup` throwing raw `Error` instead of `AppError` (found reviewing #47's area); (b) `signupSchema`'s no-backfill-for-existing-whitespace-names gap (from #49's review) — neither filed yet as of this entry.
 4. Navin still needs to manually delete the merged `feat/intelligence-layer-themes-labels-autocomplete` branch (blocked from this sandbox by proxy policy).
+
+## Issue #47 — FIXED. PR: https://github.com/navindalmia/expense-manager/pull/63 (branch `fix/issue-47-delete-group-ui`)
+
+- Added a "Delete Group" button to `EditGroupModal`'s Danger Zone, exactly per Navin's answer: warns naming the expense count if the group has any, plain confirm if not, then soft-deletes (`DELETE /api/groups/:id`) and removes the group from `HomeScreen`'s list.
+- Two real bugs found and fixed while wiring this dead code up for the first time (both causally connected to this feature's correctness): (a) backend `deactivateGroup` threw raw `Error` not `AppError` (fell through to a generic 500 instead of the correct 404/403 — still denied correctly, wrong status/message); (b) frontend `deleteGroup()` had the same envelope-unwrap bug as #44's `updateGroup()` (already logged as #59 while it was still dead code).
+- Red-before-green: yes, at both backend (`deleteGroup.test.ts`, new) and frontend (`groupService.test.ts` `deleteGroup` tests) — both confirmed failing pre-fix, passing after.
+- Real `/code-review` dispatched, found a genuine regression: the new `AppError` calls used literal English strings as `messageKey` (copying `updateGroup`'s existing bad pattern) instead of real i18n keys — worse for French users than the raw `Error` they replaced, since that at least fell through to a translated generic message. Fixed by adding `GROUP.NOT_FOUND`/`GROUP.DELETE_UNAUTHORIZED`/`GROUP.DELETE_FAILED` to both locale files. Also added a missing test for the untested `expenseCount === 1` singular-message branch.
+- **P2/P3 finding logged as new issue rather than fixed inline:** #62 — the same file's catch-and-rewrap-as-AppError boilerplate is duplicated across most functions (pre-existing, unrelated to this PR's correctness).
+- E2E coverage: `e2e/delete-group.spec.ts` (new), a real Playwright test against the live local stack — creates a group, deletes it via the real UI and a real browser confirm dialog, verifies it disappears. Re-ran `e2e/intelligence-layer.spec.ts` too — no regression.
+- `tsc --noEmit` clean both sides. Full suites green: backend 416 tests, frontend 164 tests.
+- Two `docs/solutions/` entries written (manual `ce-compound`): the i18n-key lesson, and the broader "wiring up dead code surfaces its latent bugs" lesson (also covers #59's still-unfixed sibling instance).
+
+## Session status at this point
+
+**Issues fully fixed and PR'd this session:** #49 (PR #57), #44 (PR #60), #50+#51 (PR #61), #47 (PR #63). **New issues filed along the way:** #59 (dead-code envelope bug in `getGroups`/`deleteGroup`... now partially addressed — `deleteGroup` itself was fixed as part of #47, `getGroups` is still open/dead), #62 (DRY boilerplate in `groupService.ts`). None of these 4 PRs merged by this session (per the "don't self-merge product PRs" rule) — all left open for Navin.
+
+**Still open, not started:** #5, #48 (Navin said skip for now, live in this session), #45, #46 (need live/runtime investigation — the local E2E stack set up this session is available for this), plus the newly-filed #59 (partially), #62.
+
+**Local E2E stack status:** still running as of this entry (local Postgres on :5432, backend on :4000, Expo web on :8081, test user `test@test.com`/`Test1234!` seeded) — available for whoever continues with #45/#46 without needing to re-set-up, provided the same sandbox session continues. If a fresh session picks this up, re-follow the "Local E2E environment note" above.
