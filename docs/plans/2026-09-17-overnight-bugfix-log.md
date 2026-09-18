@@ -55,3 +55,45 @@ No body text at all beyond the title. Same currency-sync theme as #44/#50 — pl
 - Issue #46: needs a reproduced scenario before it can be diagnosed responsibly.
 
 This session did not reach implementation on #5/#44–#51 due to running out of allotted session budget after PR #55 CI investigation and issue #4 triage. No unsafe or guessed changes were made. Resume here: check PR #55 CI status first, then pick up #45 or #49 as the next safe, unambiguous fix.
+
+## Continuation session, 2026-09-18 — resumed from mobile after a GitHub access handoff
+
+This picked up as a genuinely interactive session (Navin present live on mobile, not unattended), after resolving a GitHub App/OAuth access mismatch on the cloud session (see chat transcript if needed — not repeated here, not project-relevant).
+
+### PR #55 — e2e-mobile rerun
+
+- Confirmed via GitHub API: `backend-test`, `frontend-test`, `e2e-web` all green on commit `05ce9da`.
+- `e2e-mobile` failed with the exact documented signature from `docs/solutions/build-errors/e2e-mobile-ci-hang-and-cascading-fixes.md`: annotation `"The action 'Build debug APK and run Maestro suite on an Android emulator' has timed out after 18 minutes."` — matches the known unconditional upstream bug (reactivecircus/android-emulator-runner#385) exactly (same step name, same 18-minute value).
+- **Caveat, stated explicitly per item 41's evidence-over-theory rule:** could not independently confirm "3/3 Flows Passed" in the raw log text itself — this cloud sandbox's network policy blocks Azure Blob Storage (`productionresultssa5.blob.core.windows.net`), which is where GitHub's log-download API redirects, and there was no workaround available (not attempted to bypass, per the environment's own instructions never to disable TLS/proxy). The signature match (exact step + exact timeout, no assertion-failure text) was judged strong enough evidence per the handoff's own stated criteria, but flagging the gap rather than claiming full log confirmation.
+- Triggered a rerun via `POST /repos/.../actions/jobs/{id}/rerun`. **Status as of this log entry: rerun completed, also FAILURE** (same job). Not yet re-diagnosed further this session — see "Next steps" below.
+
+### Issue #4 — reconfirmed already closed, no action.
+
+### Issues #5, #48 — asked Navin directly (he was live), both answered **skip for now**. Not implemented this session.
+
+### Issue #47 — scope clarified by Navin: "If there are expenses added then first warn them that there are expenses and then only soft delete the group." Investigated current code: backend already has creator-only deletion (`deactivateGroup` in `groupService.ts:741`, throws raw `Error` not `AppError` — pre-existing minor issue, not fixed here, out of scope), but **no delete-group UI exists anywhere in the frontend at all** — the feature is backend-only and unreachable. Not yet implemented this session — queued next.
+
+### Issue #49 — FIXED. PR: https://github.com/navindalmia/expense-manager/pull/57 (branch `fix/issue-49-trim-name-whitespace`)
+- Root cause: `signupSchema`'s `name` field regex allowed whitespace at the edges; added `.trim()` before the length/regex checks (only write path for `name` in the codebase).
+- Red-before-green: **yes**, explicitly confirmed — 2 new tests (name-with-whitespace stored trimmed; all-whitespace name rejected) both run and failed against pre-fix code first, then passed after the fix.
+- E2E coverage: not applicable per the repo's own rule scope (backend validation-only fix, no new user-facing UI surface — the existing signup UI is unchanged).
+- Real `/ce-code-review` dispatched (not self-review) — first attempt reviewed the wrong diff (the skill's forked execution runs against a different, stale local checkout than the one this session pushed to; matches the previously-documented `/code-review` PR-arg bug). Second attempt, after pushing the branch and pointing the skill explicitly at it, reviewed the correct diff and found: (a) two new tests reused test-numbers already taken by later pre-existing tests — fixed by renumbering to 18/19; (b) a stale "15 tests" header comment — fixed; (c) noted (not fixed, out of scope) that already-persisted names with whitespace aren't backfilled — no migration tooling exists in this repo for that, and it's pre-production.
+- `tsc --noEmit` clean, full backend suite (346 tests) green.
+- **P2/P3 findings logged as new issues:** none opened yet — the two review findings that weren't fixed inline (raw `Error` in `deactivateGroup`, no-backfill-for-existing-rows) are noted here rather than filed as separate GitHub issues; will file if this session runs out of budget before doing so directly.
+
+### Issue #44 + #50 + #51 — ROOT CAUSE FOUND (confirmed, not guessed), single shared cause across all three:
+- `frontend/src/screens/CreateGroupScreen.tsx:135` hardcodes `const CURRENCIES = ['GBP','USD','EUR','INR','AUD','CAD','JPY','CNY']` — a static list.
+- `backend/prisma/seed.ts`'s `Currency` table seed has **no `CNY` row** (has GBP/USD/EUR/INR/AUD/CAD/JPY/SGD/HKD/CHF/NZD/SEK — 12 currencies, CNY not among them) — this is issue **#50** exactly: selecting CNY in Create Group and submitting hits `groupService.updateGroup`'s (and presumably `createGroup`'s) `currency` lookup, which 400s with `CURRENCY_NOT_FOUND` → surfaced to the user as "Selected currency is not available." Confirmed visually from the issue's own attached screenshot (fetched via GitHub API + WebFetch through the S3 redirect).
+- `frontend/src/components/EditGroupModal.tsx` does NOT hardcode a list — it correctly calls `getCurrencies()` (`frontend/src/services/currencyService.ts`, `GET /api/currencies`) and renders the live backend list (12 currencies, no CNY). This is issue **#51** exactly: Create screen shows a different (wrong, hardcoded) 8-currency list than Edit's live 12-currency list.
+- **Fix plan (not yet implemented this session):** make `CreateGroupScreen.tsx` call `getCurrencies()` the same way `EditGroupModal.tsx` already does, deleting the hardcoded `CURRENCIES` array. This single change closes #50 (CNY option disappears since it was never real) and #51 (both screens now share one source of truth) simultaneously. **Process note:** per the repo's "one issue per PR" rule, will open two PRs closing #50 and #51 respectively if the diffs can be meaningfully separated, but since it's genuinely one shared root cause and one shared diff, current plan is one PR with `Fixes #50, Fixes #51` in the body (documented here as a deliberate call, not a silent rule-break) unless Navin says otherwise.
+- Issue #44 itself (title: "Currency sync issue in Expense Group edit... needs a tap refresh") is a **separate, second bug**, also root-caused: `frontend/src/services/groupService.ts:78-81`'s `updateGroup()` does `return response.data` where the backend's actual response envelope (confirmed in `backend/src/controllers/groupController.ts:218-222`) is `{ success, data, message }` — i.e. it never unwraps `.data.data`, unlike the sibling `addMemberByEmail` function 15 lines below it in the same file, which does unwrap correctly. Effect: `HomeScreen.handleEditSuccess(updatedGroup)` receives the envelope, not the real `Group`; its `g.id === updatedGroup.id` list-replace check compares against `undefined` and never matches, so the group list silently doesn't update after any group edit (name, description, or currency) until a manual pull-to-refresh re-fetches from the server. **Fix (not yet implemented):** change `updateGroup()` to `return response.data.data` (typed as `{ success: boolean; data: Group; message: string }` response, matching the pattern already used elsewhere in the same file).
+
+### Not yet started this session: #45, #46 (both need live/runtime investigation, not just static code reading, to pin down — code inspection of the Paid-By picker and expense-card share-calc rendering didn't reveal an obvious bug on read-through).
+
+## Next steps (for this session's continuation or a fresh one)
+
+1. Re-check PR #55's e2e-mobile rerun result properly (it failed again — was not yet re-diagnosed at this log entry's time).
+2. Implement and PR: #44 (updateGroup envelope-unwrap fix) and #50+#51 (currency-list unification) — both root-caused above, ready to implement.
+3. Implement and PR: #47 (delete-group UI, creator-only, warn-if-has-expenses-then-soft-delete, per Navin's explicit answer above).
+4. Investigate #45 and #46 with live testing (Playwright against a real running backend, per the repo's E2E standing rule) rather than static reading alone.
+5. File GitHub issues for the two review-flagged-but-out-of-scope findings from #49's review if not already done: (a) `deactivateGroup` throws raw `Error` instead of `AppError`; (b) no backfill mechanism for already-persisted whitespace-padded names.
