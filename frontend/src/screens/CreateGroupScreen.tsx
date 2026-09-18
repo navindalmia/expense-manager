@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
@@ -27,6 +28,7 @@ import type { Group } from '../services/groupService';
 import { alertThenContinue } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
+import { getCurrencies, type Currency } from '../services/currencyService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -134,8 +136,6 @@ const styles = StyleSheet.create({
   },
 });
 
-const CURRENCIES = ['GBP', 'USD', 'EUR', 'INR', 'AUD', 'CAD', 'JPY', 'CNY'];
-
 /**
  * Create Group Form Screen
  */
@@ -143,6 +143,8 @@ function CreateGroupScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
@@ -155,6 +157,25 @@ function CreateGroupScreen({ navigation }: Props) {
     getThemes()
       .then(setThemes)
       .catch((error) => logger.error('Failed to load themes', error));
+  }, []);
+
+  // Fetch the live, backend-authoritative currency list — this used to be a
+  // hardcoded array here that had drifted from the backend's seeded
+  // currencies (see issues #50/#51), so it now matches EditGroupModal's
+  // fetch pattern and both screens share one source of truth.
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        setLoadingCurrencies(true);
+        const data = await getCurrencies();
+        setCurrencies(data);
+      } catch (error) {
+        logger.error('Failed to load currencies', error);
+      } finally {
+        setLoadingCurrencies(false);
+      }
+    };
+    fetchCurrencies();
   }, []);
 
   /**
@@ -282,33 +303,37 @@ function CreateGroupScreen({ navigation }: Props) {
         {/* Currency Selection */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Default Currency</Text>
-          <View style={styles.currencyContainer}>
-            {CURRENCIES.map((curr) => (
-              <TouchableOpacity
-                key={curr}
-                style={[
-                  styles.currencyButton,
-                  currency === curr && styles.currencyButtonActive,
-                ]}
-                onPress={() => setCurrency(curr)}
-                testID={`currency-${curr}`}
-                accessible={true}
-                accessibilityLabel={`Select ${curr}`}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: currency === curr }}
-                disabled={loading}
-              >
-                <Text
+          {loadingCurrencies ? (
+            <ActivityIndicator size="small" color="#0066cc" style={{ marginVertical: 10 }} />
+          ) : (
+            <View style={styles.currencyContainer}>
+              {currencies.map((curr) => (
+                <TouchableOpacity
+                  key={curr.id}
                   style={[
-                    styles.currencyText,
-                    currency === curr && styles.currencyTextActive,
+                    styles.currencyButton,
+                    currency === curr.code && styles.currencyButtonActive,
                   ]}
+                  onPress={() => setCurrency(curr.code)}
+                  testID={`currency-${curr.code}`}
+                  accessible={true}
+                  accessibilityLabel={`Select ${curr.code}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: currency === curr.code }}
+                  disabled={loading}
                 >
-                  {curr}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.currencyText,
+                      currency === curr.code && styles.currencyTextActive,
+                    ]}
+                  >
+                    {curr.code}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Theme Selection */}
