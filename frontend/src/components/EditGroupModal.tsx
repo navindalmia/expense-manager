@@ -18,7 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { updateGroup, Group } from '../services/groupService';
-import { getCurrencies, type Currency } from '../services/currencyService';
+import { useCurrencies } from '../hooks/useCurrencies';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
@@ -194,30 +194,13 @@ export default function EditGroupModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const { currencies, loadingCurrencies, currenciesError } = useCurrencies();
   const [themes, setThemes] = useState<Theme[]>([]);
   const [themeId, setThemeId] = useState<number | null>(null);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
-
-  // Fetch currencies from database on component mount
-  useEffect(() => {
-    const fetchCurrencies = async () => {
-      try {
-        setLoadingCurrencies(true);
-        const data = await getCurrencies();
-        setCurrencies(data);
-      } catch (error) {
-        logger.error('Failed to load currencies', error);
-      } finally {
-        setLoadingCurrencies(false);
-      }
-    };
-    fetchCurrencies();
-  }, []);
 
   // Fetch themes from database on component mount
   useEffect(() => {
@@ -343,6 +326,11 @@ export default function EditGroupModal({
 
             {/* Currency */}
             <Text style={styles.label}>Currency</Text>
+            {currenciesError && (
+              <Text style={styles.errorText} testID="edit-group-currency-load-error">
+                {currenciesError}
+              </Text>
+            )}
             {loadingCurrencies ? (
               <ActivityIndicator size="small" color="#0066cc" style={{ marginVertical: 10 }} />
             ) : (

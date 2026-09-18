@@ -28,7 +28,7 @@ import type { Group } from '../services/groupService';
 import { alertThenContinue } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
-import { getCurrencies, type Currency } from '../services/currencyService';
+import { useCurrencies } from '../hooks/useCurrencies';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -143,8 +143,11 @@ function CreateGroupScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
+  // Backend-authoritative currency list (issues #50/#51): this used to be a
+  // hardcoded array here that had drifted from the backend's seeded
+  // currencies, and duplicated EditGroupModal's own fetch logic -- both now
+  // share this one hook instead.
+  const { currencies, loadingCurrencies, currenciesError } = useCurrencies();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
@@ -157,25 +160,6 @@ function CreateGroupScreen({ navigation }: Props) {
     getThemes()
       .then(setThemes)
       .catch((error) => logger.error('Failed to load themes', error));
-  }, []);
-
-  // Fetch the live, backend-authoritative currency list — this used to be a
-  // hardcoded array here that had drifted from the backend's seeded
-  // currencies (see issues #50/#51), so it now matches EditGroupModal's
-  // fetch pattern and both screens share one source of truth.
-  useEffect(() => {
-    const fetchCurrencies = async () => {
-      try {
-        setLoadingCurrencies(true);
-        const data = await getCurrencies();
-        setCurrencies(data);
-      } catch (error) {
-        logger.error('Failed to load currencies', error);
-      } finally {
-        setLoadingCurrencies(false);
-      }
-    };
-    fetchCurrencies();
   }, []);
 
   /**
@@ -303,6 +287,11 @@ function CreateGroupScreen({ navigation }: Props) {
         {/* Currency Selection */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Default Currency</Text>
+          {currenciesError && (
+            <Text style={styles.errorText} testID="currency-load-error">
+              {currenciesError}
+            </Text>
+          )}
           {loadingCurrencies ? (
             <ActivityIndicator size="small" color="#0066cc" style={{ marginVertical: 10 }} />
           ) : (
