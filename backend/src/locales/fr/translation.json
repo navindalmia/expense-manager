@@ -13,13 +13,28 @@
     "NOT_FOUND": "Dépense non trouvée.",
     "CREATION_FAILED": "Échec de la création de la dépense.",
     "FETCH_FAILED": "Échec du chargement des dépenses.",
-    "DELETE_FAILED": "Échec de la suppression de la dépense."
+    "DELETE_FAILED": "Échec de la suppression de la dépense.",
+    "SUGGEST_FAILED": "Échec de la recherche de dépenses similaires.",
+    "SUGGEST_CATEGORY_FAILED": "Échec de la suggestion de catégorie."
   },
   "USER": {
     "NOT_FOUND": "Utilisateur non trouvé."
   },
   "CATEGORY": {
-    "NOT_FOUND": "Catégorie non trouvée."
+    "NOT_FOUND": "Catégorie non trouvée.",
+    "LABEL_REQUIRED": "Le libellé de la catégorie est requis.",
+    "ALREADY_DISABLED": "La catégorie est déjà désactivée.",
+    "NOT_OWNER": "Vous ne pouvez désactiver qu'une catégorie que vous avez créée."
+  },
+  "THEME": {
+    "NOT_FOUND": "Thème non trouvé.",
+    "ALREADY_DISABLED": "Le thème est déjà désactivé.",
+    "NOT_OWNER": "Vous ne pouvez renommer ou désactiver qu'un thème que vous avez créé."
+  },
+  "LABEL": {
+    "NOT_FOUND": "Étiquette non trouvée.",
+    "ALREADY_DISABLED": "L'étiquette est déjà désactivée.",
+    "NOT_OWNER": "Vous ne pouvez désactiver qu'une étiquette que vous avez créée."
   },
   "GROUP": {
     "NAME_REQUIRED": "Le nom du groupe est requis.",

@@ -5,7 +5,7 @@
  * Includes name, description, and currency selection.
  */
 
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, useEffect, memo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,8 @@ import { http } from '../api/http';
 import AddMemberModal from '../components/AddMemberModal';
 import type { Group } from '../services/groupService';
 import { alertThenContinue } from '../utils/crossPlatformAlert';
+import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
+import { getThemes, createTheme, type Theme } from '../services/themeService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -145,6 +147,15 @@ function CreateGroupScreen({ navigation }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [createdGroup, setCreatedGroup] = useState<Group | null>(null);
+  const [themes, setThemes] = useState<Theme[]>([]);
+  const [themeId, setThemeId] = useState<number | null>(null);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+
+  useEffect(() => {
+    getThemes()
+      .then(setThemes)
+      .catch((error) => logger.error('Failed to load themes', error));
+  }, []);
 
   /**
    * Validate form inputs
@@ -183,6 +194,7 @@ function CreateGroupScreen({ navigation }: Props) {
         name: name.trim(),
         description: description.trim() || undefined,
         currency,
+        themeId: themeId || undefined,
       });
 
       const group = response.data.data as Group;
@@ -204,7 +216,7 @@ function CreateGroupScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [name, description, currency, validateForm, navigation]);
+  }, [name, description, currency, themeId, validateForm, navigation]);
 
   const handleMemberAdded = useCallback(() => {
     setShowMemberModal(false);
@@ -298,6 +310,37 @@ function CreateGroupScreen({ navigation }: Props) {
             ))}
           </View>
         </View>
+
+        {/* Theme Selection */}
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Theme (optional)</Text>
+          <TouchableOpacity
+            style={styles.input}
+            onPress={() => setShowThemePicker(true)}
+            disabled={loading}
+            testID="group-theme-picker-button"
+          >
+            <Text style={{ color: themeId ? '#333' : '#999' }}>
+              {themes.find((t) => t.id === themeId)?.name || 'Select theme...'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TypeAheadDropdown
+          visible={showThemePicker}
+          title="Select Theme"
+          items={themes.map((t): TypeAheadItem => ({ id: t.id, name: t.name }))}
+          onSelect={(item) => setThemeId(item.id)}
+          onCreateNew={async (themeName) => {
+            const created = await createTheme(themeName);
+            setThemes((prev) => [...prev, created]);
+            return { id: created.id, name: created.name };
+          }}
+          onClose={() => setShowThemePicker(false)}
+          placeholder="Search themes..."
+          testIDPrefix="group-theme"
+          selectedId={themeId}
+        />
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>

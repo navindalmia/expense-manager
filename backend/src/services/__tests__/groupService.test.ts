@@ -77,6 +77,38 @@ describe('GroupService', () => {
       ).rejects.toThrow('GROUP.CURRENCY_NOT_FOUND');
       expect(prisma.group.create).not.toHaveBeenCalled();
     });
+
+    it('persists a valid, visible themeId -- Covers AE1 (reusing a theme creates no duplicate)', async () => {
+      (prisma.currency.findUnique as jest.Mock).mockResolvedValue({ id: 10, code: 'GBP' });
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 5, userId: CREATOR_ID });
+      (prisma.group.create as jest.Mock).mockResolvedValue({
+        id: 2,
+        name: 'April Trip',
+        createdById: CREATOR_ID,
+        themeId: 5,
+      });
+
+      const result = await groupService.createGroup({
+        name: 'April Trip',
+        createdById: CREATOR_ID,
+        themeId: 5,
+      });
+
+      expect(prisma.group.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ themeId: 5 }) })
+      );
+      expect(result.themeId).toBe(5);
+    });
+
+    it('throws AppError when themeId does not exist or is not visible to the user', async () => {
+      (prisma.currency.findUnique as jest.Mock).mockResolvedValue({ id: 10, code: 'GBP' });
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        groupService.createGroup({ name: 'April Trip', createdById: CREATOR_ID, themeId: 999 })
+      ).rejects.toThrow('THEME.NOT_FOUND');
+      expect(prisma.group.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getUserGroups', () => {

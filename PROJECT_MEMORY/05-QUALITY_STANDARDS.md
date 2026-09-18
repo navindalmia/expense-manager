@@ -1,7 +1,7 @@
 # Quality Standards & Review Gates
 
 **For code reviews, security checks, and architectural decisions**  
-**Last Updated:** 2026-07-21  
+**Last Updated:** 2026-09-14  
 **Status:** Detailed reference — the condensed, always-in-context version that `/ce-code-review` actually applies lives in [CLAUDE.md](../CLAUDE.md#code-review-standards-applies-to-ce-code-review). Keep both in sync when either changes.  
 **Navigation:** See [01-MASTER_STATE.md](./01-MASTER_STATE.md) for current project status
 
@@ -103,12 +103,15 @@ CE's `testing-reviewer` persona is explicitly told to ignore aggregate coverage 
 - ✅ Assertions specific and clear
 - ✅ <30s total execution time
 - ✅ Descriptive test names
+- ✅ **User-facing/UI changes have real E2E coverage** (a Maestro flow, or an integration test hitting a real running backend+DB) — mocked unit/component tests alone are not sufficient proof a user-facing feature actually works end-to-end. Added 2026-09-14 after the intelligence-layer feature (Theme/Category/Label UI) shipped with zero E2E coverage despite full mocked-test coverage.
+- ✅ **Bug fixes show red-before-green evidence** — the regression test was confirmed failing against the pre-fix code (for the right reason), then passing after the fix, not just "tests pass now." Note explicitly in the PR/commit if this step was genuinely skipped (e.g. a fix applied reactively from a review finding without first reverting it).
 
 **FAIL Criteria:**
-- ❌ Hardcoded timing (sleep/delays)
+- ❌ Hardcoded timing (sleep/delays) — use `waitFor`/condition-polling on the real side effect instead, even when the underlying behavior (e.g. a debounce) has a genuine built-in delay
 - ❌ Silent test failures
 - ❌ Vague test names
 - ❌ Tests that depend on execution order
+- ❌ A user-facing feature merged with only mocked-service tests and no E2E/live-backend coverage anywhere in the repo
 
 ---
 
