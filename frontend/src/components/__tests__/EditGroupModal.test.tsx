@@ -9,20 +9,23 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Alert } from 'react-native';
 import EditGroupModal from '../EditGroupModal';
 import type { Group } from '../../services/groupService';
 import type { Currency } from '../../services/currencyService';
 import type { Theme } from '../../services/themeService';
 
 const mockUpdateGroup = vi.fn();
+const mockDeleteGroup = vi.fn();
 const mockGetCurrencies = vi.fn();
 const mockGetThemes = vi.fn();
 const mockCreateTheme = vi.fn();
 
 vi.mock('../../services/groupService', () => ({
   updateGroup: (...args: unknown[]) => mockUpdateGroup(...args),
+  deleteGroup: (...args: unknown[]) => mockDeleteGroup(...args),
 }));
 
 vi.mock('../../services/currencyService', () => ({
@@ -58,6 +61,7 @@ const baseGroup: Group = {
 describe('EditGroupModal', () => {
   const onClose = vi.fn();
   const onSuccess = vi.fn();
+  const onDeleted = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,7 +79,7 @@ describe('EditGroupModal', () => {
 
   it('renders the current group members directly, without opening AddMemberModal', () => {
     render(
-      <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} />
+      <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
     );
 
     expect(screen.getByText('Alice')).toBeTruthy();
@@ -86,7 +90,7 @@ describe('EditGroupModal', () => {
 
   it('shows the member count in the section heading', () => {
     render(
-      <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} />
+      <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
     );
 
     expect(screen.getByText(/Members \(2\)/)).toBeTruthy();
@@ -96,7 +100,7 @@ describe('EditGroupModal', () => {
     const emptyGroup: Group = { ...baseGroup, members: [] };
 
     render(
-      <EditGroupModal visible group={emptyGroup} onClose={onClose} onSuccess={onSuccess} />
+      <EditGroupModal visible group={emptyGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
     );
 
     expect(screen.queryByText('Alice')).toBeNull();
@@ -105,7 +109,7 @@ describe('EditGroupModal', () => {
 
   it('renders nothing member-related when group is null', () => {
     render(
-      <EditGroupModal visible group={null} onClose={onClose} onSuccess={onSuccess} />
+      <EditGroupModal visible group={null} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
     );
 
     expect(screen.queryByText('Alice')).toBeNull();
@@ -116,7 +120,7 @@ describe('EditGroupModal', () => {
       const user = userEvent.setup();
       mockUpdateGroup.mockResolvedValue({ ...baseGroup, theme: baseThemes[0] });
       const { container } = render(
-        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} />
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
       );
 
       await waitFor(() => expect(mockGetThemes).toHaveBeenCalled());
@@ -137,7 +141,7 @@ describe('EditGroupModal', () => {
       const created: Theme = { id: 3, name: 'Ski Trip', userId: 1, isActive: true };
       mockCreateTheme.mockResolvedValue(created);
       const { container } = render(
-        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} />
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
       );
 
       await waitFor(() => expect(mockGetThemes).toHaveBeenCalled());
@@ -163,7 +167,7 @@ describe('EditGroupModal', () => {
       };
 
       render(
-        <EditGroupModal visible group={groupWithDisabledTheme} onClose={onClose} onSuccess={onSuccess} />
+        <EditGroupModal visible group={groupWithDisabledTheme} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
       );
 
       expect(screen.getByText('Old Roadtrip')).toBeTruthy();
@@ -173,7 +177,7 @@ describe('EditGroupModal', () => {
       const groupWithTheme: Group = { ...baseGroup, theme: baseThemes[1] };
 
       render(
-        <EditGroupModal visible group={groupWithTheme} onClose={onClose} onSuccess={onSuccess} />
+        <EditGroupModal visible group={groupWithTheme} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
       );
 
       // Theme is visible immediately, from group.theme -- before getThemes()
@@ -184,6 +188,98 @@ describe('EditGroupModal', () => {
 
       // Still showing the same value after the themes list finishes loading.
       expect(screen.getByText('Paris Trip')).toBeTruthy();
+    });
+  });
+
+  describe('Delete Group (issue #47)', () => {
+    // The RN mock in src/tests/setup.tsx sets Platform.OS to 'ios', so
+    // confirmThenProceed's native branch (Alert.alert) runs, not the web
+    // window.confirm branch. Alert is mocked as a bare vi.fn(), so we
+    // capture its button-config array and invoke the relevant button's
+    // onPress ourselves, mirroring what a real Alert would do.
+    function pressAlertButton(label: string) {
+      const lastCall = (Alert.alert as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+      const buttons = lastCall?.[2] as Array<{ text: string; onPress?: () => void }>;
+      const button = buttons?.find((b) => b.text === label);
+      button?.onPress?.();
+    }
+
+    it('uses singular "expense" (not "expenses") when the group has exactly one', () => {
+      const groupWithOneExpense: Group = {
+        ...baseGroup,
+        _count: { expenses: 1, members: 2 },
+      } as Group;
+      const { container } = render(
+        <EditGroupModal visible group={groupWithOneExpense} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Delete Group',
+        expect.stringContaining('This group has 1 expense.'),
+        expect.anything()
+      );
+    });
+
+    it('warns about existing expenses before deleting a group that has them', async () => {
+      mockDeleteGroup.mockResolvedValue({ ...baseGroup, isActive: false });
+      const groupWithExpenses: Group = {
+        ...baseGroup,
+        _count: { expenses: 3, members: 2 },
+      } as Group;
+      const { container } = render(
+        <EditGroupModal visible group={groupWithExpenses} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Delete Group',
+        expect.stringContaining('This group has 3 expenses'),
+        expect.anything()
+      );
+
+      pressAlertButton('Delete');
+
+      await waitFor(() => {
+        expect(mockDeleteGroup).toHaveBeenCalledWith(baseGroup.id);
+        expect(onDeleted).toHaveBeenCalledWith(baseGroup.id);
+      });
+    });
+
+    it('does not mention expenses when the group has none', async () => {
+      mockDeleteGroup.mockResolvedValue({ ...baseGroup, isActive: false });
+      const emptyGroup: Group = { ...baseGroup, _count: { expenses: 0, members: 2 } } as Group;
+      const { container } = render(
+        <EditGroupModal visible group={emptyGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Delete Group',
+        expect.not.stringContaining('expense'),
+        expect.anything()
+      );
+
+      pressAlertButton('Delete');
+
+      await waitFor(() => {
+        expect(mockDeleteGroup).toHaveBeenCalledWith(baseGroup.id);
+      });
+    });
+
+    it('does not call deleteGroup when the confirmation is cancelled', () => {
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+      pressAlertButton('Cancel');
+
+      expect(mockDeleteGroup).not.toHaveBeenCalled();
+      expect(onDeleted).not.toHaveBeenCalled();
     });
   });
 });

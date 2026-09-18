@@ -314,6 +314,20 @@ function HomeScreen({ navigation }: Props) {
   }, []);
 
   /**
+   * Handle group deletion - remove from list and close modal
+   */
+  const handleGroupDeleted = useCallback((deletedGroupId: number) => {
+    setGroups((prevGroups) => prevGroups.filter((g) => g.id !== deletedGroupId));
+
+    setEditModalVisible(false);
+    setSelectedGroupForEdit(null);
+
+    logger.info('Group removed from list after deletion', {
+      groupId: deletedGroupId,
+    });
+  }, []);
+
+  /**
    * Render individual group item
    * Memoized to prevent re-renders of unchanged items
    */
@@ -502,6 +516,7 @@ function HomeScreen({ navigation }: Props) {
           setSelectedGroupForEdit(null);
         }}
         onSuccess={handleEditSuccess}
+        onDeleted={handleGroupDeleted}
       />
     </View>
   );
