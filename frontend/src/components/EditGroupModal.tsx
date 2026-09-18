@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { updateGroup, Group } from '../services/groupService';
+import { updateGroup, deleteGroup, Group } from '../services/groupService';
 import CurrencyPicker from './CurrencyPicker';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import FieldHelp from './FieldHelp';
@@ -26,12 +26,14 @@ import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import { confirmThenProceed } from '../utils/crossPlatformAlert';
 
 interface EditGroupModalProps {
   visible: boolean;
   group: Group | null;
   onClose: () => void;
   onSuccess: (updatedGroup: Group) => void;
+  onDeleted: (deletedGroupId: number) => void;
 }
 
 const styles = StyleSheet.create({
@@ -134,6 +136,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 14,
   },
+  deleteButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#cc0000',
+    paddingVertical: 14,
+  },
+  deleteButtonText: {
+    color: '#cc0000',
+  },
   membersList: {
     marginBottom: 12,
   },
@@ -165,6 +176,7 @@ export default function EditGroupModal({
   group,
   onClose,
   onSuccess,
+  onDeleted,
 }: EditGroupModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -173,6 +185,7 @@ export default function EditGroupModal({
   const [themeId, setThemeId] = useState<number | null>(null);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
 
@@ -256,6 +269,34 @@ export default function EditGroupModal({
   const handleMemberAdded = (updatedGroup: Group) => {
     // Update parent with group containing new members
     onSuccess(updatedGroup);
+  };
+
+  const handleDelete = () => {
+    if (!group) {
+      return;
+    }
+
+    const expenseCount = group._count?.expenses ?? 0;
+    const message =
+      expenseCount > 0
+        ? `This group has ${expenseCount} expense${expenseCount === 1 ? '' : 's'}. Deleting the group will remove your access to them too. This cannot be undone. Are you sure you want to delete "${group.name}"?`
+        : `Are you sure you want to delete "${group.name}"? This cannot be undone.`;
+
+    confirmThenProceed('Delete Group', message, 'Delete', async () => {
+      setDeleting(true);
+      try {
+        await deleteGroup(group.id);
+        logger.info('Group deleted successfully', { groupId: group.id });
+        onDeleted(group.id);
+        onClose();
+      } catch (error) {
+        const errorMessage = getErrorMessage(error);
+        Alert.alert('Error', errorMessage);
+        logger.error('Failed to delete group', error, { groupId: group.id });
+      } finally {
+        setDeleting(false);
+      }
+    });
   };
 
   return (
@@ -369,6 +410,24 @@ export default function EditGroupModal({
               <Text style={[styles.buttonText, styles.saveButtonText]}>
                 + Add or Invite Members
               </Text>
+            </TouchableOpacity>
+
+            <View style={styles.sectionDivider} />
+
+            <Text style={styles.sectionLabel}>Danger Zone</Text>
+            <TouchableOpacity
+              style={[styles.button, styles.deleteButton]}
+              onPress={handleDelete}
+              disabled={loading || deleting}
+              testID="edit-group-delete-button"
+            >
+              {deleting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[styles.buttonText, styles.deleteButtonText]}>
+                  Delete Group
+                </Text>
+              )}
             </TouchableOpacity>
           </ScrollView>
 
