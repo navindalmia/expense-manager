@@ -100,3 +100,44 @@ This picked up as a genuinely interactive session (Navin present live on mobile,
 3. Implement and PR: #47 (delete-group UI, creator-only, warn-if-has-expenses-then-soft-delete, per Navin's explicit answer above).
 4. Investigate #45 and #46 with live testing (Playwright against a real running backend, per the repo's E2E standing rule) rather than static reading alone.
 5. File GitHub issues for the two review-flagged-but-out-of-scope findings from #49's review if not already done: (a) `deactivateGroup` throws raw `Error` instead of `AppError`; (b) no backfill mechanism for already-persisted whitespace-padded names.
+
+## Continued — PR #55's e2e-mobile second failure re-diagnosed (resolved: Navin merged PR #55 himself)
+
+Pulled annotations for the rerun: identical signature to the first failure (`"The action 'Build debug APK and run Maestro suite on an Android emulator' has timed out after 18 minutes."`), second consecutive occurrence — reinforces this is the documented unconditional upstream bug, not a regression. **While this was being investigated, Navin merged PR #55 himself directly on GitHub** (squash-merge, commit `bfe1cc9`, `merged_at: 2026-09-18T18:22:12Z`) — consistent with the solution doc's own explicit "don't gate merges on this job's badge" recommendation. No merge action was needed from this session.
+
+- Attempted to delete the now-merged `feat/intelligence-layer-themes-labels-autocomplete` branch. Both the GitHub API and `git push --delete` were blocked by this sandbox's proxy (403, "Write access to this GitHub API path is not permitted through this proxy"). **Still needs manual deletion by Navin** — verified safe (PR API confirms `merged: true`; "not an ancestor" in `git merge-base` is expected for a squash merge, not a sign of lost work).
+- **Master now has the full intelligence-layer feature**, including the `e2e/` Playwright harness and `.claude/hooks/pre-commit-quality-gate.js` — both previously only existed on the unmerged branch. This unblocked real E2E coverage for the rest of this session's fixes.
+
+## Issue #44 — FIXED. PR: https://github.com/navindalmia/expense-manager/pull/60 (branch `fix/issue-44-update-group-response-unwrap`)
+
+- Root cause: `groupService.ts`'s `updateGroup()` returned the raw `{ success, data, message }` response envelope instead of unwrapping it (unlike its sibling `addMemberByEmail` in the same file), so `HomeScreen.handleEditSuccess`'s list-replace check (`g.id === updatedGroup.id`) always compared against `undefined` and silently never matched — editing a group's name/description/currency required a manual pull-to-refresh to see the change.
+- Red-before-green: **yes** — new `groupService.test.ts`, confirmed failing (result was the whole envelope) before the fix, passing after.
+- E2E coverage: explicitly **not added yet** at commit time (`e2e/` didn't exist on `master` yet when this fix was written) — noted via an `E2E-Exempt:` trailer with the reasoning; PR #55 has since merged, so a follow-up Playwright case for this should be added.
+- Real `/code-review` dispatched — found a real related bug: `getGroups()` and `deleteGroup()` in the same file have the identical envelope-unwrap bug, currently dead code (never called anywhere in the frontend). Filed as **issue #59** rather than fixed inline (not causally connected to #44's own correctness). Also added a missing error-path test the review flagged.
+- `tsc --noEmit` clean, full frontend suite (125→ still green after review fixes) green.
+- `docs/solutions/logic-errors/update-group-response-envelope-not-unwrapped.md` written (manual `ce-compound` — the CE plugin/skill isn't installed in this cloud session, only on the laptop per project memory; noted explicitly in the commit).
+
+## Issues #50 + #51 — FIXED. PR: https://github.com/navindalmia/expense-manager/pull/61 (branch `fix/issue-50-51-currency-list-mismatch`)
+
+Two independent bugs found, both real, both fixed in one PR (deliberate call — same shared root theme, genuinely one diff; noted here rather than silently bundling unrelated issues):
+
+1. `CreateGroupScreen.tsx` hardcoded a `CURRENCIES` array (8 codes, including fake `CNY`, missing 5 real ones) instead of fetching `GET /api/currencies` like `EditGroupModal.tsx` already did.
+2. **Found only by writing a real, live E2E test** (see below) — the backend's `createGroupSchema` had its *own* separate hardcoded currency `z.enum([...])` (9 values, also including fake `CNY`/`OTHER`, also missing the same 5 real currencies) applied only to `POST /groups`, not `PATCH /groups/:id`. This is why editing a group's currency to SEK already worked while creating one with SEK never could — the real functional half of #51, not just a cosmetic list difference.
+
+**This session set up a genuinely live E2E stack from scratch** (Docker daemon wasn't available in this sandbox — used a local PostgreSQL 16 install instead, ran real migrations + seed, started the real backend and `npx expo start --web`, created a real test user via signup). `e2e/currency-list-mismatch.spec.ts` (new) was run iteratively against the partially-fixed code multiple times while debugging, actually reproducing the exact reported error text ("Selected currency is not available.") and then the second, deeper schema bug, before both fixes together made it pass cleanly — this is what surfaced bug 2 in the first place; a component-level or schema-level unit test alone would not have connected the two.
+
+- Red-before-green: yes, at both the frontend unit level (`CreateGroupScreen.test.tsx`) and backend schema level (`groupSchema.test.ts`), plus the live E2E test's own red-then-green progression described above.
+- Real `/code-review` dispatched — found the new frontend fetch code silently swallowed load failures (no user-facing error) and duplicated `EditGroupModal`'s existing fetch logic byte-for-byte. Both fixed in a follow-up commit: extracted a shared `useCurrencies()` hook (with its own tests) used by both screens now. Re-ran both the new E2E test and the pre-existing `e2e/intelligence-layer.spec.ts` afterward against the live stack to confirm no regression — both passed.
+- `tsc --noEmit` clean on both sides. Full suites green: backend 417 tests, frontend 161 tests.
+- `docs/solutions/logic-errors/three-independent-drifted-currency-lists.md` written (manual `ce-compound`).
+
+## Local E2E environment note (for whoever resumes)
+
+This cloud sandbox has PostgreSQL 16 installed locally (`service postgresql start`) but Docker's daemon cannot run (`no such file or directory` on the socket, `ulimit` operation not permitted) — `docker-compose` from the repo's normal dev setup will NOT work here; use direct `psql`/Prisma against local Postgres instead (`admin`/`admin123`/`expense_db`, matching `.env.example`). Also: `npx expo start --web` fails outright (fatal, not just slow) unless run with `EXPO_OFFLINE=1` — it otherwise tries to reach Expo's own API for a dependency-version check and this sandbox's network policy blocks that host, and the resulting non-JSON error response crashes the whole CLI rather than just skipping the check. Both `.env.local` (backend) and `frontend/.env.development.local` are gitignored and were created fresh this session — not committed, will not exist in a fresh checkout.
+
+## Next steps
+
+1. #47 (delete-group UI, per Navin's explicit answer: warn if the group has expenses, then soft-delete) — not yet implemented.
+2. #45, #46 — not yet investigated; both need live/runtime reproduction (the now-working local E2E stack should be used for this) rather than static code reading alone, per earlier attempts finding nothing obviously wrong on read-through.
+3. File GitHub issues for: (a) `deactivateGroup` throwing raw `Error` instead of `AppError` (found reviewing #47's area); (b) `signupSchema`'s no-backfill-for-existing-whitespace-names gap (from #49's review) — neither filed yet as of this entry.
+4. Navin still needs to manually delete the merged `feat/intelligence-layer-themes-labels-autocomplete` branch (blocked from this sandbox by proxy policy).
