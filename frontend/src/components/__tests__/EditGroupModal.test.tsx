@@ -204,6 +204,24 @@ describe('EditGroupModal', () => {
       button?.onPress?.();
     }
 
+    it('uses singular "expense" (not "expenses") when the group has exactly one', () => {
+      const groupWithOneExpense: Group = {
+        ...baseGroup,
+        _count: { expenses: 1, members: 2 },
+      } as Group;
+      const { container } = render(
+        <EditGroupModal visible group={groupWithOneExpense} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Delete Group',
+        expect.stringContaining('This group has 1 expense.'),
+        expect.anything()
+      );
+    });
+
     it('warns about existing expenses before deleting a group that has them', async () => {
       mockDeleteGroup.mockResolvedValue({ ...baseGroup, isActive: false });
       const groupWithExpenses: Group = {

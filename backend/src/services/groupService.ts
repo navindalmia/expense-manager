@@ -773,13 +773,13 @@ export async function deactivateGroup(
     const group = await prisma.group.findUnique({ where: { id: groupId } });
 
     if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
+      throw new AppError('GROUP.NOT_FOUND', 404, 'GROUP_NOT_FOUND', { groupId });
     }
 
     // Only creator can delete
     if (group.createdById !== requestorId) {
       throw new AppError(
-        'Unauthorized: Only group creator can delete group',
+        'GROUP.DELETE_UNAUTHORIZED',
         403,
         'GROUP_UNAUTHORIZED',
         { groupId, requestorId }
@@ -796,7 +796,7 @@ export async function deactivateGroup(
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError('Failed to delete group', 500, 'DELETE_GROUP_ERROR');
+    throw new AppError('GROUP.DELETE_FAILED', 500, 'DELETE_GROUP_ERROR');
   }
 }
 

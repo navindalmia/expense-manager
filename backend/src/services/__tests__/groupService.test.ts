@@ -412,8 +412,12 @@ describe('GroupService', () => {
     it('throws when called by a non-creator member', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
 
+      // messageKey is now a real i18n key (GROUP.DELETE_UNAUTHORIZED), not a
+      // literal English sentence -- see docs/solutions for the AppError/
+      // i18n-key fix this replaced a raw Error, then an untranslated
+      // literal string, with.
       await expect(groupService.deactivateGroup(1, MEMBER_ID)).rejects.toThrow(
-        'Unauthorized: Only group creator can delete group'
+        'GROUP.DELETE_UNAUTHORIZED'
       );
       expect(prisma.group.update).not.toHaveBeenCalled();
     });

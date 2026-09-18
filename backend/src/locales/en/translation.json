@@ -39,6 +39,9 @@
     "NAME_REQUIRED": "Group name is required.",
     "NAME_TOO_LONG": "Group name must be less than 100 characters.",
     "CURRENCY_NOT_FOUND": "Selected currency is not available.",
-    "CREATION_FAILED": "Failed to create group."
+    "CREATION_FAILED": "Failed to create group.",
+    "NOT_FOUND": "Group not found.",
+    "DELETE_UNAUTHORIZED": "Only the group creator can delete this group.",
+    "DELETE_FAILED": "Failed to delete group."
   }
 }
