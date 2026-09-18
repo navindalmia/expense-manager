@@ -59,5 +59,12 @@ describe('GroupService API', () => {
 
       expect(http.patch).toHaveBeenCalledWith('/groups/7', { name: 'New Name' });
     });
+
+    it('should propagate rejection when http.patch fails', async () => {
+      const error = new Error('Group not found');
+      (http.patch as ReturnType<typeof vi.fn>).mockRejectedValue(error);
+
+      await expect(updateGroup(999, { name: 'X' })).rejects.toThrow('Group not found');
+    });
   });
 });
