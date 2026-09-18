@@ -76,8 +76,11 @@ export async function getGroup(groupId: number): Promise<Group> {
  * @returns Updated group
  */
 export async function updateGroup(groupId: number, data: UpdateGroupDTO): Promise<Group> {
-  const response = await http.patch<Group>(`/groups/${groupId}`, data);
-  return response.data;
+  const response = await http.patch<{ success: boolean; data: Group; message: string }>(
+    `/groups/${groupId}`,
+    data
+  );
+  return response.data.data;
 }
 
 /**
