@@ -4,7 +4,7 @@ A multilingual, mobile-first expense splitting and settlement app. Built for gro
 
 **Stack:** React Native (Expo) · Express 5 · TypeScript · PostgreSQL · Prisma · SendGrid · JWT  
 **Target platforms:** iOS, Android, Web (via Expo)  
-**Deployment target:** Azure (Container Apps + Static Web Apps + PostgreSQL)
+**Deployment target:** Render (backend) + Neon (Postgres) + EAS (mobile builds) — live since 2026-08-01, see README.md. Azure (Container Apps + Static Web Apps + PostgreSQL, Phase 7 below) was the original long-term target; deferred indefinitely 2026-08-01 in favor of the free-tier stack actually in use.
 
 ---
 
@@ -139,7 +139,7 @@ The app works but has known gaps that must close before production.
 
 ---
 
-## 🚀 Phase 7 — Deployment (Planned)
+## 🚀 Phase 7 — Deployment (Superseded by live Render+Neon+EAS deployment — see README.md and the top-of-file Deployment target note. This section is the original Azure plan, kept for reference; not current state.)
 
 ### Infrastructure (Azure Free Tier → Pay-as-you-go)
 | Component | Service |
@@ -151,12 +151,12 @@ The app works but has known gaps that must close before production.
 | Secrets | Azure Key Vault |
 | Monitoring | Azure Application Insights |
 
-### CI/CD (GitHub Actions)
-- [ ] On PR: TypeScript check + full test suite
-- [ ] On merge to `main`: build + deploy backend container
-- [ ] On merge to `main`: build + deploy Expo web frontend
+### CI/CD (GitHub Actions) — done, but for the Render/Neon stack, not Azure containers
+- [x] On PR: TypeScript check + full test suite (`backend-test`/`frontend-test`, required checks since 2026-08-22)
+- [x] On merge to `master`: deploy backend (`deploy-backend` job → Render, gated on tests passing, since 2026-08-22)
+- [ ] On merge to `master`: build + deploy Expo web frontend (not done — no web deployment target exists yet)
 - [ ] Separate staging and production environments
-- [ ] Database migration step in deploy pipeline (not manual)
+- [ ] Database migration step in deploy pipeline (currently manual against Neon)
 
 ### Mobile App Distribution
 - [ ] Expo EAS Build for iOS and Android
@@ -176,7 +176,7 @@ These are desirable but not on the critical path:
 | Live currency exchange rates | Integrate open exchange rates API |
 | Receipt photo attachments | Azure Blob Storage |
 | Push notifications | Expo Notifications — settlement reminders |
-| **Intelligence layer (infra) — requirements plan exists** | Themes (reusable, editable, links groups across time), user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete/prefill (global, fuzzy-match past expenses), keyword-dictionary category auto-suggestion for new titles. Explicitly infra-first — no dashboard/Q&A UI built by this item. Full spec, decided trade-offs, and rejected alternatives: [`docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md`](docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md). **Blocked until the CI/Maestro plan (Phase 7 CI/CD, U3–U6) is finished first** — see PROJECT_MEMORY/01-MASTER_STATE.md. |
+| **Intelligence layer (infra) — 🟢 IMPLEMENTED + REAL E2E-VERIFIED 2026-09-14, NOT YET MERGED** | Themes (reusable, editable, links groups across time), user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete/prefill (global, fuzzy-match past expenses), keyword-dictionary category auto-suggestion for new titles. Explicitly infra-first — no dashboard/Q&A UI built by this item. Plan: [`docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md`](docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md). **Branch `feat/intelligence-layer-themes-labels-autocomplete`, not yet merged.** All 10 units done, `tsc` clean both sides, full backend (413 tests) + frontend (157 tests) unit suites green. **Real E2E now exists and passed** (`e2e/intelligence-layer.spec.ts`, Playwright against a live backend+Postgres+rendered web app, run 3x back-to-back clean) — the "not yet verified live" gap noted earlier is closed for this feature. **Still open:** (1) not wired into CI (needs the real stack running — a next step, not done); (2) PR not opened, branch not merged; (3) `fuzzyMatch.ts`'s token-overlap scoring gives any shared word — including bare stopwords like "to"/"the" — a nonzero match score with no minimum threshold, confirmed live against the real `/suggest` endpoint during E2E work; flagged to Navin, not yet fixed (his call — a matching-quality/UX threshold decision, not a clear bug). |
 | Dashboard analytics (settlement/KPI view) | Spending by category, per-person balance trends, settlement status — over time, across the Themes above once they exist. A concrete candidate: per-person balance trend, total-spend + category breakdown, settlement-status-per-month, discussed but deliberately deferred during the intelligence-layer brainstorm above. |
 | Recurring expenses — **superseded by intelligence layer above**, not built as scheduled auto-generation | Explored as a theme-scheduled background job that auto-drafts an expense for review on a fixed date each month; rejected in favor of the simpler autocomplete-prefill mechanism (see plan above, KTD1). May be revisited as a real enhancement once autocomplete is live and missed-entry frequency is known. |
 | Export to CSV/PDF | For tax or record keeping |

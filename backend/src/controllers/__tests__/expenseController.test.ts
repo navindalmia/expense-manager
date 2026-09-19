@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { createExpense, getExpenses, deleteExpense } from '../expenseController';
+import { createExpense, getExpenses, deleteExpense, suggestExpenses } from '../expenseController';
 import prisma from '../../lib/prisma';
 import * as expenseService from '../../services/expenseService';
 
@@ -321,6 +321,96 @@ describe('Expense Controller', () => {
       await expect(getExpenses(req as Request, res as Response)).rejects.toThrow(
         'Database error'
       );
+    });
+  });
+
+  describe('GET /api/expenses/suggest', () => {
+    it('should return matches and a null categorySuggestion when matches are found', async () => {
+      req.query = { title: 'Fuel' };
+      const mockMatches = [{ expenseId: 1, title: 'Fuel', amount: 45, categoryId: 3, splitWithIds: [1, 2] }];
+      (expenseService.findSimilarExpenses as jest.Mock).mockResolvedValue(mockMatches);
+      (expenseService.suggestCategoryForTitle as jest.Mock).mockResolvedValue({ categoryId: 3, code: 'TRAVEL' });
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(200);
+      expect(jsonData).toEqual({
+        statusCode: 200,
+        data: { matches: mockMatches, categorySuggestion: null },
+      });
+      // Dictionary suggestion is R8's "no match" fallback -- must not run
+      // when autocomplete already found something.
+      expect(expenseService.suggestCategoryForTitle).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to a category suggestion only when no matches are found', async () => {
+      req.query = { title: 'Gas station fill-up' };
+      (expenseService.findSimilarExpenses as jest.Mock).mockResolvedValue([]);
+      (expenseService.suggestCategoryForTitle as jest.Mock).mockResolvedValue({ categoryId: 3, code: 'TRAVEL' });
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(200);
+      expect(jsonData).toEqual({
+        statusCode: 200,
+        data: { matches: [], categorySuggestion: { categoryId: 3, code: 'TRAVEL' } },
+      });
+      expect(expenseService.suggestCategoryForTitle).toHaveBeenCalledWith(1, 'Gas station fill-up');
+    });
+
+    it('should still return matches with a null categorySuggestion when the category-suggestion lookup fails (non-critical, must not fail the whole request)', async () => {
+      req.query = { title: 'Gas station fill-up' };
+      (expenseService.findSimilarExpenses as jest.Mock).mockResolvedValue([]);
+      (expenseService.suggestCategoryForTitle as jest.Mock).mockRejectedValue(new Error('DB error'));
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(200);
+      expect(jsonData).toEqual({
+        statusCode: 200,
+        data: { matches: [], categorySuggestion: null },
+      });
+    });
+
+    it('should reject a missing title query param with a 400 validation error', async () => {
+      req.query = {};
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(400);
+      expect(jsonData).toEqual(
+        expect.objectContaining({ statusCode: 400, error: 'Validation error' })
+      );
+      expect(expenseService.findSimilarExpenses).not.toHaveBeenCalled();
+    });
+
+    it('should reject an empty title query param with a 400 validation error', async () => {
+      req.query = { title: '' };
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(400);
+      expect(expenseService.findSimilarExpenses).not.toHaveBeenCalled();
+    });
+
+    it('should forward service errors to next() when provided', async () => {
+      req.query = { title: 'Fuel' };
+      const next: NextFunction = jest.fn();
+      (expenseService.findSimilarExpenses as jest.Mock).mockRejectedValue(new Error('DB error'));
+
+      await suggestExpenses(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it('should handle service errors with a 500 response when next is not provided (test mode)', async () => {
+      req.query = { title: 'Fuel' };
+      (expenseService.findSimilarExpenses as jest.Mock).mockRejectedValue(new Error('DB error'));
+
+      await suggestExpenses(req as Request, res as Response);
+
+      expect(statusCode).toBe(500);
+      expect(jsonData).toEqual(expect.objectContaining({ statusCode: 500, error: 'DB error' }));
     });
   });
 

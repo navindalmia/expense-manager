@@ -12,6 +12,7 @@ export const createExpenseSchema = z.object({
 
   paidById: z.number().int().positive("Invalid payer ID"),
   categoryId: z.number().int().positive("Invalid category ID"),
+  labelId: z.number().int().positive("Invalid label ID").optional(),
   splitWithIds: z.array(z.number().int().positive()).optional().default([]),
   splitAmount: z.array(z.number().positive()).optional().default([]),
   splitPercentage: z.array(z.number().positive()).optional().default([]),
@@ -19,6 +20,7 @@ export const createExpenseSchema = z.object({
   expenseDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format",
   }),
+  suggestedCategoryId: z.number().int().positive("Invalid suggested category ID").optional(),
 });
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
@@ -33,6 +35,7 @@ export const updateExpenseSchema = z.object({
   splitType: z.enum(Object.values(SplitType) as [string, ...string[]]).optional(),
   paidById: z.number().int().positive("Invalid payer ID").optional(),
   categoryId: z.number().int().positive("Invalid category ID").optional(),
+  labelId: z.number().int().positive("Invalid label ID").optional(),
   splitWithIds: z.array(z.number().int().positive()).optional(),
   splitAmount: z.array(z.number().positive()).optional(),
   splitPercentage: z.array(z.number().positive()).optional(),
@@ -43,3 +46,12 @@ export const updateExpenseSchema = z.object({
 });
 
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
+
+/**
+ * Schema for the expense-title autocomplete search query param (U5, R5).
+ */
+export const suggestQuerySchema = z.object({
+  title: z.string().min(1, "Title is required").max(200, "Title is too long"),
+});
+
+export type SuggestQueryInput = z.infer<typeof suggestQuerySchema>;

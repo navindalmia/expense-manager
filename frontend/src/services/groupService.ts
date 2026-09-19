@@ -19,6 +19,10 @@ export interface Group {
     code: string;
     label: string;
   };
+  theme?: {
+    id: number;
+    name: string;
+  } | null;
   totalAmount: number;
   userPersonalTotal: number;
   createdBy: {
@@ -47,6 +51,7 @@ export interface UpdateGroupDTO {
   name?: string;
   description?: string;
   currency?: string;
+  themeId?: number;
 }
 
 /**

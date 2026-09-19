@@ -216,15 +216,26 @@ function HomeScreen({ navigation }: Props) {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          onPress={logout}
-          style={{ marginRight: 16 }}
-          testID="home-logout-button"
-        >
-          <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
-            Logout
-          </Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ManageLabels')}
+            style={{ marginRight: 16 }}
+            testID="home-manage-labels-button"
+          >
+            <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
+              Labels
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={logout}
+            style={{ marginRight: 16 }}
+            testID="home-logout-button"
+          >
+            <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
+              Logout
+            </Text>
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [navigation, logout]);

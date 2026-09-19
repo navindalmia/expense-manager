@@ -11,6 +11,7 @@ export interface FormState {
   title: string;
   amount: string;
   category: number | null;
+  labelId: number | null;
   paidById: number | null;
   notes: string;
   date: string;
@@ -46,6 +47,7 @@ export function useExpenseForm(initialExpense?: Expense | null): UseExpenseFormR
     title: initialExpense?.title || '',
     amount: initialExpense?.amount.toString() || '',
     category: initialExpense?.categoryId || null,
+    labelId: initialExpense?.labelId || null,
     paidById: initialExpense?.paidById || null,
     notes: initialExpense?.notes || '',
     date: initialExpense?.expenseDate.split('T')[0] || getTodayDate(),
@@ -88,6 +90,7 @@ export function useExpenseForm(initialExpense?: Expense | null): UseExpenseFormR
       title: expense.title,
       amount: expense.amount.toString(),
       category: expense.categoryId,
+      labelId: expense.labelId || null,
       paidById: expense.paidById,
       notes: expense.notes || '',
       date: dateStr,

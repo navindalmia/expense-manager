@@ -1,7 +1,7 @@
 // src/controllers/expenseController.ts
 import { Request, Response, NextFunction } from "express";
 import * as expenseService from "../services/expenseService";
-import { createExpenseSchema, updateExpenseSchema } from "../schemas/expenseSchema";
+import { createExpenseSchema, updateExpenseSchema, suggestQuerySchema } from "../schemas/expenseSchema";
 import { SplitType } from "@prisma/client";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
@@ -65,6 +65,68 @@ export async function getGroupExpenses(req: Request, res: Response) {
     }
     console.error('Failed to fetch group expenses:', err);
     throw new AppError('Failed to fetch expenses', 500, 'FETCH_ERROR', { error: err });
+  }
+}
+
+/**
+ * Search past expenses by title for autocomplete/prefill
+ * GET /api/expenses/suggest?title=...
+ *
+ * Fuzzy-matches the query against the user's own past expenses, globally
+ * across all their groups (R5, KTD4).
+ *
+ * Authenticated: Yes (requires JWT)
+ * Response: { statusCode: 200, data: SimilarExpenseMatch[] }
+ *
+ * Error Codes:
+ * - 400: Missing or invalid title query param
+ * - 500: Internal server error
+ */
+export async function suggestExpenses(req: Request, res: Response, next?: NextFunction) {
+  try {
+    const { title } = suggestQuerySchema.parse(req.query);
+    const userId = req.user!.id;
+
+    const matches = await expenseService.findSimilarExpenses(userId, title);
+
+    // Dictionary category suggestion only fires when autocomplete found
+    // nothing (R8's trigger condition -- see U6's Approach). It's a
+    // non-critical enhancement on top of the (already-succeeded) title
+    // match lookup, so its own failure must not fail the whole request --
+    // fall back to no suggestion instead of a 500.
+    let categorySuggestion = null;
+    if (matches.length === 0) {
+      try {
+        categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title);
+      } catch (suggestionError) {
+        console.error('Failed to compute category suggestion (non-fatal):', suggestionError);
+      }
+    }
+
+    res.status(200).json({
+      statusCode: 200,
+      data: { matches, categorySuggestion },
+    });
+  } catch (err) {
+    if (next) {
+      if (err instanceof ZodError) {
+        return next(new AppError('VALIDATION.ERROR', 400, 'VALIDATION_ERROR', { fields: err.issues }));
+      }
+      next(err);
+    } else {
+      if (err instanceof ZodError) {
+        return res.status(400).json({
+          statusCode: 400,
+          error: 'Validation error',
+          details: err.issues,
+        });
+      }
+      console.error(err);
+      return res.status(500).json({
+        statusCode: 500,
+        error: err instanceof Error ? err.message : 'Failed to search expenses',
+      });
+    }
   }
 }
 

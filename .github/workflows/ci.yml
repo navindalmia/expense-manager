@@ -199,7 +199,10 @@ jobs:
             -d '{"email":"test@test.com","password":"Test1234!","name":"QA Test User"}')
           TOKEN=$(echo "$SIGNUP" | jq -r '.data.token')
           USER_ID=$(echo "$SIGNUP" | jq -r '.data.user.id')
-          CATEGORY_ID=$(curl -sf http://localhost:4000/api/categories | jq -r '.data[] | select(.code=="FOOD") | .id')
+          # GET /api/categories now requires auth (this branch made categories
+          # user-extensible - see backend/src/routes/categoryRoutes.ts) - found
+          # 2026-09-17 when this call was 401ing under `set -e` with no token attached.
+          CATEGORY_ID=$(curl -sf -H "Authorization: Bearer $TOKEN" http://localhost:4000/api/categories | jq -r '.data[] | select(.code=="FOOD") | .id')
           GROUP=$(curl -sf -X POST http://localhost:4000/api/groups \
             -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
             -d '{"name":"QA Test Group","currency":"GBP"}')
@@ -323,3 +326,142 @@ jobs:
       - name: Stop backend server
         if: always()
         run: kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
+
+  e2e-web:
+    # Runs the real Playwright spec at e2e/intelligence-layer.spec.ts (added
+    # 2026-09-14, see PROJECT_MEMORY/05-QUALITY_STANDARDS.md's "real E2E
+    # coverage required" rule) against a genuinely live stack: real Postgres,
+    # a real backend on :4000, and a real Expo *web* build on :8081 - no
+    # mocks. This is the web counterpart to e2e-mobile (which drives an
+    # Android emulator instead); the two are independent and don't share
+    # setup because playwright.config.ts deliberately does not start its own
+    # webServer processes (see that file) - it expects backend + Expo web to
+    # already be running, same as a local run would need.
+    #
+    # Does NOT depend on backend-test/frontend-test (runs in parallel), same
+    # as e2e-mobile.
+    #
+    # Do NOT add this as a required branch-protection check without first
+    # confirming it's stable over multiple real runs. docs/solutions/
+    # build-errors/e2e-mobile-ci-hang-and-cascading-fixes.md documents a
+    # concrete case (e2e-mobile) where a new CI job was mistakenly
+    # recommended as a required check before its flakiness was understood
+    # and bounded, which would have blocked every future PR whenever an
+    # unrelated infra issue fired regardless of code health. This job is
+    # new and has not yet accumulated that track record.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: expense_manager_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/expense_manager_ci
+      JWT_SECRET: ci-e2e-test-secret-key-not-for-production-use-only-32chars
+      JWT_EXPIRES_IN: 24h
+      NODE_ENV: development
+      APP_FRONTEND_URL: http://localhost:8081
+      APP_SCHEME: expensemanager://
+      APP_NAME: Expense Manager
+      PORT: 4000
+      # Same rationale as e2e-mobile: the spec's login flow needs
+      # test@test.com to be usable immediately after signup, and there's no
+      # email-verification-completion flow wired into CI. Matches the app's
+      # actual live config (set 2026-08-16).
+      REQUIRE_EMAIL_VERIFICATION: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+            package-lock.json
+      - name: Install root dependencies (Playwright)
+        run: npm ci
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+      - name: Run backend migrations
+        working-directory: backend
+        run: npx prisma migrate deploy
+      - name: Seed reference data (currencies & categories)
+        working-directory: backend
+        run: npm run seed
+      - name: Start backend server
+        working-directory: backend
+        run: |
+          npm run dev &
+          echo $! > /tmp/backend.pid
+          npx wait-on tcp:4000 --timeout 60000
+      - name: Seed E2E test user (test@test.com)
+        # prisma/seed.ts deliberately skips user creation ("create via
+        # signup flow" - see backend/prisma/seed.ts) - a freshly migrated CI
+        # database has no users, so the spec's login() helper has nothing to
+        # authenticate against unless this creates it first. Built through
+        # the real signup API, same approach e2e-mobile uses for its own QA
+        # user, rather than a direct Prisma insert. REQUIRE_EMAIL_VERIFICATION
+        # is false above, so the account is usable immediately after signup
+        # with no separate verification step.
+        run: |
+          # name must not contain digits - signupSchema's name regex
+          # (backend/src/schemas/authSchema.ts) is letters/spaces/'/- only, and
+          # "E2E" itself contains a digit ("2"), so this 400'd under `-sf` with
+          # no visible body. Found 2026-09-17 root-causing this job's failure.
+          curl -sf -X POST http://localhost:4000/api/auth/signup \
+            -H "Content-Type: application/json" \
+            -d '{"email":"test@test.com","password":"Test1234!","name":"Web Test User"}' \
+            > /dev/null
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Point Expo web at the local backend, not the Android emulator alias
+        # frontend/.env.development ships EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:4000/api
+        # (the Android emulator's host alias, per frontend/ENVIRONMENT_SETUP.md) -
+        # wrong for a real Chromium web build, which needs plain localhost.
+        # A job-level `env:` var here does NOT work: confirmed by inspecting the
+        # actual Metro web bundle (2026-09-17) that expo/virtual/env.js builds
+        # EXPO_PUBLIC_* values by re-parsing the .env* files directly and
+        # object-spreading them together - it never reads process.env, so nothing
+        # set at the job/step level can reach it. frontend/.env.development.local
+        # is the only override Expo's own documented precedence chain
+        # (.env.development.local > .env.local > .env.development) actually
+        # honors, and .env*.local is gitignored so this never risks a commit.
+        working-directory: frontend
+        run: echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:4000/api" > .env.development.local
+      - name: Start Expo web
+        working-directory: frontend
+        run: |
+          npx expo start --web &
+          echo $! > /tmp/expo.pid
+          npx wait-on http://localhost:8081 --timeout 120000
+      - name: Run Playwright E2E tests
+        run: npx playwright test e2e/intelligence-layer.spec.ts
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: Stop background servers
+        if: always()
+        run: |
+          kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/expo.pid)" 2>/dev/null || true

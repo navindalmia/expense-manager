@@ -12,13 +12,28 @@
     "NOT_FOUND": "Expense not found.",
     "CREATION_FAILED": "Failed to create expense.",
     "FETCH_FAILED": "Failed to fetch expenses.",
-    "DELETE_FAILED": "Failed to delete expense."
+    "DELETE_FAILED": "Failed to delete expense.",
+    "SUGGEST_FAILED": "Failed to search similar expenses.",
+    "SUGGEST_CATEGORY_FAILED": "Failed to suggest a category."
   },
   "USER": {
     "NOT_FOUND": "User not found."
   },
   "CATEGORY": {
-    "NOT_FOUND": "Category not found."
+    "NOT_FOUND": "Category not found.",
+    "LABEL_REQUIRED": "Category label is required.",
+    "ALREADY_DISABLED": "Category is already disabled.",
+    "NOT_OWNER": "You can only disable a category you created."
+  },
+  "THEME": {
+    "NOT_FOUND": "Theme not found.",
+    "ALREADY_DISABLED": "Theme is already disabled.",
+    "NOT_OWNER": "You can only rename or disable a theme you created."
+  },
+  "LABEL": {
+    "NOT_FOUND": "Label not found.",
+    "ALREADY_DISABLED": "Label is already disabled.",
+    "NOT_OWNER": "You can only disable a label you created."
   },
   "GROUP": {
     "NAME_REQUIRED": "Group name is required.",

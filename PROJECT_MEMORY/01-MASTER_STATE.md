@@ -4,17 +4,13 @@
 
 ## Snapshot
 
-**Version:** v0.4.0-beta — not yet production-deployed.
+**Version:** v0.4.0-beta — auth, groups, expense CRUD, splits, settlement all stable end-to-end on mobile. Live deployment: Render (backend) + Neon (Postgres) + EAS (mobile builds), since 2026-08-01. No web deployment target yet.
 
-**Stable and working end-to-end (mobile, Expo Go):** auth, groups, expense CRUD, splits (EQUAL/AMOUNT/PERCENTAGE), settlement summaries.
+**CI/CD:** real GitHub Actions CI is live on `master` — `backend-test`/`frontend-test` required checks, `deploy-backend` gated on both passing. `e2e-mobile` (Maestro, Android emulator, 3 flows: login/group-list/expense-list) is live and running, not disabled — confirmed 2026-09-14 by reading `ci.yml` directly (an earlier version of this file wrongly said it was hard-disabled; that was stale as of 2026-09-02's PR #29).
 
-**Known broken (low priority):** web email-verification deep link (`/verify-email?token=...` falls back silently to Login instead of verifying) — only matters if `REQUIRE_EMAIL_VERIFICATION` is ever set `true` in production; signup/login already skip verification cleanly when it's `false` (fixed 2026-08-16, commit `421c575`). See ROADMAP Phase 4/5d.
+**Known broken (low priority):** web email-verification deep link (`/verify-email?token=...` falls back silently to Login) — only matters if `REQUIRE_EMAIL_VERIFICATION` is ever `true` in production; it's `false` live, so this doesn't block real users. See ROADMAP Phase 4/5d.
 
-**Test suites:** priority coverage (authorization, security middleware, key screens) merged long ago (PR #1). Real CI is live on `master` (GitHub Actions, `backend-test`/`frontend-test` required checks, branch protection enforced) since 2026-08-22.
-
-**⚠️ PRIORITY, blocks new feature work (set 2026-08-31): finish `docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md` (U3–U6) before starting anything else.** PR #9 for this plan merged 2026-08-31, but the merge only closed the PR — it did **not** mean the plan's units were done; U1/U2/U7 are complete, U3 (Maestro flow repair) is partial and never verified end-to-end against a real Android build, and **U4 (visual-regression baselines), U5 (accessibility assertions), and U6 (wiring Maestro into CI as an enforced gate) were never started at all** — `ci.yml`'s `e2e-mobile` job is still hard-disabled (`if: false`). Explicit user instruction: complete this plan before picking up any new feature (including the intelligence-layer plan below). Do not treat "PR merged" as "plan done" again — check the plan's own unit list, not just PR/merge state.
-
-**Next candidate work (parked until the above is done):** `docs/plans/2026-08-31-001-feat-intelligence-layer-themes-labels-autocomplete-plan.md` — requirements-only, not yet planned/implemented. Themes, extensible Categories, cross-group Labels, expense-title autocomplete, keyword-based category auto-suggestion. Explicitly infra-first; a settlement/KPI dashboard and NL expense Q&A (Phase 8) are deferred future consumers of this, not built here.
+**In progress, not yet merged:** `feat/intelligence-layer-themes-labels-autocomplete` branch — Themes, user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete, keyword-dictionary category suggestion. All 10 implementation units done, backend (413 tests) + frontend (157 tests) unit suites green, `tsc` clean both sides, and — as of 2026-09-14 — genuinely verified with a real Playwright E2E test against a live backend+Postgres+rendered web app (not just mocks), run 3x clean. Not yet wired into CI, no PR opened yet. See ROADMAP's Phase 8 entry for full detail and the two items still open (CI wiring, a flagged `fuzzyMatch.ts` matching-quality question for Navin).
 
 Full list of open gaps, bugs, and planned phases: [`ROADMAP.md`](../ROADMAP.md).
 

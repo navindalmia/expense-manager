@@ -118,17 +118,21 @@ CE's `security-reviewer` persona already hunts injection, auth/authz bypass, sec
 - Tests exist for new/changed code; happy path + error cases + edge cases covered
 - No hardcoded delays/sleeps; tests independent of execution order; descriptive names (`should X when Y`, not `test create`)
 - Specific untested branches that matter (new error paths, lifecycle guards, early returns) — not aggregate coverage percentages
+- **User-facing/UI changes have real E2E coverage** (a Maestro flow, or an integration test against a real running backend+DB) — mocked unit/component tests alone don't prove a user-facing feature works end-to-end
+- **Bug fixes show red-before-green evidence** — the regression test was confirmed failing against the pre-fix code before the fix, not just "tests pass now"; note explicitly if this step was skipped
 
 **Verdict format:** ✅ APPROVED or ❌ FAILED with specific file:line evidence per failure — same as the old review template, still expected from `/ce-code-review`.
 
-## Workflow (Compound Engineering)
+## Workflow (Compound Engineering) — MANDATORY, not optional guidance
 
-This repo's development process is driven by the [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin), not a hand-rolled phase system. Use its stages in order:
+This repo's development process is driven by the [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin), not a hand-rolled phase system. These four stages are the required sequence for any non-trivial change — "non-trivial" means more than a one-line typo/config/rename fix. Skipping a stage is a process failure to disclose, not a shortcut to take silently:
 
-1. `/ce-brainstorm` / `/ce-plan` — think before building
+1. `/ce-brainstorm` / `/ce-plan` — think before building. Required before starting implementation on anything with real scope ambiguity or architectural weight; a small, well-specified fix can skip straight to `/ce-work`, but say so rather than defaulting to skip.
 2. `/ce-work` — implement (still must pass `npx tsc --noEmit` and ship tests with the code, per Coding Rules above)
-3. `/ce-code-review` — independent review; must pass before commit
-4. `/ce-compound` — after solving anything non-trivial, capture the solution to `docs/solutions/` so future runs don't re-investigate it
+3. `/ce-code-review` — the *real* skill, dispatched every time, even under time pressure or on a diff you've already manually tested. A self-review is never a substitute — it lacks the specialist reviewer roster (security, testing, maintainability, adversarial) the real skill runs. Two mechanical rules from this stage are now hard-enforced by `.claude/hooks/pre-commit-quality-gate.js` (real E2E coverage for UI changes, a regression test for bug-fix commits) — but the review *itself* still has to actually run; the hook only checks its two narrowest, most mechanically-checkable outputs, not that the review happened.
+4. `/ce-compound` — after solving anything non-trivial, capture the solution to `docs/solutions/` so future runs don't re-investigate it. This has been skipped in past sessions under momentum/time pressure (see `docs/solutions/` history) — treat "I just fixed something real" as the trigger to run it before moving on, not an optional cleanup step for later.
+
+**What's mechanically enforced vs. what still depends on judgment:** `npx tsc --noEmit` passing, real E2E coverage for UI-touching commits, and a test alongside `fix(...)` commits are hard-blocked by pre-commit hooks (`.claude/hooks/pre-commit-gate.js`, `.claude/hooks/pre-commit-quality-gate.js`) — a commit violating these cannot land without an explicit `E2E-Exempt:`/`Test-Exempt:` trailer. Whether `/ce-brainstorm`/`/ce-plan` happened, whether `/ce-code-review` was genuinely dispatched (not simulated), and whether `/ce-compound` ran after a real fix are **not** detectable from a git diff and cannot be hooked the same way — these remain self-discipline, which is exactly why they're stated as mandatory here rather than left implicit.
 
 `docs/solutions/` is the project's institutional memory (read by future `/ce-plan`, `/ce-ideate`, `/ce-debug`, `/ce-work` runs) — it lives in the repo, so it travels with the codebase across machines. `PROJECT_MEMORY/01-MASTER_STATE.md` is a separate, human-curated status summary — update it at feature boundaries, not continuously.
 
