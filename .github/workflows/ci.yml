@@ -6,6 +6,61 @@ on:
     branches: [master]
 
 jobs:
+  principles-audit:
+    # PR-level backstop for the local .claude/hooks/pre-commit-quality-gate.js
+    # rules (fix/feat-needs-test, UI-needs-visual-regression, UI-needs-real-E2E).
+    # The local hook only fires in a session that has it installed and can be
+    # bypassed with --no-verify or an environment where it was never wired up
+    # (this repo's own cloud sandbox sessions have hit exactly that gap - see
+    # docs/plans/2026-09-17-overnight-bugfix-log.md). This job re-checks the
+    # same rules over the PR's *full* commit range, not just the latest commit,
+    # and posts a summary comment listing every exempt trailer used so a human
+    # reviewer sees the full accountability trail. It fails only on an
+    # unexempted violation - a Test-Exempt/E2E-Exempt/Visual-Regression-Exempt
+    # trailer is a legitimate, deliberate escape hatch, not something to block on.
+    #
+    # Deliberately does NOT check whether /ce-brainstorm, /ce-plan,
+    # /ce-code-review, or /ce-compound actually ran - none of that is
+    # detectable from a git diff, and CLAUDE.md explicitly declines to build a
+    # "blunt mechanical proxy" for it.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run audit script's own unit tests
+        run: |
+          node --test .claude/hooks/__tests__/pre-commit-quality-gate.test.js
+          node --test .claude/scripts/__tests__/audit-pr-principles.test.js
+      - name: Audit PR commit range against repo principles
+        id: audit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          AUDIT_SUMMARY_FILE=/tmp/principles-audit-summary.md \
+            node .claude/scripts/audit-pr-principles.js "$BASE_SHA" "$HEAD_SHA"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+      - name: Post summary comment on the PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" --body-file /tmp/principles-audit-summary.md \
+            --repo "${{ github.repository }}"
+      - name: Fail the job if any unexempted violation was found
+        if: steps.audit.outputs.exit_code != '0'
+        run: exit 1
+
   backend-test:
     runs-on: ubuntu-latest
     services:
