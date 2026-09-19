@@ -59,8 +59,8 @@ export interface UpdateGroupDTO {
  * GET /api/groups
  */
 export async function getGroups(): Promise<Group[]> {
-  const response = await http.get<Group[]>('/groups');
-  return response.data;
+  const response = await http.get<{ success: boolean; data: Group[]; count: number }>('/groups');
+  return response.data.data;
 }
 
 /**
