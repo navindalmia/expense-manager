@@ -164,6 +164,24 @@ test('a non-UI, non-fix/feat commit produces no violations and no exemptions', (
   assert.equal(result.exemptions.length, 0);
 });
 
+test('CLI entrypoint still writes AUDIT_SUMMARY_FILE and exits non-zero when the audit itself throws (e.g. an invalid commit range)', () => {
+  const repo = makeRepo();
+  const summaryFile = path.join(os.tmpdir(), `principles-audit-summary-${process.pid}-${Date.now()}.md`);
+  const scriptPath = path.join(__dirname, '..', 'audit-pr-principles.js');
+
+  const result = spawnSync('node', [scriptPath, 'not-a-real-ref', 'also-not-real', repo.dir], {
+    encoding: 'utf8',
+    env: { ...process.env, AUDIT_SUMMARY_FILE: summaryFile },
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.equal(fs.existsSync(summaryFile), true);
+  const summaryContents = fs.readFileSync(summaryFile, 'utf8');
+  assert.match(summaryContents, /Audit script failed to run/);
+
+  fs.rmSync(summaryFile, { force: true });
+});
+
 test('formatSummary lists violations and exemptions by short sha and includes the ce-* disclaimer', () => {
   const commits = [{ sha: 'a'.repeat(40), message: '', files: [] }];
   const violations = [{ sha: 'a'.repeat(40), rule: 'UI change needs a visual-regression baseline', detail: 'x' }];
@@ -178,12 +196,13 @@ test('formatSummary lists violations and exemptions by short sha and includes th
   assert.match(summary, /does not and cannot check whether/);
 });
 
-test('evaluateCommit ignores non-source files under backend\\/ and frontend\\/ for the fix\\/feat-needs-test rule', () => {
+test('evaluateCommit fires the fix/feat-needs-test rule regardless of which files a commit touches, matching the local hook exactly', () => {
   const commit = {
     sha: 'c'.repeat(40),
     message: 'fix(docs): typo',
     files: ['backend/README.md', 'frontend/package.json'],
   };
   const { violations } = evaluateCommit(commit);
-  assert.equal(violations.length, 0);
+  assert.equal(violations.length, 1);
+  assert.match(violations[0].rule, /fix\/feat needs a regression test/);
 });
