@@ -159,4 +159,15 @@ This cloud sandbox has PostgreSQL 16 installed locally (`service postgresql star
 
 **Still open, not started:** #5, #48 (Navin said skip for now, live in this session), #45, #46 (need live/runtime investigation — the local E2E stack set up this session is available for this), plus the newly-filed #59 (partially), #62.
 
-**Local E2E stack status:** still running as of this entry (local Postgres on :5432, backend on :4000, Expo web on :8081, test user `test@test.com`/`Test1234!` seeded) — available for whoever continues with #45/#46 without needing to re-set-up, provided the same sandbox session continues. If a fresh session picks this up, re-follow the "Local E2E environment note" above.
+**Local E2E stack status:** the cloud sandbox this session was running in has since **reset** (confirmed: Postgres down, no backend/Expo processes, only the base environment-manager process alive) — the local stack described above no longer exists and must be fully re-set-up (Postgres start + migrate + seed, backend `npm run dev`, `EXPO_OFFLINE=1 npx expo start --web`, real signup for the test user) by whoever continues with #45/#46, following the "Local E2E environment note" above from scratch.
+
+## Continued — pre-commit-quality-gate.js hook enhanced per Navin's direct request (PR #64)
+
+Navin asked directly, after being told the session's PRs had full functional coverage but zero visual/screenshot regression coverage: "Can u put a hook somewhere appropriate before commit to do these things." Added to `.claude/hooks/pre-commit-quality-gate.js` (branch `chore/hook-visual-regression-and-feat-test-rules`, not tied to a numbered issue — a process/tooling change):
+
+- **New Rule 3:** a commit touching `frontend/src/screens/**/*.tsx` or `frontend/src/components/**/*.tsx` must also touch a `maestro-flows/visual/*.yaml` baseline (this repo's existing `assertScreenshot` mechanism) or carry a `Visual-Regression-Exempt: <reason>` trailer. Deliberately exempt-trailer-based, not a hard block — verifying a baseline needs an Android emulator, unavailable in this same cloud sandbox, so a hard block would fail closed everywhere.
+- **Rule 2 broadened** from `fix(`-only to `fix(`/`feat(` — new features now need a regression test, not just bug fixes.
+- Manually verified all 3 rules' pass/block paths (matching the sibling hook's only prior precedent for verification) — then `/code-review` correctly flagged that as itself a gap (nothing this important should ship with only manual verification), so added `.claude/hooks/__tests__/pre-commit-quality-gate.test.js` (Node's built-in test runner, no new dependency, 8 cases) as a follow-up in the same PR.
+- `/code-review` also caught CLAUDE.md and `PROJECT_MEMORY/05-QUALITY_STANDARDS.md` going stale relative to the new rules — fixed both in the same PR.
+- One finding **not** code-fixed, documented instead: the exempt-trailer approach risks becoming a rubber-stamped habit rather than a genuine decision (same class of risk as the pre-existing `E2E-Exempt:`/`Test-Exempt:` trailers) — `docs/solutions/tooling-decisions/visual-regression-hook-uses-exempt-trailer-not-hard-block.md` written, framed as a known/accepted limitation, not a solved problem.
+- PR: https://github.com/navindalmia/expense-manager/pull/64. Not merged by this session, per the standing rule.
