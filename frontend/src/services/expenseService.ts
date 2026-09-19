@@ -46,6 +46,7 @@ export interface Expense {
   paidBy: User;
   categoryId: number;
   category: Category;
+  labelId?: number | null;
   splitWith: User[];
   splitAmount: number[];
   splitPercentage: number[];
@@ -68,6 +69,7 @@ export interface CreateExpenseDTO {
   currency?: string;
   paidById: number;
   categoryId: number;
+  labelId?: number;
   splitWithIds?: number[];
   splitType?: string;
   splitAmount?: number[];
@@ -85,6 +87,7 @@ export interface UpdateExpenseDTO {
   title?: string;
   amount?: number;
   categoryId?: number;
+  labelId?: number;
   paidById?: number;
   splitWithIds?: number[];
   splitType?: string;
@@ -182,5 +185,40 @@ export async function getExpenseById(expenseId: number): Promise<Expense> {
  */
 export async function updateExpense(expenseId: number, data: UpdateExpenseDTO): Promise<Expense> {
   const response = await http.patch<{ statusCode: number; data: Expense }>(`/expenses/${expenseId}`, data);
+  return response.data.data;
+}
+
+/**
+ * A single fuzzy-matched past expense, with a date-free prefill payload
+ * (U5, AE2 -- the frontend always defaults date to today rather than
+ * reusing the matched expense's date).
+ */
+export interface SuggestedExpenseMatch {
+  expenseId: number;
+  title: string;
+  amount: number;
+  categoryId: number;
+  splitWithIds: number[];
+}
+
+export interface CategorySuggestion {
+  categoryId: number;
+  code: string;
+}
+
+export interface SuggestExpensesResult {
+  matches: SuggestedExpenseMatch[];
+  categorySuggestion: CategorySuggestion | null;
+}
+
+/**
+ * Search past expenses by title for autocomplete/prefill (U5, U6, R5, R8).
+ *
+ * GET /api/expenses/suggest?title=
+ */
+export async function suggestExpenses(title: string): Promise<SuggestExpensesResult> {
+  const response = await http.get<{ statusCode: number; data: SuggestExpensesResult }>('/expenses/suggest', {
+    params: { title },
+  });
   return response.data.data;
 }
