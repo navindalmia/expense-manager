@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Deterministic pre-commit quality gate: enforces two repo testing rules from
+// Deterministic pre-commit quality gate: enforces repo testing rules from
 // CLAUDE.md / PROJECT_MEMORY/05-QUALITY_STANDARDS.md ("Testing — FAIL if any missing"):
 //
 //   Rule 1 (UI-change-needs-E2E): if the staged diff touches
@@ -8,10 +8,26 @@
 //     touch something under e2e/ or maestro-flows/ — OR the commit message must
 //     contain the trailer `E2E-Exempt: <reason>`.
 //
-//   Rule 2 (bug-fix-needs-test): if the commit message starts with `fix(`
-//     (this repo's conventional-commit style), the staged diff must also touch
-//     a test file (__tests__/, e2e/, or *.test.ts(x)) — OR the commit message
-//     must contain the trailer `Test-Exempt: <reason>`.
+//   Rule 2 (fix/feat-needs-test): if the commit message starts with `fix(` or
+//     `feat(` (this repo's conventional-commit style), the staged diff must also
+//     touch a test file (__tests__/, e2e/, or *.test.ts(x)) — OR the commit
+//     message must contain the trailer `Test-Exempt: <reason>`. Originally
+//     `fix(`-only; broadened to `feat(` too so new features get a regression
+//     test the same way bug fixes do, not just an E2E case (Rule 1 already
+//     covers E2E for UI features specifically).
+//
+//   Rule 3 (UI-change-needs-visual-regression-baseline): if the staged diff
+//     touches frontend/src/screens/**/*.tsx or frontend/src/components/**/*.tsx
+//     (same detection as Rule 1), the staged diff must also touch a Maestro
+//     visual-regression flow under maestro-flows/visual/ (this repo's existing
+//     `assertScreenshot` baseline mechanism — see maestro-flows/visual/*.yaml)
+//     — OR the commit message must contain the trailer
+//     `Visual-Regression-Exempt: <reason>`. Deliberately an exempt-trailer
+//     rule, not a hard requirement to add/update a baseline every time: most
+//     dev environments (including this repo's own cloud sandbox sessions)
+//     cannot run the Android-emulator Maestro pipeline that generates/verifies
+//     screenshot baselines at all, so a hard block here would fail closed
+//     everywhere rather than just prompting a deliberate, recorded decision.
 //
 // Mirrors pre-commit-gate.js's style/structure exactly: plain Node, cross-platform,
 // resolves the actual target repo from the git command (not just hook cwd), and
@@ -81,6 +97,10 @@ function isE2eOrMaestroFile(file) {
   return /^e2e\//.test(file) || /^maestro-flows\//.test(file);
 }
 
+function isMaestroVisualFile(file) {
+  return /^maestro-flows\/visual\//.test(file);
+}
+
 function isTestFile(file) {
   return /\/__tests__\//.test(file) || /^e2e\//.test(file) || /\.test\.tsx?$/.test(file);
 }
@@ -118,6 +138,7 @@ if (commitMessage === null) {
 
 const hasE2eExempt = /E2E-Exempt:\s*\S+/.test(commitMessage);
 const hasTestExempt = /Test-Exempt:\s*\S+/.test(commitMessage);
+const hasVisualRegressionExempt = /Visual-Regression-Exempt:\s*\S+/.test(commitMessage);
 
 const blockers = [];
 
@@ -138,19 +159,38 @@ if (touchesScreensOrComponents && !touchesE2eOrMaestro && !hasE2eExempt) {
   );
 }
 
-// Rule 2: bug-fix commits need a regression test.
-const isFixCommit = /^fix\(/.test(commitMessage.trim());
+// Rule 2: fix/feat commits need a regression test.
+const isFixOrFeatCommit = /^(fix|feat)\(/.test(commitMessage.trim());
 const touchesTestFile = stagedFiles.some(isTestFile);
-if (isFixCommit && !touchesTestFile && !hasTestExempt) {
+if (isFixOrFeatCommit && !touchesTestFile && !hasTestExempt) {
   blockers.push(
-    '[pre-commit-quality-gate] BLOCKED (Rule 2: bug-fix needs a regression test)\n' +
-      'This commit message starts with `fix(` but no test file (__tests__/, e2e/, or ' +
+    '[pre-commit-quality-gate] BLOCKED (Rule 2: fix/feat needs a regression test)\n' +
+      'This commit message starts with `fix(` or `feat(` but no test file (__tests__/, e2e/, or ' +
       '*.test.ts(x)) is staged.\n' +
-      'Per CLAUDE.md, bug-fix commits should be paired with a regression test in the same commit.\n\n' +
+      'Per CLAUDE.md, fix and feat commits should be paired with a regression test in the same commit.\n\n' +
       'To proceed:\n' +
-      '  - Stage a regression test alongside the fix, or\n' +
+      '  - Stage a regression test alongside the change, or\n' +
       '  - If a test genuinely cannot be added here, add the trailer `Test-Exempt: <reason>` ' +
       'to the commit message.'
+  );
+}
+
+// Rule 3: UI change needs a visual-regression (screenshot) baseline.
+const touchesMaestroVisual = stagedFiles.some(isMaestroVisualFile);
+if (touchesScreensOrComponents && !touchesMaestroVisual && !hasVisualRegressionExempt) {
+  blockers.push(
+    '[pre-commit-quality-gate] BLOCKED (Rule 3: UI change needs a visual-regression baseline)\n' +
+      'This commit touches frontend/src/screens/** or frontend/src/components/** but no ' +
+      'maestro-flows/visual/*.yaml (this repo\'s `assertScreenshot` pixel-diff baseline) is staged.\n' +
+      'Functional E2E (Rule 1) proves the feature works; it does not catch an unintended visual ' +
+      'change (layout shift, color, spacing) the way a screenshot diff does.\n\n' +
+      'To proceed:\n' +
+      '  - Add or update the relevant maestro-flows/visual/*.yaml baseline (requires an Android ' +
+      'emulator to generate/verify — see docs/solutions/build-errors/e2e-mobile-ci-hang-and-cascading-fixes.md ' +
+      'for this repo\'s Maestro setup), or\n' +
+      '  - If this change genuinely has no visual-regression baseline covering the screen touched, ' +
+      'or a baseline can\'t be verified in this environment (e.g. no emulator access), add the ' +
+      'trailer `Visual-Regression-Exempt: <short reason>` to the commit message.'
   );
 }
 
