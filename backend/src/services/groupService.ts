@@ -12,6 +12,38 @@ import { logger } from '../utils/logger';
 import { assertThemeVisible } from './themeService';
 
 /**
+ * Shared catch-block tail for this file's simplest, most common error
+ * pattern: pass an AppError through unchanged (it already has the right
+ * status/message/code), otherwise wrap anything else in a fallback
+ * AppError. Extracted per issue #62 -- this exact shape was duplicated
+ * verbatim across several functions below.
+ *
+ * Deliberately narrow: only applied to catch blocks whose ENTIRE body was
+ * already this shape (no Prisma-specific branch, no different rethrow
+ * behavior) -- several other catch blocks in this file have real
+ * additional handling (Prisma error mapping, logging with a different
+ * error, a bare rethrow) and were left untouched rather than forced into
+ * this helper, to keep this a pure refactor with no behavior change.
+ * Preserves whatever fallback message string each call site already used
+ * (some are i18n keys like 'GROUP.X', others are raw English) rather than
+ * normalizing them -- that inconsistency is a separate, unfixed issue.
+ */
+function rethrowAsAppError(
+  error: unknown,
+  fallbackMessage: string,
+  fallbackCode: string,
+  options?: { logMessage?: string; logContext?: Record<string, unknown>; metadata?: Record<string, unknown> }
+): never {
+  if (error instanceof AppError) {
+    throw error;
+  }
+  if (options?.logMessage) {
+    logger.error(options.logMessage, error, options.logContext);
+  }
+  throw new AppError(fallbackMessage, 500, fallbackCode, options?.metadata);
+}
+
+/**
  * Expense data from database with required fields for split calculations
  */
 interface ExpenseWithSplit {
@@ -369,10 +401,7 @@ export async function addMemberByEmail(
 
     return { ...updated, addedMember: user };
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to add member to group', 500, 'ADD_MEMBER_ERROR');
+    rethrowAsAppError(error, 'Failed to add member to group', 'ADD_MEMBER_ERROR');
   }
 }
 
@@ -615,20 +644,11 @@ export async function removeMemberFromGroup(
 
     return updated;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    logger.error('Error removing member from group', error, {
-      groupId,
-      memberId,
-      requestorId,
+    rethrowAsAppError(error, 'GROUP.MEMBER_REMOVAL_FAILED', 'MEMBER_REMOVAL_ERROR', {
+      logMessage: 'Error removing member from group',
+      logContext: { groupId, memberId, requestorId },
+      metadata: { error },
     });
-    throw new AppError(
-      'GROUP.MEMBER_REMOVAL_FAILED',
-      500,
-      'MEMBER_REMOVAL_ERROR',
-      { error }
-    );
   }
 }
 
@@ -752,10 +772,7 @@ export async function updateGroup(
 
     return updated;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to update group', 500, 'UPDATE_GROUP_ERROR');
+    rethrowAsAppError(error, 'Failed to update group', 'UPDATE_GROUP_ERROR');
   }
 }
 
@@ -899,9 +916,6 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 
     return expenses;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error; // Re-throw AppError as-is
-    }
-    throw new AppError('Failed to fetch group expenses', 500, 'FETCH_EXPENSES_ERROR');
+    rethrowAsAppError(error, 'Failed to fetch group expenses', 'FETCH_EXPENSES_ERROR');
   }
 }
