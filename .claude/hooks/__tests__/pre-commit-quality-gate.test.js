@@ -136,6 +136,28 @@ test('Rule 2 still blocks a fix( commit with no test file staged (pre-existing b
   assert.match(result.stderr, /Rule 2: fix\/feat needs a regression test/);
 });
 
+test('Rule 4 blocks a screens/*.tsx change that only touches maestro-flows/ (no real e2e/ spec) with no E2E-Exempt trailer', () => {
+  const { dir, run } = makeRepo();
+  fs.appendFileSync(path.join(dir, 'frontend', 'src', 'screens', 'HomeScreen.tsx'), '// change\n');
+  fs.appendFileSync(path.join(dir, 'maestro-flows', 'visual', 'group-list-screen.yaml'), '# updated baseline\n');
+  run(['add', '-A']);
+
+  const result = runHook(dir, 'chore: tweak home screen');
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Rule 4: UI change needs real Playwright E2E/);
+});
+
+test('Rule 4 passes when a real e2e/*.spec.ts file is staged alongside the screen change', () => {
+  const { dir, run } = makeRepo();
+  fs.appendFileSync(path.join(dir, 'frontend', 'src', 'screens', 'HomeScreen.tsx'), '// change\n');
+  fs.appendFileSync(path.join(dir, 'e2e', 'existing.spec.ts'), '// updated spec\n');
+  fs.appendFileSync(path.join(dir, 'maestro-flows', 'visual', 'group-list-screen.yaml'), '# updated baseline\n');
+  run(['add', '-A']);
+
+  const result = runHook(dir, 'chore: tweak home screen');
+  assert.equal(result.status, 0);
+});
+
 test('a non-UI, non-fix/feat commit passes through all three rules even with real changes staged', () => {
   const { dir, run } = makeRepo();
   fs.writeFileSync(path.join(dir, 'docs-note.md'), 'notes\n');

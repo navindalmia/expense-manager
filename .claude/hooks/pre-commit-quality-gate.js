@@ -29,6 +29,17 @@
 //     screenshot baselines at all, so a hard block here would fail closed
 //     everywhere rather than just prompting a deliberate, recorded decision.
 //
+//   Rule 4 (UI-change-needs-real-Playwright-E2E): if the staged diff touches
+//     frontend/src/screens/**/*.tsx or frontend/src/components/**/*.tsx (same
+//     detection as Rule 1/3), the staged diff must also touch something under
+//     e2e/ specifically (Playwright) — OR the commit message must contain the
+//     trailer `E2E-Exempt: <reason>` (same trailer as Rule 1). Rule 1 already
+//     accepts e2e/ *or* maestro-flows/ as satisfying "some E2E coverage
+//     exists"; Rule 4 tightens that for the case a UI commit only touches
+//     maestro-flows/ (functional or visual) with no real Playwright spec at
+//     all — added so the CI-level `principles-audit` job (which mirrors this
+//     rule) and this local hook agree on what "real E2E" requires.
+//
 // Mirrors pre-commit-gate.js's style/structure exactly: plain Node, cross-platform,
 // resolves the actual target repo from the git command (not just hook cwd), and
 // fails OPEN (allows the commit) whenever detection is ambiguous — a broken/unknown
@@ -36,6 +47,14 @@
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const {
+  isScreenOrComponentTsx,
+  isE2eOrMaestroFile,
+  isPlaywrightE2eFile,
+  isMaestroVisualFile,
+  isTestFile,
+  isFixOrFeatCommit,
+} = require('../scripts/lib/commit-rules');
 
 function readStdinJson() {
   try {
@@ -81,28 +100,6 @@ function extractCommitMessage(command) {
   }
   if (messages.length === 0) return null;
   return messages.join('\n\n');
-}
-
-function isScreenOrComponentTsx(file) {
-  const isScreensOrComponents =
-    /^frontend\/src\/screens\/.*\.tsx$/.test(file) ||
-    /^frontend\/src\/components\/.*\.tsx$/.test(file);
-  if (!isScreensOrComponents) return false;
-  if (/\/__tests__\//.test(file)) return false;
-  if (/\.test\.tsx$/.test(file)) return false;
-  return true;
-}
-
-function isE2eOrMaestroFile(file) {
-  return /^e2e\//.test(file) || /^maestro-flows\//.test(file);
-}
-
-function isMaestroVisualFile(file) {
-  return /^maestro-flows\/visual\//.test(file);
-}
-
-function isTestFile(file) {
-  return /\/__tests__\//.test(file) || /^e2e\//.test(file) || /\.test\.tsx?$/.test(file);
 }
 
 const hookInput = readStdinJson();
@@ -160,9 +157,8 @@ if (touchesScreensOrComponents && !touchesE2eOrMaestro && !hasE2eExempt) {
 }
 
 // Rule 2: fix/feat commits need a regression test.
-const isFixOrFeatCommit = /^(fix|feat)\(/.test(commitMessage.trim());
 const touchesTestFile = stagedFiles.some(isTestFile);
-if (isFixOrFeatCommit && !touchesTestFile && !hasTestExempt) {
+if (isFixOrFeatCommit(commitMessage) && !touchesTestFile && !hasTestExempt) {
   blockers.push(
     '[pre-commit-quality-gate] BLOCKED (Rule 2: fix/feat needs a regression test)\n' +
       'This commit message starts with `fix(` or `feat(` but no test file (__tests__/, e2e/, or ' +
@@ -191,6 +187,24 @@ if (touchesScreensOrComponents && !touchesMaestroVisual && !hasVisualRegressionE
       '  - If this change genuinely has no visual-regression baseline covering the screen touched, ' +
       'or a baseline can\'t be verified in this environment (e.g. no emulator access), add the ' +
       'trailer `Visual-Regression-Exempt: <short reason>` to the commit message.'
+  );
+}
+
+// Rule 4: UI change needs real Playwright E2E specifically (not just any
+// e2e-or-maestro file, which Rule 1 already accepts as sufficient).
+const touchesPlaywrightE2e = stagedFiles.some(isPlaywrightE2eFile);
+if (touchesScreensOrComponents && !touchesPlaywrightE2e && !hasE2eExempt) {
+  blockers.push(
+    '[pre-commit-quality-gate] BLOCKED (Rule 4: UI change needs real Playwright E2E)\n' +
+      'This commit touches frontend/src/screens/** or frontend/src/components/** but no ' +
+      'e2e/*.spec.ts (Playwright) file is staged — a maestro-flows/ change alone does not ' +
+      'satisfy this rule.\n' +
+      'Per CLAUDE.md / PROJECT_MEMORY/05-QUALITY_STANDARDS.md, UI changes need real E2E ' +
+      'coverage against a live backend+DB, not just mocked unit/component tests.\n\n' +
+      'To proceed:\n' +
+      '  - Add or update a Playwright spec under e2e/, or\n' +
+      '  - If this change genuinely does not need one, add the trailer ' +
+      '`E2E-Exempt: <short reason>` to the commit message.'
   );
 }
 
