@@ -88,8 +88,12 @@ function evaluateCommit(commit) {
   const visualExempt = extractTrailer(message, 'Visual-Regression-Exempt');
   const e2eExempt = extractTrailer(message, 'E2E-Exempt');
 
-  const touchesBackendOrFrontendSource = files.some(isBackendOrFrontendSource);
-  if (isFixOrFeatCommit(message) && touchesBackendOrFrontendSource) {
+  // Deliberately unconditional on which files changed, mirroring the local
+  // hook's Rule 2 exactly (pre-commit-quality-gate.js fires on any fix(/feat(
+  // commit missing a test file, regardless of path) — a narrower gate here
+  // would let a fix(/feat( commit through the CI backstop that the local
+  // hook would have blocked, defeating the point of a backstop.
+  if (isFixOrFeatCommit(message)) {
     const touchesTest = files.some(isTestFile);
     if (!touchesTest) {
       if (testExempt) {
@@ -206,8 +210,25 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  const result = auditRange(base, head, cwd || process.cwd());
-  const summary = formatSummary(result);
+  // Always write AUDIT_SUMMARY_FILE, even on an unexpected error (e.g. a
+  // git-plumbing failure in getCommitRange) — the CI workflow's "post
+  // comment" step reads this file unconditionally (`if: always()`), and a
+  // missing file there would mask the real error behind a confusing
+  // "file not found" failure in a later, unrelated step instead.
+  let summary;
+  let exitCode;
+  try {
+    const result = auditRange(base, head, cwd || process.cwd());
+    summary = formatSummary(result);
+    exitCode = result.violations.length > 0 ? 1 : 0;
+  } catch (err) {
+    summary =
+      '## Principles audit\n\n' +
+      `Audit script failed to run: ${err.message}\n\n` +
+      '_Treat this as inconclusive, not as a pass — check the workflow run logs._';
+    exitCode = 1;
+  }
+
   console.log(summary);
 
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
@@ -219,5 +240,5 @@ if (require.main === module) {
     require('fs').writeFileSync(outputPath, summary);
   }
 
-  process.exit(result.violations.length > 0 ? 1 : 0);
+  process.exit(exitCode);
 }
