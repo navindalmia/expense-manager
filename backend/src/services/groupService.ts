@@ -43,10 +43,12 @@ function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): numbe
       const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidById) ?? -1;
       if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
         return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
-      } else if (exp.splitPercentage?.[0]) {
-        // Fallback: payer is not in split
-        return (exp.amount * exp.splitPercentage[0]) / 100;
       }
+      // Payer opted out of the percentage split entirely (not in
+      // splitWith) -- their own share is 0, same as the EQUAL branch
+      // above. Bug fixed here (issue #46): this used to fall back to
+      // exp.splitPercentage[0], which is splitWith[0]'s percentage, not
+      // the payer's -- attributing another member's share to the payer.
     } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
       // Amount split: total - sum of others' amounts
       return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);

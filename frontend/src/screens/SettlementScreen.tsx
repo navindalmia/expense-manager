@@ -19,54 +19,16 @@ import { useAuth } from '../context/AuthContext';
 import type { Expense } from '../services/expenseService';
 import type { SettlementScreenProps } from '../types/navigation';
 
-/**
- * Calculate user's share of an expense based on split type and their role.
- * Single source of truth - used by ExpenseListScreen, SettlementScreen, and other components.
- * Handles payer inclusion detection for accurate calculations.
- */
-function calculateUserExpenseShare(exp: Expense, userId: number | undefined): number {
-  if (!userId) return 0;
-  
-  // Check if user is the payer
-  if (exp.paidBy?.id === userId) {
-    // User is the payer - calculate their share based on split type
-    if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-      // Backend divides amount / splitWith.length exactly among whoever is
-      // in splitWith. If the payer opted out of the split (unticked), their
-      // share is 0 - the others' shares already sum to the full amount.
-      const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
-      return payerInSplit ? exp.amount / exp.splitWith.length : 0;
-    } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
-      // Find payer's index in splitWith
-      const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidBy?.id) ?? -1;
-      if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
-        return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
-      } else if (exp.splitPercentage?.[0]) {
-        // Fallback: payer is not in split
-        return (exp.amount * exp.splitPercentage[0]) / 100;
-      }
-    } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
-      // Amount split: total - sum of others' amounts
-      return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
-    } else if (!exp.splitWith || exp.splitWith.length === 0) {
-      // No split - user pays full amount
-      return exp.amount;
-    }
-  } else {
-    // User is in splitWith - find their share
-    const userIndex = exp.splitWith?.findIndex(u => u.id === userId) ?? -1;
-    if (userIndex !== -1) {
-      if (exp.splitType === 'EQUAL') {
-        return exp.amount / exp.splitWith.length;
-      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
-        return (exp.amount * exp.splitPercentage[userIndex]) / 100;
-      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-        return exp.splitAmount[userIndex];
-      }
-    }
-  }
-  return 0;
-}
+// Note (issue #46, 2026-09): this file used to have its own copy of
+// calculateUserExpenseShare here, with a docstring incorrectly claiming it
+// was "the single source of truth... used by ExpenseListScreen,
+// SettlementScreen" -- it was never actually called anywhere in this file
+// (dead code; this screen's real per-member settlement math lives in the
+// memberSettlements useMemo below, which is separate and untouched).
+// Removed rather than wired up, to avoid changing this screen's live
+// behavior as a side effect of an unrelated bug fix. The real shared
+// version now lives at frontend/src/utils/calculateUserExpenseShare.ts and
+// is used by ExpenseListScreen.tsx.
 
 interface Debt {
   otherMemberId: number;
