@@ -1,5 +1,5 @@
 /**
- * Signup Endpoint Tests (15 tests)
+ * Signup Endpoint Tests (19 tests)
  * 
  * Coverage:
  * - Input validation (email, password, name)
@@ -419,5 +419,43 @@ describe('Signup Endpoint', () => {
     } finally {
       process.env.REQUIRE_EMAIL_VERIFICATION = original;
     }
+  });
+
+  // ========== NAME VALIDATION (WHITESPACE) ==========
+
+  test('18. Should trim leading and trailing whitespace from name before storing', async () => {
+    mockReq.body = {
+      email: 'user@example.com',
+      password: 'SecurePass123!',
+      name: '  John Doe  ',
+    };
+
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.user.create as jest.Mock).mockResolvedValue({
+      id: 1,
+      email: 'user@example.com',
+      name: 'John Doe',
+    });
+    (jwt.generateToken as jest.Mock).mockReturnValue('token');
+
+    await signup(mockReq as Request, mockRes as Response);
+
+    expect(prisma.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: 'John Doe' }),
+      })
+    );
+  });
+
+  test('19. Should reject a name that is only whitespace', async () => {
+    mockReq.body = {
+      email: 'user@example.com',
+      password: 'SecurePass123!',
+      name: '   ',
+    };
+
+    await signup(mockReq as Request, mockRes as Response);
+
+    expect(statusMock).toHaveBeenCalledWith(400);
   });
 });
