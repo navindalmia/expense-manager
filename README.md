@@ -65,10 +65,10 @@ cd expense-manager
 npm install
 cd backend && npm install
 cd ../frontend && npm install
-cd .. && npm run hooks:install   # enables the regression-pack git hooks (.githooks/)
+cd .. && npm run hooks:install   # git hooks (.githooks/); root `npm install` also does this via `prepare`
 ```
 
-The hooks run the regression pack (`npm run test:regression`) on every commit, and require `fix...` commits to add a test under a `regression/` directory (or a `Regression-Exempt: <reason>` trailer). See CLAUDE.md.
+The local hooks are lightweight and STATIC only (no npm, no jest/vitest, no node_modules needed): `commit-msg` requires `fix...` commits to ADD a new `issue-<N>-*.test.ts` under a backend/frontend `regression/` directory (or carry a `Regression-Exempt: <reason>` trailer), and `pre-commit` rejects `.skip`/`.todo`/`.only` in those dirs. The regression suites themselves run ONLY in GitHub CI (`regression-gate` and `e2e-regression` jobs; the repo owner must mark them as required checks in branch protection). `npm run test:regression` runs them by hand if you want.
 
 ### 2. Start the database
 

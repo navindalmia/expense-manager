@@ -1,4 +1,5 @@
 #!/bin/sh
-# Always runs the regression pack (see scripts/regression-gate.js).
+# STATIC checks only (no npm, no jest/vitest, no node_modules): banned .skip/.todo/.only and
+# undiscoverable files in regression dirs. The suites themselves run in GitHub CI.
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
-exec node "$ROOT/scripts/regression-gate.js" run
+exec node "$ROOT/scripts/regression-gate.js" static

@@ -136,7 +136,22 @@ test('CLI pr mode: fix commit without test fails; fix/ branch and title env fail
   assert.strictEqual(sh(d, 'node', [CLI, 'pr', 'HEAD~1']).status, 1);
   fs.rmSync(d, { recursive: true, force: true });
 });
-test('CLI run mode: banned file in the STAGED INDEX blocks even if the working tree is fixed', () => {
+test('CLI static mode (pre-commit): clean repo passes fast, undiscoverable backend .js file blocks', () => {
+  const d = tmpRepo();
+  const dir = path.join(d, 'backend/src/__tests__/regression');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'issue-1-a.test.ts'), "it('a', () => { expect(1).toBe(1); });");
+  sh(d, 'git', ['add', '-A']);
+  const t0 = Date.now();
+  const ok1 = sh(d, 'node', [CLI, 'static']); // no node_modules exist in this repo: static mode must not need them
+  assert.strictEqual(ok1.status, 0, ok1.stderr);
+  assert.ok(Date.now() - t0 < 3000);
+  fs.writeFileSync(path.join(dir, 'issue-2-b.test.js'), "it('a', () => { expect(1).toBe(1); });");
+  sh(d, 'git', ['add', '-A']);
+  assert.strictEqual(sh(d, 'node', [CLI, 'static']).status, 1);
+  fs.rmSync(d, { recursive: true, force: true });
+});
+test('CLI static mode (pre-commit): banned file in the STAGED INDEX blocks even if the working tree is fixed', () => {
   const d = tmpRepo();
   const dir = path.join(d, 'backend/src/__tests__/regression');
   fs.mkdirSync(dir, { recursive: true });
@@ -144,7 +159,7 @@ test('CLI run mode: banned file in the STAGED INDEX blocks even if the working t
   fs.writeFileSync(f, "it.skip('a', () => { expect(1).toBe(1); });");
   sh(d, 'git', ['add', '-A']);
   fs.writeFileSync(f, "it('a', () => { expect(1).toBe(1); });");
-  const r = sh(d, 'node', [CLI, 'run']);
+  const r = sh(d, 'node', [CLI, 'static']);
   assert.strictEqual(r.status, 1);
   assert.match(r.stderr, /banned/);
   fs.rmSync(d, { recursive: true, force: true });

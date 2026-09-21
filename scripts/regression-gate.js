@@ -1,7 +1,11 @@
 #!/usr/bin/env node
-// Regression-pack gate (universal: git hooks + CI; the .claude hooks are Claude-only).
-//   node scripts/regression-gate.js run            pre-commit: run suites against the STAGED INDEX
-//   node scripts/regression-gate.js suites         run suites against the current working tree (npm run test:regression, CI)
+// Regression-pack gate. WHERE THINGS RUN:
+//   * The regression suites (jest/vitest) run ONLY in GitHub CI (`suites` mode, `regression-gate` job) - never on
+//     the developer's machine at commit time. Local hooks are STATIC only: no node_modules, no npm, no test runner.
+//   * `static` and `msg` run from the git hooks in well under a second. `pr` runs in CI (closes --no-verify).
+//   * The .claude hooks are Claude-only and separate.
+//   node scripts/regression-gate.js static         pre-commit: static scan of STAGED regression files (banned modifiers, undiscoverable files)
+//   node scripts/regression-gate.js suites         CI (and `npm run test:regression`): scan + run backend/frontend suites on the checked-out tree
 //   node scripts/regression-gate.js msg <msg-file> commit-msg: fix-commit / deletion / weakening rules
 //   node scripts/regression-gate.js pr <base-ref>  CI: same rules over a PR range or push range (closes --no-verify)
 //                                                  env PR_HEAD_REF / PR_TITLE are extra "this is a fix" signals.
@@ -206,22 +210,39 @@ function listFilesRecursive(dir) {
   }
   return out;
 }
-function scanWorkspace(root, ws) {
+/** Static checks over [{rel, content()}] entries of one workspace's regression dir. */
+function checkEntries(ws, entries) {
   const cfg = WORKSPACES[ws];
   const tests = [];
   const problems = [];
-  for (const f of listFilesRecursive(path.join(root, cfg.dir))) {
-    const rel = path.relative(root, f).split(path.sep).join('/');
-    if (path.basename(f) === '.gitkeep') continue;
-    const m = /\.(?:test|spec)\.(\w+)$/.exec(f);
+  for (const { rel, content } of entries) {
+    if (path.posix.basename(rel) === '.gitkeep') continue;
+    const m = /\.(?:test|spec)\.(\w+)$/.exec(rel);
     if (!m || !cfg.exts.includes(m[1])) {
       problems.push(`${rel}: not a test file the ${ws} runner discovers (allowed: *.test|spec.{${cfg.exts.join(',')}})`);
       continue;
     }
-    if (hasBannedTestModifier(fs.readFileSync(f, 'utf8'))) problems.push(`${rel}: contains .skip/.todo/.only/.fails (banned in the regression pack)`);
+    if (hasBannedTestModifier(content())) problems.push(`${rel}: contains .skip/.todo/.only/.fails (banned in the regression pack)`);
     tests.push(rel);
   }
   return { tests, problems };
+}
+function scanWorkspace(root, ws) {
+  const entries = listFilesRecursive(path.join(root, WORKSPACES[ws].dir)).map((f) => ({
+    rel: path.relative(root, f).split(path.sep).join('/'),
+    content: () => fs.readFileSync(f, 'utf8'),
+  }));
+  return checkEntries(ws, entries);
+}
+/** Same checks against the STAGED INDEX (ls-files + show), no working tree, no node_modules. */
+function scanIndex(root) {
+  const problems = [];
+  for (const ws of Object.keys(WORKSPACES)) {
+    const ls = git(['ls-files', '--cached', '-z', '--', WORKSPACES[ws].dir], { cwd: root });
+    const entries = ls.stdout.split('\0').filter(Boolean).map((rel) => ({ rel, content: () => showBlob(root, `:${rel}`) || '' }));
+    problems.push(...checkEntries(ws, entries).problems);
+  }
+  return problems;
 }
 function runnerArgs(ws, jsonFile) {
   const out = quoteArgForWin(jsonFile);
@@ -275,12 +296,6 @@ async function runSuites(root, nodeModulesFrom, timeoutMs = RUNNER_TIMEOUT_MS) {
   }
   return failures;
 }
-function exportIndex(root) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'regr-index-'));
-  const r = git(['checkout-index', '-a', '-f', `--prefix=${tmp}${path.sep}`], { cwd: root });
-  if (r.status !== 0) throw new Error(`could not export the staged index: ${r.stderr}`);
-  return tmp;
-}
 function report(failures) {
   if (!failures.length) return 0;
   console.error('\n[regression-gate] BLOCKED:\n - ' + failures.join('\n - '));
@@ -317,14 +332,7 @@ async function main(argv) {
   const [mode, arg] = argv;
   const root = repoRoot();
   if (mode === 'suites') return report(await runSuites(root, root));
-  if (mode === 'run') {
-    let tmp;
-    try {
-      tmp = exportIndex(root);
-      return report(await runSuites(tmp, root));
-    } catch (e) { return report([`could not run against the staged index (${e.message})`]); }
-    finally { if (tmp) fs.rmSync(tmp, { recursive: true, force: true }); }
-  }
+  if (mode === 'static') return report(scanIndex(root));
   if (mode === 'msg') {
     const file = arg || path.join(root, '.git', 'COMMIT_EDITMSG');
     let message;
@@ -337,13 +345,13 @@ async function main(argv) {
     if (!arg) return report(['usage: pr <base-ref>']);
     return prMode(root, arg, process.env);
   }
-  console.error('usage: regression-gate.js run | suites | msg <file> | pr <base-ref>');
+  console.error('usage: regression-gate.js static | suites | msg <file> | pr <base-ref>');
   return 2;
 }
 
 module.exports = {
   evaluateCommit, evaluatePr, evaluateRunnerResult, evaluateSummary, parseNameStatusZ, parseRunnerSummary, parseTrailers,
   isFixCommit, isFixSubject, hasExemption, cleanMessage, isQualifyingPath, hasRealTest, hasBannedTestModifier,
-  countTests, countAssertions, weakenedRegressionFiles, scanWorkspace, hasQualifyingAddition, runWithTimeout,
+  countTests, countAssertions, weakenedRegressionFiles, scanWorkspace, hasQualifyingAddition, runWithTimeout, checkEntries,
 };
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(e); process.exit(1); });
