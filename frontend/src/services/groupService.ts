@@ -59,8 +59,8 @@ export interface UpdateGroupDTO {
  * GET /api/groups
  */
 export async function getGroups(): Promise<Group[]> {
-  const response = await http.get<Group[]>('/groups');
-  return response.data;
+  const response = await http.get<{ success: boolean; data: Group[]; count: number }>('/groups');
+  return response.data.data;
 }
 
 /**
@@ -125,6 +125,6 @@ export async function removeMemberFromGroup(groupId: number, memberId: number): 
  * @returns Deleted group
  */
 export async function deleteGroup(groupId: number): Promise<Group> {
-  const response = await http.delete<Group>(`/groups/${groupId}`);
-  return response.data;
+  const response = await http.delete<{ success: boolean; data: Group; message?: string }>(`/groups/${groupId}`);
+  return response.data.data;
 }
