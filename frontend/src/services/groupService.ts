@@ -125,6 +125,8 @@ export async function removeMemberFromGroup(groupId: number, memberId: number): 
  * @returns Deleted group
  */
 export async function deleteGroup(groupId: number): Promise<Group> {
-  const response = await http.delete<Group>(`/groups/${groupId}`);
-  return response.data;
+  const response = await http.delete<{ success: boolean; data: Group; message: string }>(
+    `/groups/${groupId}`
+  );
+  return response.data.data;
 }
