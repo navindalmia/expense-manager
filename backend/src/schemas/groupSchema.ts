@@ -21,8 +21,16 @@ export const createGroupSchema = z.object({
     .max(500, 'Description must be less than 500 characters')
     .trim()
     .optional(),
+  // No hardcoded currency enum here: the Currency table is the single
+  // source of truth (see issues #50/#51 -- this field used to duplicate
+  // that list with its own, independently-drifted set of codes).
+  // groupService.createGroup's DB lookup rejects an unknown code with a
+  // proper CURRENCY_NOT_FOUND error, the same way updateGroup already
+  // does.
   currency: z
-    .enum(['GBP', 'INR', 'USD', 'EUR', 'AUD', 'CAD', 'JPY', 'CNY', 'OTHER'])
+    .string()
+    .trim()
+    .length(3, 'Currency code must be a 3-letter ISO code')
     .optional()
     .default('GBP'),
   themeId: z.number().int().positive().optional(),

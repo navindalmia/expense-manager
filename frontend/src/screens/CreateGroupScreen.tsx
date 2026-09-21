@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
@@ -27,6 +28,7 @@ import type { Group } from '../services/groupService';
 import { alertThenContinue } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
+import { useCurrencies } from '../hooks/useCurrencies';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -134,8 +136,6 @@ const styles = StyleSheet.create({
   },
 });
 
-const CURRENCIES = ['GBP', 'USD', 'EUR', 'INR', 'AUD', 'CAD', 'JPY', 'CNY'];
-
 /**
  * Create Group Form Screen
  */
@@ -143,6 +143,11 @@ function CreateGroupScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
+  // Backend-authoritative currency list (issues #50/#51): this used to be a
+  // hardcoded array here that had drifted from the backend's seeded
+  // currencies, and duplicated EditGroupModal's own fetch logic -- both now
+  // share this one hook instead.
+  const { currencies, loadingCurrencies, currenciesError } = useCurrencies();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
@@ -282,33 +287,42 @@ function CreateGroupScreen({ navigation }: Props) {
         {/* Currency Selection */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Default Currency</Text>
-          <View style={styles.currencyContainer}>
-            {CURRENCIES.map((curr) => (
-              <TouchableOpacity
-                key={curr}
-                style={[
-                  styles.currencyButton,
-                  currency === curr && styles.currencyButtonActive,
-                ]}
-                onPress={() => setCurrency(curr)}
-                testID={`currency-${curr}`}
-                accessible={true}
-                accessibilityLabel={`Select ${curr}`}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: currency === curr }}
-                disabled={loading}
-              >
-                <Text
+          {currenciesError && (
+            <Text style={styles.errorText} testID="currency-load-error">
+              {currenciesError}
+            </Text>
+          )}
+          {loadingCurrencies ? (
+            <ActivityIndicator size="small" color="#0066cc" style={{ marginVertical: 10 }} />
+          ) : (
+            <View style={styles.currencyContainer}>
+              {currencies.map((curr) => (
+                <TouchableOpacity
+                  key={curr.id}
                   style={[
-                    styles.currencyText,
-                    currency === curr && styles.currencyTextActive,
+                    styles.currencyButton,
+                    currency === curr.code && styles.currencyButtonActive,
                   ]}
+                  onPress={() => setCurrency(curr.code)}
+                  testID={`currency-${curr.code}`}
+                  accessible={true}
+                  accessibilityLabel={`Select ${curr.code}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: currency === curr.code }}
+                  disabled={loading}
                 >
-                  {curr}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  <Text
+                    style={[
+                      styles.currencyText,
+                      currency === curr.code && styles.currencyTextActive,
+                    ]}
+                  >
+                    {curr.code}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Theme Selection */}
