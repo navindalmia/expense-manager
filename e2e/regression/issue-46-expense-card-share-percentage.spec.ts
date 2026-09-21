@@ -24,7 +24,7 @@
  *   - `npx expo start --web` running on :8081
  *   - test user test@test.com / Test1234! seeded and email-verified
  *
- * Run: npx playwright test e2e/expense-card-share-percentage.spec.ts
+ * Run: npx playwright test e2e/regression/issue-46-expense-card-share-percentage.spec.ts
  */
 
 import { test, expect } from '@playwright/test';

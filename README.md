@@ -65,7 +65,10 @@ cd expense-manager
 npm install
 cd backend && npm install
 cd ../frontend && npm install
+cd .. && npm run hooks:install   # enables the regression-pack git hooks (.githooks/)
 ```
+
+The hooks run the regression pack (`npm run test:regression`) on every commit, and require `fix...` commits to add a test under a `regression/` directory (or a `Regression-Exempt: <reason>` trailer). See CLAUDE.md.
 
 ### 2. Start the database
 

@@ -55,6 +55,45 @@ jobs:
         working-directory: backend
         run: npm test
 
+  # Universal regression gate: closes `git commit --no-verify` (local .githooks can be skipped, CI cannot).
+  regression-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/expense_manager_ci
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+      - name: Gate script unit tests
+        run: npm run test:gate
+      - name: Regression pack
+        run: npm run test:regression
+      # Untrusted PR fields (branch, title) go through env, never interpolated into run:.
+      - name: Fix PRs must add a regression test
+        if: github.event_name == 'pull_request'
+        run: node scripts/regression-gate.js pr "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+      - name: Pushed fix commits must add a regression test
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: node scripts/regression-gate.js pr "$BEFORE_SHA"
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+
   frontend-test:
     runs-on: ubuntu-latest
     steps:

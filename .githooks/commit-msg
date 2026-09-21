@@ -1,0 +1,4 @@
+#!/bin/sh
+# Fix commits must add/modify a regression test (or carry Regression-Exempt:).
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+exec node "$ROOT/scripts/regression-gate.js" msg "$1"

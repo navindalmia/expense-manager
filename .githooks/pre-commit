@@ -1,0 +1,4 @@
+#!/bin/sh
+# Always runs the regression pack (see scripts/regression-gate.js).
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+exec node "$ROOT/scripts/regression-gate.js" run
