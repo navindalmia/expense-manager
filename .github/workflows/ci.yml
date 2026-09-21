@@ -5,6 +5,10 @@ on:
   push:
     branches: [master]
 
+# Least privilege: no job here needs to write to the repo, PRs or packages (deploy uses a Render secret via curl).
+permissions:
+  contents: read
+
 jobs:
   backend-test:
     runs-on: ubuntu-latest
@@ -62,6 +66,7 @@ jobs:
   # in branch protection (not configured by this file).
   regression-gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -203,7 +208,12 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
       - name: Run e2e regression specs
-        run: npx playwright test e2e/regression --project=chromium --reporter=list,html
+        run: npx playwright test e2e/regression --project=chromium --reporter=list,html,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
+      # Playwright exits 0 when every test is skipped; require >=1 passed and 0 skipped/failed/flaky.
+      - name: Verify e2e tests actually executed
+        run: node scripts/regression-gate.js e2e-eval playwright-results.json
       - name: Upload Playwright report and traces
         if: failure()
         uses: actions/upload-artifact@v4
@@ -212,6 +222,7 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            playwright-results.json
           retention-days: 7
       - name: Upload server logs
         if: failure()

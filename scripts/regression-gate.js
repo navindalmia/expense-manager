@@ -4,7 +4,8 @@
 //     the developer's machine at commit time. Local hooks are STATIC only: no node_modules, no npm, no test runner.
 //   * `static` and `msg` run from the git hooks in well under a second. `pr` runs in CI (closes --no-verify).
 //   * The .claude hooks are Claude-only and separate.
-//   node scripts/regression-gate.js static         pre-commit: static scan of STAGED regression files (banned modifiers, undiscoverable files)
+//   node scripts/regression-gate.js e2e-eval <json> CI: fail unless the Playwright JSON report has >=1 passed and 0 skipped/failed/flaky
+//   node scripts/regression-gate.js static         pre-commit: static scan of STAGED regression files (unit dirs AND e2e/regression) (banned modifiers, undiscoverable files)
 //   node scripts/regression-gate.js suites         CI (and `npm run test:regression`): scan + run backend/frontend suites on the checked-out tree
 //   node scripts/regression-gate.js msg <msg-file> commit-msg: fix-commit / deletion / weakening rules
 //   node scripts/regression-gate.js pr <base-ref>  CI: same rules over a PR range or push range (closes --no-verify)
@@ -33,10 +34,12 @@ const WORKSPACES = {
   backend: { dir: 'backend/src/__tests__/regression/', exts: ['ts'] }, // jest testMatch is .ts only
   frontend: { dir: 'frontend/src/__tests__/regression/', exts: ['ts', 'tsx', 'js', 'jsx'] }, // vitest default include
 };
+// Everything statically scanned (banned modifiers, discoverability). e2e is scanned but never run by the unit runners.
+const SCAN_TARGETS = { ...WORKSPACES, e2e: { dir: 'e2e/regression/', exts: ['ts', 'js'] } };
 const ALL_REGRESSION_DIRS = [...Object.values(WORKSPACES).map((w) => w.dir), 'e2e/regression/'];
 const RUNNER_TIMEOUT_MS = 120000;
 const FIX_WORD_RE = /^(?:(?:fixup|squash)!\s*)?(?:hot|bug)?fix(?:es|ed)?(?![\w-])/i;
-const BANNED_RE = /\b(?:it|test|describe)\.(?:skip|todo|only|fails|failing)\b|\b(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(|\bexpect\.fail\b/;
+const BANNED_RE = /\b(?:it|test|describe)\.(?:skip|todo|only|fails|failing|fixme|fail)\b|\.(?:skip|fixme)\s*\(|\b(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(|\bexpect\.fail\b/;
 const TEST_CALL_RE = /(?<![.\w$])(?:it|test)(?:\.each\s*\([^)]*\))?\s*\(/g;
 const ASSERT_RE = /(?<![.\w$])(?:expect|assert)\s*[.(]/g;
 
@@ -212,7 +215,7 @@ function listFilesRecursive(dir) {
 }
 /** Static checks over [{rel, content()}] entries of one workspace's regression dir. */
 function checkEntries(ws, entries) {
-  const cfg = WORKSPACES[ws];
+  const cfg = SCAN_TARGETS[ws];
   const tests = [];
   const problems = [];
   for (const { rel, content } of entries) {
@@ -222,13 +225,15 @@ function checkEntries(ws, entries) {
       problems.push(`${rel}: not a test file the ${ws} runner discovers (allowed: *.test|spec.{${cfg.exts.join(',')}})`);
       continue;
     }
-    if (hasBannedTestModifier(content())) problems.push(`${rel}: contains .skip/.todo/.only/.fails (banned in the regression pack)`);
+    const src = content();
+    if (src == null) { problems.push(`${rel}: could not read the file contents (failing closed)`); continue; }
+    if (hasBannedTestModifier(src)) problems.push(`${rel}: contains .skip/.todo/.only/.fails (banned in the regression pack)`);
     tests.push(rel);
   }
   return { tests, problems };
 }
 function scanWorkspace(root, ws) {
-  const entries = listFilesRecursive(path.join(root, WORKSPACES[ws].dir)).map((f) => ({
+  const entries = listFilesRecursive(path.join(root, SCAN_TARGETS[ws].dir)).map((f) => ({
     rel: path.relative(root, f).split(path.sep).join('/'),
     content: () => fs.readFileSync(f, 'utf8'),
   }));
@@ -237,12 +242,29 @@ function scanWorkspace(root, ws) {
 /** Same checks against the STAGED INDEX (ls-files + show), no working tree, no node_modules. */
 function scanIndex(root) {
   const problems = [];
-  for (const ws of Object.keys(WORKSPACES)) {
-    const ls = git(['ls-files', '--cached', '-z', '--', WORKSPACES[ws].dir], { cwd: root });
-    const entries = ls.stdout.split('\0').filter(Boolean).map((rel) => ({ rel, content: () => showBlob(root, `:${rel}`) || '' }));
+  for (const ws of Object.keys(SCAN_TARGETS)) {
+    const ls = git(['ls-files', '--cached', '-z', '--', SCAN_TARGETS[ws].dir], { cwd: root });
+    if (ls.status !== 0) { problems.push(`${ws}: could not list staged files (failing closed)`); continue; }
+    const entries = ls.stdout.split('\0').filter(Boolean).map((rel) => ({ rel, content: () => showBlob(root, `:${rel}`) }));
     problems.push(...checkEntries(ws, entries).problems);
   }
   return problems;
+}
+/** Playwright JSON reporter `stats`: require >=1 passed and 0 skipped/failed/flaky. Fails closed on anything odd. */
+function evaluateE2eStats(stats) {
+  if (!stats || typeof stats !== 'object') return { ok: false, reason: 'no stats in the Playwright JSON report' };
+  const { expected = 0, unexpected = 0, flaky = 0, skipped = 0 } = stats;
+  if (unexpected > 0) return { ok: false, reason: `${unexpected} e2e test(s) failed` };
+  if (flaky > 0) return { ok: false, reason: `${flaky} flaky e2e test(s) (passed only on retry) are not allowed` };
+  if (skipped > 0) return { ok: false, reason: `${skipped} e2e test(s) were skipped; skips are not allowed in the regression pack` };
+  if (expected < 1) return { ok: false, reason: 'zero e2e tests passed (nothing executed)' };
+  return { ok: true, reason: `${expected} e2e test(s) passed` };
+}
+function evaluateE2eReportFile(file) {
+  let json;
+  try { json = JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (e) { return { ok: false, reason: `cannot read Playwright JSON report ${file} (${e.message})` }; }
+  return evaluateE2eStats(json.stats);
 }
 function runnerArgs(ws, jsonFile) {
   const out = quoteArgForWin(jsonFile);
@@ -331,7 +353,12 @@ function prMode(root, base, env) {
 async function main(argv) {
   const [mode, arg] = argv;
   const root = repoRoot();
-  if (mode === 'suites') return report(await runSuites(root, root));
+  if (mode === 'suites') return report([...scanWorkspace(root, 'e2e').problems, ...(await runSuites(root, root))]);
+  if (mode === 'e2e-eval') {
+    const d = evaluateE2eReportFile(arg || 'playwright-results.json');
+    if (d.ok) console.log(`[regression-gate] ${d.reason}`);
+    return report(d.ok ? [] : [d.reason]);
+  }
   if (mode === 'static') return report(scanIndex(root));
   if (mode === 'msg') {
     const file = arg || path.join(root, '.git', 'COMMIT_EDITMSG');
@@ -345,13 +372,13 @@ async function main(argv) {
     if (!arg) return report(['usage: pr <base-ref>']);
     return prMode(root, arg, process.env);
   }
-  console.error('usage: regression-gate.js static | suites | msg <file> | pr <base-ref>');
+  console.error('usage: regression-gate.js static | suites | e2e-eval <json> | msg <file> | pr <base-ref>');
   return 2;
 }
 
 module.exports = {
   evaluateCommit, evaluatePr, evaluateRunnerResult, evaluateSummary, parseNameStatusZ, parseRunnerSummary, parseTrailers,
   isFixCommit, isFixSubject, hasExemption, cleanMessage, isQualifyingPath, hasRealTest, hasBannedTestModifier,
-  countTests, countAssertions, weakenedRegressionFiles, scanWorkspace, hasQualifyingAddition, runWithTimeout, checkEntries,
+  countTests, countAssertions, weakenedRegressionFiles, scanWorkspace, hasQualifyingAddition, runWithTimeout, checkEntries, evaluateE2eStats, evaluateE2eReportFile,
 };
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(e); process.exit(1); });
