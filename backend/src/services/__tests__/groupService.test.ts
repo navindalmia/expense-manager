@@ -169,6 +169,39 @@ describe('GroupService', () => {
       expect(result[0]!.userPersonalTotal).toBe(0);
     });
 
+    it('gives the payer a 0 share when they are excluded from a PERCENTAGE split, not the first splitWith member\'s percentage (issue #46)', async () => {
+      // Regression test for issue #46 ("Expense card not reflecting true
+      // share calculation", repro hint "Check Dinner card"). Confirmed live
+      // against a real backend+Postgres (no mocks) before writing this:
+      // paying host excludes themselves from a 100%-to-guest split, and the
+      // host's own userPersonalTotal incorrectly showed the FULL amount
+      // (100) instead of 0 -- calculateUserExpenseShare's PERCENTAGE branch
+      // fell back to splitPercentage[0] (the guest's 100%, since the guest
+      // is splitWith[0]) whenever the payer's own index wasn't found, i.e.
+      // it attributed someone else's percentage-based amount to the payer.
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 1,
+          createdById: CREATOR_ID,
+          members: [{ id: CREATOR_ID }],
+          expenses: [
+            {
+              amount: 100,
+              paidById: CREATOR_ID,
+              splitType: 'PERCENTAGE',
+              splitWith: [{ id: MEMBER_ID }],
+              splitAmount: [100],
+              splitPercentage: [100],
+            },
+          ],
+        },
+      ]);
+
+      const result = await groupService.getUserGroups(CREATOR_ID);
+
+      expect(result[0]!.userPersonalTotal).toBe(0);
+    });
+
     it("gives a split member their exact equal share, unaffected by the payer's inclusion", async () => {
       (prisma.group.findMany as jest.Mock).mockResolvedValue([
         {
