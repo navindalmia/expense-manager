@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getGroupExpenses } from '../services/expenseService';
+import { calculateUserExpenseShare } from '../utils/calculateUserExpenseShare';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { useAuth } from '../context/AuthContext';
@@ -80,46 +81,14 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
 
   /**
    * Calculate user's share of an expense based on split type and their role.
-   * Single source of truth - used by both renderExpenseItem and calculateTotals.
-   * Handles payer inclusion detection for accurate calculations.
-   * EXPORTED for reuse in SettlementScreen.
+   * Delegates to the shared calculateUserExpenseShare util (issue #46) --
+   * used by both renderExpenseItem and calculateTotals below, and by
+   * SettlementScreen via the same shared import.
    */
-  const calculateUserShare = useCallback((exp: Expense): number => {
-    if (exp.paidBy?.id === currentUser?.id) {
-      // User is the payer
-      if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-        // Backend divides amount / splitWith.length exactly among whoever is
-        // in splitWith. If the payer opted out of the split (unticked), their
-        // share is 0 - the others' shares already sum to the full amount.
-        const payerInSplit = exp.splitWith.some(m => m.id === exp.paidBy?.id);
-        return payerInSplit ? exp.amount / exp.splitWith.length : 0;
-      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
-        const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidBy?.id) ?? -1;
-        if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
-          return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
-        } else if (exp.splitPercentage?.[0]) {
-          return (exp.amount * exp.splitPercentage[0]) / 100;
-        }
-      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
-        return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
-      } else if (!exp.splitWith || exp.splitWith.length === 0) {
-        return exp.amount;
-      }
-    } else {
-      // User is in splitWith
-      const userIndex = exp.splitWith?.findIndex(u => u.id === currentUser?.id) ?? -1;
-      if (userIndex !== -1) {
-        if (exp.splitType === 'EQUAL') {
-          return exp.amount / exp.splitWith.length;
-        } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
-          return (exp.amount * exp.splitPercentage[userIndex]) / 100;
-        } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-          return exp.splitAmount[userIndex];
-        }
-      }
-    }
-    return 0;
-  }, [currentUser?.id]);
+  const calculateUserShare = useCallback(
+    (exp: Expense): number => calculateUserExpenseShare(exp, currentUser?.id),
+    [currentUser?.id]
+  );
 
   /**
    * Fetch expenses from backend.
@@ -381,7 +350,12 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
             {/* Row 3: Your Share (spans full width, left-aligned label, right-aligned amount) */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6 }}>
               <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>Your share:</Text>
-              <Text style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}>{item.currency.code} {userShare.toFixed(2)}</Text>
+              <Text
+                style={{ fontSize: 12, color: '#0066cc', fontWeight: '600' }}
+                testID={`expense-your-share-${item.id}`}
+              >
+                {item.currency.code} {userShare.toFixed(2)}
+              </Text>
             </View>
           </View>
 
