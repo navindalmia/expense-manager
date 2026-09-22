@@ -1,0 +1,67 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for the real "Add
+# Expense" screen a user hits every session.
+#
+# IMPORTANT: `frontend/src/screens/CreateExpenseScreen.tsx` (route name
+# "CreateExpense") is registered in App.tsx's Stack.Navigator but NOTHING in
+# the app actually navigates to it - confirmed by tracing
+# ExpenseListScreen.tsx's `add-expense-button`, which navigates to
+# `EditExpense` with no `expenseId` param, not `CreateExpense`. This
+# reproduces issue #45's finding that CreateExpenseScreen may be
+# unreferenced - confirmed dead code as of this session (searched for
+# `navigate('CreateExpense'` / `navigate("CreateExpense"` and found none).
+# EditExpenseScreen.tsx itself branches on `isCreateMode = !expenseId`
+# (see that file, ~line 66) and renders "Create Expense" as its title, so
+# THIS is the actual add-expense screen and uses EditExpenseScreen's own
+# testIDs (`edit-expense-*`), not CreateExpenseScreen's `expense-*`/
+# `create-expense-*` ones - do not confuse the two when editing this flow.
+#
+# Uses the standing pre-verified QA test user (test@test.com) and
+# "QA Test Group".
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- assertVisible:
+    id: "email-input"
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    id: "add-expense-button"
+- assertVisible:
+    text: "Create Expense"
+- assertVisible:
+    id: "edit-expense-title-input"
+- assertVisible:
+    id: "edit-expense-amount-input"
+- assertVisible:
+    id: "edit-expense-paid-by-picker-button"
+- assertVisible:
+    id: "edit-expense-save-button"
+# U5: key interactive elements must have real, non-empty accessibility
+# labels/roles (what TalkBack/VoiceOver would announce).
+- assertVisible:
+    id: "edit-expense-title-input"
+    enabled: true
+- assertVisible:
+    id: "edit-expense-save-button"
+    enabled: true
+- assertScreenshot: "add-expense-screen"

@@ -1,0 +1,74 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for EditExpenseScreen's
+# "Who Paid?" modal with a MULTI-MEMBER group (4 members: QA Test User,
+# Alex Rivera, Bailey Chen, Casey Morgan) - the actual n+1-member case from
+# issue #45, as distinct from edit-expense-paid-by-modal-screen.yaml which
+# deliberately covers the degenerate 1-member case (where the dev-only
+# LogBox banner covers the ENTIRE modal - see that file's comments for the
+# full investigation). This flow's QA fixture has 3 extra members added via
+# POST /api/groups/:id/members (name+email only, no separate accounts
+# needed - see backend/src/controllers/groupController.ts's addMember).
+#
+# With 4 rows the "Who Paid?" sheet (EditExpenseScreen.tsx's `pickerModal`,
+# `justifyContent: 'flex-end'`) is taller, so this baseline is expected to
+# show some rows above the LogBox banner and some covered by it - that
+# partial-coverage boundary is itself the real visual signature of the
+# investigated behavior, worth having on record regardless of what's
+# decided about #45 overall.
+#
+# Uses the standing pre-verified QA test user (test@test.com); this
+# specific multi-member "QA Test Group" composition (4 members) is only
+# produced by this flow's own seeding step in CI, not by the shared
+# 1-member "QA Test Group" the other visual flows use - see this repo's
+# ci.yml e2e-mobile job if wiring this flow into CI, it will need its own
+# member-seeding curl calls alongside the existing ones.
+- launchApp:
+    clearState: true
+# Dismiss the emulator's own "Pixel Launcher isn't responding" ANR dialog if
+# it's up - see the other flows in this folder for the full rationale.
+- tapOn:
+    text: "Wait"
+    optional: true
+- assertVisible:
+    id: "email-input"
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    text: "Diberr Repro"
+- assertVisible:
+    id: "edit-expense-paid-by-picker-button"
+- tapOn:
+    id: "edit-expense-paid-by-picker-button"
+- assertVisible:
+    text: "Who Paid?"
+- assertVisible:
+    id: "edit-expense-paid-by-modal-close-button"
+# At least 2 member rows visible and settled before screenshotting - proves
+# the modal's ScrollView has laid out multiple rows, not just the first one
+# mid-animation. member id 1 = QA Test User (the payer, pre-selected);
+# member id 2 = Alex Rivera (first added member).
+- assertVisible:
+    id: "edit-expense-paid-by-option-1"
+- assertVisible:
+    id: "edit-expense-paid-by-option-2"
+- assertVisible:
+    id: "edit-expense-paid-by-modal-close-button"
+    enabled: true
+- assertScreenshot: "edit-expense-paid-by-modal-multi-member-screen"
