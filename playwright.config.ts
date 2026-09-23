@@ -19,6 +19,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:8081',
     trace: 'retain-on-failure',
+    // PW_SLOWMO=500 slows each action so a headed run can be watched.
+    launchOptions: { slowMo: Number(process.env.PW_SLOWMO ?? 0) },
     // Note: unlike the Vitest jsdom component tests (whose hand-rolled RN
     // mock forwards `testID` as a nonstandard lowercase `testid` DOM
     // attribute), the real react-native-web runtime used here correctly

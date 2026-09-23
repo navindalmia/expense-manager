@@ -21,6 +21,7 @@ import type { RootStackParamList } from '../types/navigation';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EditGroupModal from '../components/EditGroupModal';
+import { mergeUpdatedGroup } from '../utils/mergeUpdatedGroup';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
@@ -297,11 +298,8 @@ function HomeScreen({ navigation }: Props) {
   const handleEditSuccess = useCallback((updatedGroup: Group) => {
     // Immediately update the group in the list with the fresh data from API
     // This creates a NEW array reference which triggers FlatList re-render
-    setGroups((prevGroups) =>
-      prevGroups.map((g) =>
-        g.id === updatedGroup.id ? updatedGroup : g
-      )
-    );
+    // Merge (not replace): the PATCH response lacks totalAmount/userPersonalTotal
+    setGroups((prevGroups) => mergeUpdatedGroup(prevGroups, updatedGroup));
     
     // Close modal after state update
     setEditModalVisible(false);
