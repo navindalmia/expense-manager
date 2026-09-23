@@ -18,7 +18,7 @@ import {
   Alert,
 } from 'react-native';
 import { updateGroup, Group } from '../services/groupService';
-import { getCurrencies, type Currency } from '../services/currencyService';
+import CurrencyPicker from './CurrencyPicker';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
@@ -75,33 +75,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     marginBottom: 12,
-  },
-  currencyContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  currencyButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
-  },
-  currencyButtonActive: {
-    borderColor: '#0066cc',
-    backgroundColor: '#e6f0ff',
-  },
-  currencyText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  currencyTextActive: {
-    color: '#0066cc',
-    fontWeight: '600',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -194,30 +167,12 @@ export default function EditGroupModal({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [themes, setThemes] = useState<Theme[]>([]);
   const [themeId, setThemeId] = useState<number | null>(null);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
-
-  // Fetch currencies from database on component mount
-  useEffect(() => {
-    const fetchCurrencies = async () => {
-      try {
-        setLoadingCurrencies(true);
-        const data = await getCurrencies();
-        setCurrencies(data);
-      } catch (error) {
-        logger.error('Failed to load currencies', error);
-      } finally {
-        setLoadingCurrencies(false);
-      }
-    };
-    fetchCurrencies();
-  }, []);
 
   // Fetch themes from database on component mount
   useEffect(() => {
@@ -343,33 +298,12 @@ export default function EditGroupModal({
 
             {/* Currency */}
             <Text style={styles.label}>Currency</Text>
-            {loadingCurrencies ? (
-              <ActivityIndicator size="small" color="#0066cc" style={{ marginVertical: 10 }} />
-            ) : (
-              <View style={styles.currencyContainer}>
-                {currencies.map((curr) => (
-                  <TouchableOpacity
-                    key={curr.id}
-                    style={[
-                      styles.currencyButton,
-                      currency === curr.code && styles.currencyButtonActive,
-                    ]}
-                    onPress={() => setCurrency(curr.code)}
-                    disabled={loading}
-                    testID={`edit-group-currency-option-${curr.code}`}
-                  >
-                    <Text
-                      style={[
-                        styles.currencyText,
-                        currency === curr.code && styles.currencyTextActive,
-                      ]}
-                    >
-                      {curr.code}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <CurrencyPicker
+              value={currency}
+              onChange={setCurrency}
+              disabled={loading}
+              testIDPrefix="edit-group-currency-option-"
+            />
 
             {/* Theme */}
             <Text style={styles.label}>Theme (optional)</Text>
