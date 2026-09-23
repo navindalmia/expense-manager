@@ -276,17 +276,29 @@ jobs:
     # against a real Android emulator, on every PR. Does not depend on
     # backend-test/frontend-test (runs in parallel).
     #
-    # Do NOT add this as a required branch-protection check (corrected
-    # 2026-09-01 - a prior version of this comment recommended doing so).
-    # The "Build debug APK and run Maestro suite" step's own cleanup can hang
-    # on a confirmed, unfixable upstream bug in reactivecircus/android-
-    # emulator-runner (see that step's comments) even when all 3 Maestro
-    # flows pass - so this job's overall conclusion is not a reliable signal
-    # of test health on its own. Check the job log for "3/3 Flows Passed"
-    # (or similar) before treating a `failure` conclusion here as a real
-    # regression. Making this required would block every future PR whenever
-    # that upstream bug fires, regardless of whether the code under test is
-    # actually broken.
+    # UPDATED 2026-09-22: this job's overall conclusion is now derived from
+    # the "Report Maestro test result" step below, not from the "Build debug
+    # APK and run Maestro suite" step's own conclusion - that step now runs
+    # with continue-on-error: true precisely because its automatic teardown
+    # can hang on the confirmed, unfixable upstream
+    # reactivecircus/android-emulator-runner#385 bug (see that step's
+    # comments) even when all 3 Maestro flows pass. The real Maestro exit
+    # code is captured to a file BEFORE that teardown runs, and the "Report
+    # Maestro test result" step (immediately after) reads it and is what
+    # actually fails the job on a real test regression. Once this has been
+    # observed reliably reflecting real pass/fail over several real CI runs
+    # (not yet confirmed - only verified locally that `adb emu kill` itself
+    # returns immediately; the teardown hang is in the Action's own Linux-
+    # runner-specific post-hook and could not be reproduced on a local
+    # macOS emulator), it should be safe to add as a required branch-
+    # protection check. Still worth confirming with a few more real runs
+    # first rather than flipping that on the same day as this change.
+    # (Prior to this, a prior version of this comment recommended NEVER
+    # making it required, because the job's own conclusion used to be
+    # exactly the hanging step's conclusion - so making it required would
+    # have blocked every future PR whenever that upstream bug fired,
+    # regardless of whether the code under test was actually broken. That
+    # is exactly the failure mode this change fixes.)
     # maestro-flows/on-hold-email-verification/ is intentionally excluded -
     # see that folder's README (REQUIRE_EMAIL_VERIFICATION=false makes its
     # target UI unreachable in the current app config).
@@ -410,8 +422,56 @@ jobs:
         # correctly in our own script, so it's inside the action itself, not
         # fixable from here. Build+tests finish in ~11-12min in every run
         # observed so far; 18min leaves headroom for that while still cutting
-        # the action's own hang short well before the job-level cap.
+        # a hang here short of the job-level cap.
+        #
+        # CORRECTED 2026-09-22 (adversarial review): timeout-minutes: 18
+        # here is a step-level backstop for the build+test portion. Whether
+        # this step-level timeout or the job-level timeout-minutes: 25 is
+        # what actually bounds a teardown hang specifically has not been
+        # isolated by any real run - composite/JS action post/cleanup hooks
+        # (the "Terminate Emulator" teardown) run as separate synthetic
+        # steps and may not be bound by the originating step's own
+        # timeout-minutes at all, only by the job-level cap. No cited run
+        # in docs/solutions/build-errors/e2e-mobile-ci-hang-and-cascading-
+        # fixes.md distinguishes which cap actually fired. Either way the
+        # job fails closed (cancelled) if either limit is hit.
+        #
+        # UPDATED 2026-09-22: root-caused against the upstream issue
+        # (reactivecircus/android-emulator-runner#385, open since 2024-03,
+        # no merged fix as of this writing - 30 upvotes, still recurring in
+        # unrelated projects as recently as 2026-08-17). Per that thread's
+        # own maintainer/community investigation, the "Terminate Emulator"
+        # cleanup is the Action's own Node.js code waiting for the *entire*
+        # emulator process tree to exit after `adb emu kill`, not just the
+        # emulator itself - the emulator's bundled `crashpad_handler` crash-
+        # reporter child process (and, for other users, things like leaked
+        # `appium`/websocket-server child processes) doesn't always receive
+        # or act on the shutdown signal, so the wait never completes. This
+        # matches exactly what runs 33502440934/33506976320/33510026360/
+        # 33520968296/33524592934 above observed: `adb emu kill` itself
+        # always succeeds instantly, but the Action's post-hook after it
+        # hangs regardless, even against an already-dead emulator (ruling
+        # out anything fixable from our own script). Verified locally
+        # 2026-09-22: a bare `adb -s emulator-5554 emu kill` against a
+        # locally booted `expense-manager-test` AVD (macOS, not the CI
+        # Linux runner) returns and the emulator process exits within ~2s
+        # every time - so the hang could NOT be reproduced locally, which
+        # is expected: it is Action/Linux-runner-specific (per the issue
+        # thread, several reporters, including on Linux runners, also could
+        # not eliminate it with the community's various kill-the-child-
+        # process workarounds), so real CI runs remain the only way to
+        # observe it. `continue-on-error: true` here (rather than one of
+        # the issue thread's kill-crashpad-handler workarounds, none of
+        # which are reported as reliable by the thread itself) is the
+        # deliberate choice: capture the real Maestro result to a file
+        # BEFORE this step's teardown can hang (script below), let this
+        # step's own conclusion be irrelevant to the job's outcome, and
+        # let the dedicated "Report Maestro test result" step right after
+        # it derive the job's actual pass/fail from that captured result
+        # instead - so a teardown hang can no longer masquerade as a test
+        # failure.
         timeout-minutes: 18
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -487,6 +547,21 @@ jobs:
           # single failure (Maestro doesn't retry per-flow), but each attempt
           # only takes ~1.5min so 3 attempts still comfortably fits the
           # timeout-minutes: 18 budget alongside the ~9min build.
+          #
+          # UPDATED 2026-09-22: the very last thing this script does is
+          # write the real exit code of the build+test pipeline above to
+          # maestro-result.txt under $GITHUB_WORKSPACE (an absolute path,
+          # so it's unaffected by this step's own `working-directory:
+          # frontend`) - deliberately BEFORE this step returns and this
+          # Action's own "Terminate Emulator" post-hook runs, since that
+          # post-hook is what can hang (see this step's own comments above
+          # and reactivecircus/android-emulator-runner#385). The final
+          # `exit "$code"` still makes this step itself report accurately
+          # on a run where teardown does NOT hang (informational only,
+          # since continue-on-error: true above means it can no longer
+          # fail the job either way) - the "Report Maestro test result"
+          # step right after this one is what the job's actual conclusion
+          # now depends on.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
@@ -494,7 +569,35 @@ jobs:
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
-            (for i in 1 2 3; do maestro test ../maestro-flows/visual/ && exit 0; echo "Maestro attempt $i failed, retrying..."; done; exit 1)
+            (for i in 1 2 3; do maestro test ../maestro-flows/visual/ && exit 0; echo "Maestro attempt $i failed, retrying..."; done; exit 1);
+            code=$?;
+            echo "$code" > "$GITHUB_WORKSPACE/maestro-result.txt";
+            exit "$code"
+      - name: Report Maestro test result (source of truth for this job's conclusion)
+        # Runs regardless of whether the previous step's own conclusion was
+        # forced to `success` by its continue-on-error: true (which happens
+        # whenever its "Terminate Emulator" teardown hangs and eats either
+        # that step's or the job's timeout - see that step's comments). This
+        # step reads the real Maestro/build exit code that step captured to
+        # maestro-result.txt BEFORE its teardown ran, and fails the job
+        # here, for real, if and only if the actual tests/build failed -
+        # decoupling the job's conclusion from the unrelated upstream
+        # teardown bug. If the file is missing, the build/Maestro step
+        # itself never got far enough to write it (e.g. it was cancelled or
+        # crashed before reaching that line) - treated as a real failure,
+        # not a teardown hang, since a teardown hang only happens AFTER a
+        # normal script exit. No working-directory needed here - the path
+        # read ($GITHUB_WORKSPACE/maestro-result.txt) is already absolute.
+        if: always()
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/maestro-result.txt" ]; then
+            echo "maestro-result.txt not found - the build/Maestro step did not complete (crashed or was cancelled before writing its result), not a teardown hang. Failing the job."
+            exit 1
+          fi
+          RESULT=$(cat "$GITHUB_WORKSPACE/maestro-result.txt")
+          echo "Captured Maestro/build exit code: $RESULT"
+          [[ "$RESULT" =~ ^[0-9]+$ ]] || { echo "maestro-result.txt contained a non-numeric value: '$RESULT' - treating as failure"; exit 1; }
+          exit "$RESULT"
       - name: Upload Maestro debug artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
