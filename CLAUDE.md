@@ -120,6 +120,7 @@ CE's `security-reviewer` persona already hunts injection, auth/authz bypass, sec
 - No hardcoded delays/sleeps; tests independent of execution order; descriptive names (`should X when Y`, not `test create`)
 - Specific untested branches that matter (new error paths, lifecycle guards, early returns) — not aggregate coverage percentages
 - **User-facing/UI changes have real E2E coverage** (a Maestro flow, or an integration test against a real running backend+DB) — mocked unit/component tests alone don't prove a user-facing feature works end-to-end
+- **Every UI-visible bug fix pairs its functional regression test with a Maestro visual baseline** in `maestro-flows/visual/` (a `.yaml` flow + committed `.png` baseline, same pattern as the existing screens there) — a functional/text assertion proves the bug can't recur logically, but only a pixel-diffed screenshot catches a future change that silently re-breaks the same UI visually (wrong color, missing element, broken layout) while the text-level assertions still pass. This is a standing part of the regression-pack workflow going forward, not a one-time backfill.
 - **Bug fixes show red-before-green evidence** — the regression test was confirmed failing against the pre-fix code before the fix, not just "tests pass now"; note explicitly if this step was skipped
 
 **Verdict format:** ✅ APPROVED or ❌ FAILED with specific file:line evidence per failure — same as the old review template, still expected from `/ce-code-review`.

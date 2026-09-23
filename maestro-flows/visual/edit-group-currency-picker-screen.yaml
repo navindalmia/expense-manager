@@ -1,0 +1,59 @@
+appId: com.navindalmia.expensemanager
+---
+# U4 (visual-regression baseline) + U5 (accessibility) for EditGroupModal
+# with the currency picker section visible - covers issue #51 (group
+# currency list) on the Edit path specifically, which is a separate
+# component/testID namespace (`edit-group-currency-option-*`, dynamically
+# loaded via getCurrencies()) from CreateGroupScreen's hardcoded
+# `currency-*` buttons - see create-group-currency-picker-screen.yaml for
+# that half. Also exercises #44 (group card after edit) by returning to
+# HomeScreen post-edit in the group-list-screen.yaml flow.
+# Uses the standing pre-verified QA test user (test@test.com) and
+# "QA Test Group".
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- assertVisible:
+    id: "email-input"
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- back
+- assertVisible:
+    id: "home-screen"
+# Tap by the button's visible label, not its testID - HomeScreen.tsx names
+# this `edit-group-button-${item.id}`, a raw Postgres autoincrement id that
+# a freshly seeded CI database won't reproduce (same lesson as
+# expense-list-screen.yaml's "QA Test Group" tap). The button's actual text
+# is "✏️ Edit Group" (leading emoji) - matched via a substring regex since
+# an exact "Edit Group" match doesn't include the emoji prefix.
+- tapOn:
+    text: ".*Edit Group.*"
+- assertVisible:
+    id: "edit-group-name-input"
+- assertVisible:
+    id: "edit-group-currency-option-GBP"
+- assertVisible:
+    id: "edit-group-currency-option-GBP"
+    enabled: true
+- assertVisible:
+    id: "edit-group-currency-option-USD"
+    enabled: true
+- assertScreenshot: "edit-group-currency-picker-screen"

@@ -39,6 +39,9 @@ expense-manager/
 ├── backend/          # Express API (port 4000)
 ├── frontend/         # React Native / Expo app (port 8081)
 ├── maestro-flows/    # Mobile UI automation tests
+│   └── visual/        # Visual-regression + a11y baselines (.yaml flow + .png baseline per screen/state) —
+│                       # a UI-visible fix should add/update a baseline here alongside its functional test,
+│                       # so a future change that visually re-breaks it is caught in CI, not just by a text assertion
 ├── PROJECT_MEMORY/   # Persistent project context and decisions
 ├── ROADMAP.md        # Feature roadmap and planned phases
 └── docker-compose.yml
