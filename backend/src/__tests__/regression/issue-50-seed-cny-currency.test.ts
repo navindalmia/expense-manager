@@ -1,4 +1,4 @@
-import { SEED_CURRENCIES } from '../seedCurrencies';
+import { SEED_CURRENCIES } from '../../lib/seedCurrencies';
 import { createGroupSchema } from '../../schemas/groupSchema';
 
 describe('SEED_CURRENCIES', () => {
