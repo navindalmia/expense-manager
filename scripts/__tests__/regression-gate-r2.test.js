@@ -56,6 +56,23 @@ test('PR mode: fix/ branch and fix-like title are fix signals; tip exemption cle
   assert.strictEqual(g.evaluatePr([mk('feat: x\n\nRegression-Exempt: r', [])], [], io, { branch: 'fix/login' }).ok, true);
   assert.strictEqual(g.evaluatePr(c, [A(REG)], io, { branch: 'fix/login' }).ok, true);
 });
+test('PR mode: tip exemption is found anywhere in the range, not just commits[0] (GitHub pull_request checks out a synthetic merge commit as HEAD, ahead of the real exempted commit)', () => {
+  const io = { readNew: reader(GOOD) };
+  // commits[0] simulates GitHub's auto-generated merge commit (subject "Merge ... into ...",
+  // no trailer, no real changes of its own); commits[1] is the actual, exempted fix commit.
+  const syntheticMerge = mk("Merge 'abc123' into 'def456'", []);
+  const realExemptFix = mk('fix(ci): decouple job conclusion from teardown hang\n\nRegression-Exempt: CI-only change', [A('.github/workflows/ci.yml')]);
+  assert.strictEqual(
+    g.evaluatePr([syntheticMerge, realExemptFix], [{ status: 'M', path: '.github/workflows/ci.yml' }], io, { branch: 'fix/e2e-mobile-teardown-hang' }).ok,
+    true
+  );
+  // Same shape but WITHOUT the exemption anywhere -- must still correctly block.
+  const realUnexemptFix = mk('fix(ci): decouple job conclusion from teardown hang', [A('.github/workflows/ci.yml')]);
+  assert.strictEqual(
+    g.evaluatePr([syntheticMerge, realUnexemptFix], [{ status: 'M', path: '.github/workflows/ci.yml' }], io, { branch: 'fix/e2e-mobile-teardown-hang' }).ok,
+    false
+  );
+});
 test('PR mode: deletion/weakening needs exemption on a commit touching that file', () => {
   const D = { status: 'D', path: REG };
   assert.strictEqual(g.evaluatePr([mk('chore: x', [D])], [D], {}).ok, false);

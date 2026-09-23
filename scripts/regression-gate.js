@@ -142,7 +142,12 @@ function evaluatePr(commits, net, io, meta = {}) {
   const unexemptedFix = commits.some((c) => isFixCommit(c.message) && !hasExemption(c.message));
   const branchSignal = /^fix\//i.test(meta.branch || '');
   const titleSignal = isFixSubject(meta.title || '');
-  const tipExempt = commits.length > 0 && hasExemption(commits[0].message); // commits[0] = HEAD
+  // Checking ANY commit (not just commits[0]) matters because a `pull_request`-triggered CI run
+  // checks out GitHub's synthetic merge commit as HEAD, not the PR branch tip directly -- so
+  // commits[0] from `rev-list base..HEAD` is often that auto-generated, trailer-less merge
+  // commit, not the PR's real (possibly exempted) commit. A synthetic merge commit's own message
+  // never carries a real trailer, so this can only find a genuine exemption, never a false one.
+  const tipExempt = commits.some((c) => hasExemption(c.message));
   const metaFix = (branchSignal || titleSignal) && !tipExempt;
   if ((unexemptedFix || metaFix) && !hasQualifyingAddition(net, readNew)) {
     const why = unexemptedFix ? 'contains a fix commit' : `looks like a fix (${branchSignal ? 'branch ' + meta.branch : 'title'})`;
