@@ -20,6 +20,7 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CreateExpenseScreenProps } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -339,10 +340,11 @@ export default function CreateExpenseScreen({
   }, [title, amount, category, notes, currency, date, groupId, user, paidBy, validateForm, getSplitPayload, navigation]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -435,7 +437,7 @@ export default function CreateExpenseScreen({
           animationType="slide"
           onRequestClose={() => setShowCategoryModal(false)}
         >
-          <View style={styles.pickerModal}>
+          <SafeAreaView style={styles.pickerModal}>
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Select Category</Text>
@@ -461,7 +463,7 @@ export default function CreateExpenseScreen({
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </SafeAreaView>
         </Modal>
 
         {/* Split Type - EQUAL / PERCENTAGE / AMOUNT */}
@@ -490,7 +492,7 @@ export default function CreateExpenseScreen({
           animationType="slide"
           onRequestClose={() => setShowSplitTypeModal(false)}
         >
-          <View style={styles.pickerModal}>
+          <SafeAreaView style={styles.pickerModal}>
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Split Type</Text>
@@ -520,7 +522,7 @@ export default function CreateExpenseScreen({
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </SafeAreaView>
         </Modal>
 
         {/* Split Members */}
@@ -568,7 +570,7 @@ export default function CreateExpenseScreen({
           animationType="slide"
           onRequestClose={() => setShowPayerModal(false)}
         >
-          <View style={styles.pickerModal}>
+          <SafeAreaView style={styles.pickerModal}>
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Who Paid?</Text>
@@ -602,7 +604,7 @@ export default function CreateExpenseScreen({
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </SafeAreaView>
         </Modal>
 
         {/* Date - Editable with date picker for past dates */}
@@ -670,7 +672,7 @@ export default function CreateExpenseScreen({
           animationType="slide"
           onRequestClose={() => setShowDatePicker(false)}
         >
-          <View style={styles.pickerModal}>
+          <SafeAreaView style={styles.pickerModal}>
             <View style={styles.pickerContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Select Date</Text>
@@ -703,9 +705,10 @@ export default function CreateExpenseScreen({
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
+          </SafeAreaView>
         </Modal>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
