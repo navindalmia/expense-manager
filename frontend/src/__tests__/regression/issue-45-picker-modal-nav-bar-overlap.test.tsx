@@ -35,9 +35,10 @@ import path from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import EditExpenseScreen from '../../screens/EditExpenseScreen';
+import type { EditExpenseScreenProps } from '../../types/navigation';
 import TypeAheadDropdown from '../../components/TypeAheadDropdown';
 
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // ---------------------------------------------------------------------
 // Part 1: EditExpenseScreen's "Who Paid?" and "Split Type" bottom-sheet
@@ -60,13 +61,21 @@ const mockGroupMembers = [
 // Like the real SafeAreaView, this applies the inset as bottom padding.
 // A plain View (the pre-fix code) gets no padding, so the last row is not cleared.
 const NAV_BAR_INSET = 48;
-vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaProvider: ({ children }: any) => <div>{children}</div>,
-  useSafeAreaInsets: () => ({ top: 0, bottom: 48, left: 0, right: 0 }),
-  SafeAreaView: ({ children, ...props }: any) => (
-    <div data-rn-safe-area-view="true" data-padding-bottom={48} {...props}>{children}</div>
-  ),
-}));
+vi.mock('react-native-safe-area-context', () => {
+  const useSafeAreaInsets = (): { top: number; bottom: number; left: number; right: number } => ({
+    top: 0,
+    bottom: 48,
+    left: 0,
+    right: 0,
+  });
+  return {
+    SafeAreaProvider: ({ children }: { children?: React.ReactNode }): React.ReactElement => <div>{children}</div>,
+    useSafeAreaInsets,
+    SafeAreaView: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }): React.ReactElement => (
+      <div data-rn-safe-area-view="true" data-padding-bottom={useSafeAreaInsets().bottom} {...props}>{children}</div>
+    ),
+  };
+});
 
 function expectClearsNavBar(wrapper: Element | null, ...rows: HTMLElement[]) {
   expect(wrapper).not.toBeNull();
@@ -116,20 +125,20 @@ function getByTestId(container: HTMLElement, id: string): HTMLElement {
 }
 
 function renderCreateScreen() {
-  const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as any;
+  const navigation = { goBack: vi.fn(), setOptions: vi.fn() } as unknown as EditExpenseScreenProps['navigation'];
   const route = {
     params: { groupId: 1, groupName: 'Roommates', groupCurrencyCode: 'GBP' },
-  } as any;
+  } as unknown as EditExpenseScreenProps['route'];
   return render(<EditExpenseScreen navigation={navigation} route={route} />);
 }
 
 describe('issue #45: picker-modal content stays above the system nav bar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (getCategories as any).mockResolvedValue(mockCategories);
-    (getLabels as any).mockResolvedValue([]);
-    (getGroup as any).mockResolvedValue({ id: 1, members: mockGroupMembers });
-    (suggestExpenses as any).mockResolvedValue({ matches: [], categorySuggestion: null });
+    vi.mocked(getCategories).mockResolvedValue(mockCategories);
+    vi.mocked(getLabels).mockResolvedValue([]);
+    vi.mocked(getGroup).mockResolvedValue({ id: 1, members: mockGroupMembers } as unknown as Awaited<ReturnType<typeof getGroup>>);
+    vi.mocked(suggestExpenses).mockResolvedValue({ matches: [], categorySuggestion: null });
   });
 
   it('wraps the "Who Paid?" picker content in a SafeAreaView so the last member row is never behind the nav bar', async () => {
