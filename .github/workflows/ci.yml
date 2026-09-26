@@ -309,7 +309,7 @@ jobs:
     # are visible for an in-progress run, so a hang here is otherwise invisible
     # until it's force-cancelled). Tune up if a legitimately slow cold build
     # starts tripping this.
-    timeout-minutes: 25
+    timeout-minutes: 40
     services:
       postgres:
         image: postgres:17
@@ -400,7 +400,35 @@ jobs:
           GROUP_ID=$(echo "$GROUP" | jq -r '.data.id')
           curl -sf -X POST http://localhost:4000/api/expenses \
             -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-            -d "{\"title\":\"Diberr Repro\",\"amount\":42.50,\"groupId\":$GROUP_ID,\"paidById\":$USER_ID,\"categoryId\":$CATEGORY_ID,\"expenseDate\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}"
+            -d "{\"title\":\"Diberr Repro\",\"amount\":42.50,\"groupId\":$GROUP_ID,\"paidById\":$USER_ID,\"categoryId\":$CATEGORY_ID,\"expenseDate\":\"2026-07-15T12:00:00.000Z\"}"
+          # Fixed expense date (not `date -u`): group-list/expense-list/edit-expense
+          # baselines render it ("July 2026", the When field), so a
+          # wall-clock date would break every baseline as time passes.
+          #
+          # Multi-member fixtures the flows expect (run 36242232847: CI's
+          # group had 1 member, so edit-expense-paid-by-option-2 never
+          # existed). addMemberByEmail needs an existing user, so sign the
+          # members up first.
+          add_member() {
+            curl -sf -X POST http://localhost:4000/api/auth/signup \
+              -H "Content-Type: application/json" \
+              -d "{\"email\":\"$2\",\"password\":\"Test1234!\",\"name\":\"$1\"}" > /dev/null
+            curl -sf -X POST "http://localhost:4000/api/groups/$3/members" \
+              -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+              -d "{\"email\":\"$2\"}" > /dev/null
+          }
+          add_member "Alex Rivera" alex@test.com "$GROUP_ID"
+          add_member "Bailey Chen" bailey@test.com "$GROUP_ID"
+          add_member "Casey Morgan" casey@test.com "$GROUP_ID"
+          # payer-picker-modal-safe-area.yaml (issue #45) needs a many-member
+          # group named e2e-paidby45-group.
+          BIG=$(curl -sf -X POST http://localhost:4000/api/groups \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"e2e-paidby45-group","currency":"GBP"}')
+          BIG_ID=$(echo "$BIG" | jq -r '.data.id')
+          for n in 1 2 3 4 5 6 7 8; do
+            add_member "Member $n" "member$n@test.com" "$BIG_ID"
+          done
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps
@@ -470,7 +498,11 @@ jobs:
         # it derive the job's actual pass/fail from that captured result
         # instead - so a teardown hang can no longer masquerade as a test
         # failure.
-        timeout-minutes: 18
+        # Raised 18 -> 30 (2026-09-26, run 36242232847): with 9 flows one
+        # whole-suite attempt takes ~6min (measured: 12:42:07 -> 12:48:31),
+        # so 3 attempts after the ~9min build need ~27min; 18 cut attempt 2
+        # off mid-run.
+        timeout-minutes: 30
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -573,6 +605,7 @@ jobs:
             npx expo start & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
+            adb shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.threebutton;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
