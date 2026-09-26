@@ -56,14 +56,16 @@ appId: com.navindalmia.expensemanager
     id: "edit-expense-amount-input"
 - assertVisible:
     id: "edit-expense-paid-by-picker-button"
-- scrollUntilVisible:
-    element:
-      id: "edit-expense-save-button"
 # U5: key interactive elements must have real, non-empty accessibility
 # labels/roles (what TalkBack/VoiceOver would announce).
 - assertVisible:
     id: "edit-expense-title-input"
     enabled: true
+# Save button is below the fold on the CI emulator; scroll after the
+# top-of-form assertions (scrolling hides the title input).
+- scrollUntilVisible:
+    element:
+      id: "edit-expense-save-button"
 - assertVisible:
     id: "edit-expense-save-button"
     enabled: true

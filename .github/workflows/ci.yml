@@ -609,6 +609,12 @@ jobs:
             npx expo start & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
+            adb shell settings put global sysui_demo_allowed 1;
+            adb shell am broadcast -a com.android.systemui.demo -e command enter;
+            adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200;
+            adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false;
+            adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4;
+            adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
@@ -641,8 +647,8 @@ jobs:
           echo "Captured Maestro/build exit code: $RESULT"
           [[ "$RESULT" =~ ^[0-9]+$ ]] || { echo "maestro-result.txt contained a non-numeric value: '$RESULT' - treating as failure"; exit 1; }
           exit "$RESULT"
-      - name: Upload Maestro debug artifacts on failure
-        if: failure()
+      - name: Upload Maestro debug artifacts (always: visual flows are non-blocking)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-debug-output
