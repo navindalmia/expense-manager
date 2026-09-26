@@ -601,7 +601,6 @@ jobs:
             npx expo start & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
-            adb shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.threebutton;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
