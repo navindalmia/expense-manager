@@ -12,14 +12,13 @@
 
 **Merged 2026-09-18 (PR #55, `bfe1cc9`):** intelligence layer — Themes, user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete, keyword-dictionary category suggestion. Verified with a real Playwright E2E against live backend+Postgres+web app before merge. Still unconfirmed whether the `fuzzyMatch.ts` matching-quality question (stopwords like "to"/"the" score nonzero, no minimum threshold) was ever decided — check before assuming it's resolved.
 
-**Also merged 2026-09-24:** PR #71 (SessionStart stale-check hook + usage-quota gate).
+**Also merged:** PR #71 (SessionStart stale-check hook + usage-quota gate, 2026-09-24), PR #82 (#45 fix) and PR #84 (e2e-mobile ANR-dialog fix), both 2026-09-26.
 
 **Regression pack + CI gate (merged 2026-09-23/24, PR #74 and follow-ups #72/#73/#75/#76/#77/#78/#79/#80/#81):** `regression-gate` and `e2e-regression` CI jobs, static `.githooks/*`, 8 Maestro visual baselines. **Owner action pending:** mark `regression-gate` + `e2e-regression` (not `e2e-mobile`, still flaky) as required checks in `master` branch protection.
 
 **Open, needs attention:**
-- **Issue #45** (Paid-by 2nd+ member unselectable) — root-caused as RN `Modal` not inheriting `SafeAreaView` bottom insets (Android 3-button nav bar covers rows). Fix is PR #82 with a behavioral regression test and a Maestro baseline, emulator-verified but not yet on a physical device.
-- **PR #82** (the #45 fix, open) — reviewed with `/ce-code-review` (Ready with fixes, fix applied); all CI green except `e2e-mobile`. Awaiting the owner's decision to merge.
-- **`e2e-mobile` CI job** — failing on every master run since ~2026-09-17 (8 of 9 Maestro flows fail at login: `submit-button`/`email-input` not found). Not caused by #82; under investigation.
+- **Issue #45** (Paid-by 2nd+ member unselectable) — FIXED and verified on the owner's real device (2026-09-26): merged as PR #82 (RN `Modal` bottom-sheets now wrapped in `SafeAreaView`; behavioral regression test + Maestro baseline).
+- **`e2e-mobile` CI job** — still red on master. PR #84 (merged) fixed the launcher-ANR login failure; remaining failures (7/9 flows) are Maestro visual baselines assuming fixtures CI doesn't seed, plus the 3x retry loop exceeding the 18-min cap. PR #85 (open, unreviewed) seeds fixtures and raises timeouts. Includes the #82 baseline `payer-picker-modal-safe-area`, which fails in CI until fixtures exist.
 - Issues #47, #48, #5 — not started, need `/ce-brainstorm`/`/ce-plan` scoping first.
 - Many older open PRs (#60/#61/#63/#64/#65/#67/#69 plus Dependabot bumps) predate the 09-23 merge batch and show CI failures — triage for staleness/duplicates (#66 was already closed as a duplicate of #76).
 
