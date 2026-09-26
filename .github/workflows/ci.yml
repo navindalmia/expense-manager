@@ -647,7 +647,7 @@ jobs:
           echo "Captured Maestro/build exit code: $RESULT"
           [[ "$RESULT" =~ ^[0-9]+$ ]] || { echo "maestro-result.txt contained a non-numeric value: '$RESULT' - treating as failure"; exit 1; }
           exit "$RESULT"
-      - name: Upload Maestro debug artifacts (always: visual flows are non-blocking)
+      - name: Upload Maestro debug artifacts (always, since visual flows are non-blocking)
         if: always()
         uses: actions/upload-artifact@v4
         with:
