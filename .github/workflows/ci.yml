@@ -407,15 +407,11 @@ jobs:
           #
           # Multi-member fixtures the flows expect (run 36242232847: CI's
           # group had 1 member, so edit-expense-paid-by-option-2 never
-          # existed). addMemberByEmail needs an existing user, so sign the
-          # members up first.
+          # existed). POST /members takes name+email and needs no account.
           add_member() {
-            curl -sf -X POST http://localhost:4000/api/auth/signup \
-              -H "Content-Type: application/json" \
-              -d "{\"email\":\"$2\",\"password\":\"Test1234!\",\"name\":\"$1\"}" > /dev/null
             curl -sf -X POST "http://localhost:4000/api/groups/$3/members" \
               -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-              -d "{\"email\":\"$2\"}" > /dev/null
+              -d "{\"name\":\"$1\",\"email\":\"$2\"}" > /dev/null
           }
           add_member "Alex Rivera" alex@test.com "$GROUP_ID"
           add_member "Bailey Chen" bailey@test.com "$GROUP_ID"
