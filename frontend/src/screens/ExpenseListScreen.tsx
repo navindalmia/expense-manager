@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getGroupExpenses } from '../services/expenseService';
 import { calculateUserExpenseShare } from '../utils/calculateUserExpenseShare';
@@ -445,7 +446,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * Render expense list.
    */
   return (
-    <View 
+    <SafeAreaView
       style={styles.container}
       testID="expense-list-screen"
     >
@@ -548,7 +549,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         windowSize={10}
         removeClippedSubviews={true}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import type { Expense } from '../services/expenseService';
 import type { SettlementScreenProps } from '../types/navigation';
@@ -405,7 +406,7 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
   }, []);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Settlement Breakdown</Text>
         <Text style={styles.headerSubtitle}>{groupName}</Text>
@@ -425,7 +426,7 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
           scrollEnabled={true}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
