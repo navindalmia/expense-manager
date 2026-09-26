@@ -10,7 +10,17 @@
 
 **Known broken (low priority):** web email-verification deep link (`/verify-email?token=...` falls back silently to Login) — only matters if `REQUIRE_EMAIL_VERIFICATION` is ever `true` in production; it's `false` live, so this doesn't block real users. See ROADMAP Phase 4/5d.
 
-**In progress, not yet merged:** `feat/intelligence-layer-themes-labels-autocomplete` branch — Themes, user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete, keyword-dictionary category suggestion. All 10 implementation units done, backend (413 tests) + frontend (157 tests) unit suites green, `tsc` clean both sides, and — as of 2026-09-14 — genuinely verified with a real Playwright E2E test against a live backend+Postgres+rendered web app (not just mocks), run 3x clean. Not yet wired into CI, no PR opened yet. See ROADMAP's Phase 8 entry for full detail and the two items still open (CI wiring, a flagged `fuzzyMatch.ts` matching-quality question for Navin).
+**Merged 2026-09-18 (PR #55, `bfe1cc9`):** intelligence layer — Themes, user-extensible Categories, cross-group Labels + Manage Labels screen, expense-title autocomplete, keyword-dictionary category suggestion. Verified with a real Playwright E2E against live backend+Postgres+web app before merge. Still unconfirmed whether the `fuzzyMatch.ts` matching-quality question (stopwords like "to"/"the" score nonzero, no minimum threshold) was ever decided — check before assuming it's resolved.
+
+**Also merged:** PR #71 (SessionStart stale-check hook + usage-quota gate, 2026-09-24), PR #82 (#45 fix) and PR #84 (e2e-mobile ANR-dialog fix), both 2026-09-26.
+
+**Regression pack + CI gate (merged 2026-09-23/24, PR #74 and follow-ups #72/#73/#75/#76/#77/#78/#79/#80/#81):** `regression-gate` and `e2e-regression` CI jobs, static `.githooks/*`, 8 Maestro visual baselines. **Owner action pending:** mark `regression-gate` + `e2e-regression` (not `e2e-mobile`, still flaky) as required checks in `master` branch protection.
+
+**Open, needs attention:**
+- **Issue #45** (Paid-by 2nd+ member unselectable) — FIXED and verified on the owner's real device (2026-09-26): merged as PR #82 (RN `Modal` bottom-sheets now wrapped in `SafeAreaView`; behavioral regression test + Maestro baseline).
+- **`e2e-mobile` CI job** — still red on master. PR #84 (merged) fixed the launcher-ANR login failure; remaining failures (7/9 flows) are Maestro visual baselines assuming fixtures CI doesn't seed, plus the 3x retry loop exceeding the 18-min cap. PR #85 (open, unreviewed) seeds fixtures and raises timeouts. Includes the #82 baseline `payer-picker-modal-safe-area`, which fails in CI until fixtures exist.
+- Issues #47, #48, #5 — not started, need `/ce-brainstorm`/`/ce-plan` scoping first.
+- Many older open PRs (#60/#61/#63/#64/#65/#67/#69 plus Dependabot bumps) predate the 09-23 merge batch and show CI failures — triage for staleness/duplicates (#66 was already closed as a duplicate of #76).
 
 Full list of open gaps, bugs, and planned phases: [`ROADMAP.md`](../ROADMAP.md).
 
