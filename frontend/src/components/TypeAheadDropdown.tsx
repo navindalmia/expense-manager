@@ -22,6 +22,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getErrorMessage } from '../utils/errorHandler';
 
 export interface TypeAheadItem {
@@ -134,7 +135,7 @@ export default function TypeAheadDropdown({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
-      <View style={styles.pickerModal}>
+      <SafeAreaView style={styles.pickerModal}>
         <View style={styles.pickerContent}>
           <View style={styles.pickerHeader}>
             <Text style={styles.pickerTitle}>{title}</Text>
@@ -213,7 +214,7 @@ export default function TypeAheadDropdown({
             </>
           )}
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

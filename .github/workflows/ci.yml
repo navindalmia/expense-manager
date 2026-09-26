@@ -562,10 +562,17 @@ jobs:
           # fail the job either way) - the "Report Maestro test result"
           # step right after this one is what the job's actual conclusion
           # now depends on.
+          # 2026-09-26 (run 36048606424): 8/9 flows failed because the OS-level
+          # "Pixel Launcher isn't responding" ANR dialog covered the login
+          # screen (screenshots in the maestro-debug-output artifact) - the
+          # per-flow optional "Wait" taps only cover moments before the
+          # password field, and the dialog recurs. hide_error_dialogs=1 makes
+          # the emulator never show ANR/crash dialogs at all.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
+            adb shell settings put global hide_error_dialogs 1;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&

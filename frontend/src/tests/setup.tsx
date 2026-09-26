@@ -27,7 +27,13 @@ vi.mock('axios', () => ({
 // Mock React Native Web
 vi.mock('react-native', () => ({
   View: ({ children, ...props }: any) => <div {...props}>{children}</div>,
-  SafeAreaView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  // data-rn-safe-area-view lets regression tests assert that a given piece
+  // of UI is actually wrapped in a SafeAreaView (which applies safe-area /
+  // system-nav-bar insets) rather than a plain View, without depending on
+  // real inset values jsdom cannot compute (see issue #45).
+  SafeAreaView: ({ children, ...props }: any) => (
+    <div data-rn-safe-area-view="true" {...props}>{children}</div>
+  ),
   Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
   ScrollView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   KeyboardAvoidingView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -55,7 +61,9 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  SafeAreaView: ({ children, ...props }: any) => (
+    <div data-rn-safe-area-view="true" {...props}>{children}</div>
+  ),
   SafeAreaProvider: ({ children }: any) => <div>{children}</div>,
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
