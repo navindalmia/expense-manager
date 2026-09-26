@@ -309,7 +309,7 @@ jobs:
     # are visible for an in-progress run, so a hang here is otherwise invisible
     # until it's force-cancelled). Tune up if a legitimately slow cold build
     # starts tripping this.
-    timeout-minutes: 40
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:17
@@ -498,7 +498,7 @@ jobs:
         # whole-suite attempt takes ~6min (measured: 12:42:07 -> 12:48:31),
         # so 3 attempts after the ~9min build need ~27min; 18 cut attempt 2
         # off mid-run.
-        timeout-minutes: 30
+        timeout-minutes: 25
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -596,6 +596,14 @@ jobs:
           # per-flow optional "Wait" taps only cover moments before the
           # password field, and the dialog recurs. hide_error_dialogs=1 makes
           # the emulator never show ANR/crash dialogs at all.
+          # Functional flows (assertScreenshot stripped) are BLOCKING and retried
+          # per flow; visual flows run once afterwards, NON-BLOCKING, with scores
+          # in the job summary. Visual baselines (maestro-flows/visual/*.png) were
+          # recorded on a different local emulator (different renderer/status-bar
+          # clock) and score 79-93% vs the 95% threshold on CI - they must be
+          # regenerated from CI-emulator screenshots before they can be made
+          # blocking again. Do not loosen the 95% threshold. See
+          # scripts/run-maestro-ci.sh.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
@@ -604,7 +612,7 @@ jobs:
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
-            (for i in 1 2 3; do maestro test ../maestro-flows/visual/ && exit 0; echo "Maestro attempt $i failed, retrying..."; done; exit 1);
+            bash ../scripts/run-maestro-ci.sh;
             code=$?;
             echo "$code" > "$GITHUB_WORKSPACE/maestro-result.txt";
             exit "$code"

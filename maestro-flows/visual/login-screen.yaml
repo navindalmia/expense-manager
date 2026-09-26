@@ -12,8 +12,10 @@ appId: com.navindalmia.expensemanager
 - tapOn:
     text: "Wait"
     optional: true
-- assertVisible:
-    id: "email-input"
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
 - assertVisible:
     id: "password-input"
 - assertVisible:
@@ -28,8 +30,10 @@ appId: com.navindalmia.expensemanager
     optional: true
 # U5: key interactive elements must have real, non-empty accessibility labels
 # (what TalkBack/VoiceOver would announce) - not blank, not a raw testID leaking through.
-- assertVisible:
-    id: "email-input"
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
     enabled: true
 - assertVisible:
     id: "password-input"
