@@ -11,18 +11,18 @@ describe('e2e-mobile functional/visual split (PR #85)', () => {
     expect(ciYaml).not.toContain('for i in 1 2 3; do maestro test');
   });
 
-  it('should strip assertScreenshot for the blocking functional pass and retry per flow', () => {
-    expect(runner).toContain("grep -v '^- assertScreenshot'");
+  it('should run each flow (including its assertScreenshot step) with per-flow retry', () => {
     expect(runner).toMatch(/for attempt in/);
+    expect(runner).not.toContain("grep -v '^- assertScreenshot'");
   });
 
-  it('should keep the visual pass non-blocking and the exit code functional-only', () => {
-    expect(runner).toMatch(/maestro test "\$SRC" 2>&1 \| tee .* \|\| true/);
+  it('should make the visual/assertScreenshot pass blocking on the job exit code', () => {
     expect(runner).toMatch(/\[ "\$failed" -eq 0 \]\s*$/);
+    expect(runner).not.toMatch(/\|\|\s*true\s*$/m);
   });
 
-  it('should document that visual baselines need CI-emulator regeneration', () => {
-    expect(ciYaml).toContain('regenerated from CI-emulator screenshots');
+  it('should document that visual baselines were regenerated from CI-emulator screenshots', () => {
+    expect(ciYaml).toContain('regenerated from real CI-emulator screenshots');
   });
 
   it('should bound the e2e-mobile timeouts to measured durations', () => {

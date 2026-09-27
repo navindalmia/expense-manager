@@ -596,14 +596,12 @@ jobs:
           # per-flow optional "Wait" taps only cover moments before the
           # password field, and the dialog recurs. hide_error_dialogs=1 makes
           # the emulator never show ANR/crash dialogs at all.
-          # Functional flows (assertScreenshot stripped) are BLOCKING and retried
-          # per flow; visual flows run once afterwards, NON-BLOCKING, with scores
-          # in the job summary. Visual baselines (maestro-flows/visual/*.png) were
-          # recorded on a different local emulator (different renderer/status-bar
-          # clock) and score 79-93% vs the 95% threshold on CI - they must be
-          # regenerated from CI-emulator screenshots before they can be made
-          # blocking again. Do not loosen the 95% threshold. See
-          # scripts/run-maestro-ci.sh.
+          # All 9 flows in maestro-flows/visual/ - including their assertScreenshot
+          # step - are BLOCKING, each retried individually (max 2 attempts) to
+          # absorb cold-launch latency. Visual baselines (maestro-flows/visual/*.png)
+          # were regenerated from real CI-emulator screenshots (run 36263266511's
+          # maestro-debug-output artifact) so the 95% threshold is meaningful here -
+          # do not loosen it. See scripts/run-maestro-ci.sh.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
@@ -647,7 +645,7 @@ jobs:
           echo "Captured Maestro/build exit code: $RESULT"
           [[ "$RESULT" =~ ^[0-9]+$ ]] || { echo "maestro-result.txt contained a non-numeric value: '$RESULT' - treating as failure"; exit 1; }
           exit "$RESULT"
-      - name: Upload Maestro debug artifacts (always, since visual flows are non-blocking)
+      - name: Upload Maestro debug artifacts (always, for baseline regeneration/debugging)
         if: always()
         uses: actions/upload-artifact@v4
         with:
