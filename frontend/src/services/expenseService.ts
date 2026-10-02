@@ -47,6 +47,7 @@ export interface Expense {
   categoryId: number;
   category: Category;
   labelId?: number | null;
+  themeId?: number | null;
   splitWith: User[];
   splitAmount: number[];
   splitPercentage: number[];
@@ -70,6 +71,7 @@ export interface CreateExpenseDTO {
   paidById: number;
   categoryId: number;
   labelId?: number;
+  themeId?: number;
   splitWithIds?: number[];
   splitType?: string;
   splitAmount?: number[];
@@ -88,6 +90,7 @@ export interface UpdateExpenseDTO {
   amount?: number;
   categoryId?: number;
   labelId?: number;
+  themeId?: number;
   paidById?: number;
   splitWithIds?: number[];
   splitType?: string;

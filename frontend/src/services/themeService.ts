@@ -15,6 +15,11 @@ export interface Theme {
   isActive: boolean;
 }
 
+export interface ThemeUsage extends Theme {
+  groupCount: number;
+  expenseCount: number;
+}
+
 /**
  * Fetch themes visible to the current user (system + own custom).
  *
@@ -42,5 +47,25 @@ export async function createTheme(name: string): Promise<Theme> {
  */
 export async function disableTheme(themeId: number): Promise<Theme> {
   const response = await http.patch<{ statusCode: number; data: Theme }>(`/themes/${themeId}/disable`);
+  return response.data.data;
+}
+
+/**
+ * Rename a custom theme the current user owns.
+ *
+ * PATCH /api/themes/:id
+ */
+export async function renameTheme(themeId: number, name: string): Promise<Theme> {
+  const response = await http.patch<{ statusCode: number; data: Theme }>(`/themes/${themeId}`, { name });
+  return response.data.data;
+}
+
+/**
+ * Fetch themes with group/expense usage counts for the Manage Themes screen.
+ *
+ * GET /api/themes/usage
+ */
+export async function getThemeUsage(): Promise<ThemeUsage[]> {
+  const response = await http.get<{ statusCode: number; data: ThemeUsage[] }>('/themes/usage');
   return response.data.data;
 }

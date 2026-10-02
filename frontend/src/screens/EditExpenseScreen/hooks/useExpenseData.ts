@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { getExpenseById, type Expense } from '../../../services/expenseService';
 import { getCategories, type Category } from '../../../services/categoryService';
 import { getLabels, type Label } from '../../../services/labelService';
+import { getThemes, type Theme } from '../../../services/themeService';
 import { getGroup } from '../../../services/groupService';
 import { getErrorMessage } from '../../../utils/errorHandler';
 import { logger } from '../../../utils/logger';
@@ -23,6 +24,7 @@ interface UseExpenseDataReturn {
   expense: Expense | null;
   categories: Category[];
   labels: Label[];
+  themes: Theme[];
   groupMembers: GroupMember[];
   loading: boolean;
   error: string | null;
@@ -41,6 +43,7 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
   const [expense, setExpense] = useState<Expense | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
+  const [themes, setThemes] = useState<Theme[]>([]);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +58,11 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
         const expensePromise = expenseId ? getExpenseById(expenseId) : Promise.resolve(null);
 
         // ✅ Fetch all data sources IN PARALLEL
-        const [fetchedExpense, fetchedCategories, fetchedLabels, group] = await Promise.all([
+        const [fetchedExpense, fetchedCategories, fetchedLabels, fetchedThemes, group] = await Promise.all([
           expensePromise,
           getCategories(),
           getLabels(),
+          getThemes(),
           getGroup(groupId),
         ]);
 
@@ -67,6 +71,7 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
         setExpense(fetchedExpense);
         setCategories(fetchedCategories);
         setLabels(fetchedLabels);
+        setThemes(fetchedThemes);
         setGroupMembers(group.members);
         setLoading(false);
 
@@ -99,5 +104,5 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
     fetchAllData();
   }, [expenseId, groupId]);
 
-  return { expense, categories, labels, groupMembers, loading, error };
+  return { expense, categories, labels, themes, groupMembers, loading, error };
 }

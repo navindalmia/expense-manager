@@ -18,6 +18,7 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   CreateGroup: undefined;
   Settlement: { groupId: number; groupName?: string; currency?: { id: number; code: string; label: string }; expenses: Expense[] };
   ManageLabels: undefined;
+  ManageThemes: undefined;
 }
 
 /**
@@ -70,3 +71,8 @@ export type VerifyEmailScreenProps = NativeStackScreenProps<RootStackParamList, 
  * Props for ManageLabelsScreen
  */
 export type ManageLabelsScreenProps = NativeStackScreenProps<RootStackParamList, 'ManageLabels'>;
+
+/**
+ * Props for ManageThemesScreen
+ */
+export type ManageThemesScreenProps = NativeStackScreenProps<RootStackParamList, 'ManageThemes'>;

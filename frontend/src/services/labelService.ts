@@ -40,6 +40,16 @@ export async function createLabel(name: string): Promise<Label> {
 }
 
 /**
+ * Rename a label the current user owns.
+ *
+ * PATCH /api/labels/:id
+ */
+export async function renameLabel(labelId: number, name: string): Promise<Label> {
+  const response = await http.patch<{ statusCode: number; data: Label }>(`/labels/${labelId}`, { name });
+  return response.data.data;
+}
+
+/**
  * Disable (not delete) a label the current user owns.
  *
  * PATCH /api/labels/:id/disable

@@ -114,4 +114,28 @@ describe('ThemeService', () => {
       await expect(themeService.assertThemeVisible(OWNER_ID, 999)).rejects.toThrow('THEME.NOT_FOUND');
     });
   });
+  describe('getThemeUsage', () => {
+    it('returns group and expense counts per active visible theme, scoped to accessible groups', async () => {
+      (prisma.theme.findMany as jest.Mock).mockResolvedValue([
+        { id: 1, name: 'Holiday', userId: OWNER_ID, isActive: true },
+        { id: 2, name: 'Unused', userId: OWNER_ID, isActive: true },
+      ]);
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([{ id: 10 }]);
+      (prisma.group.groupBy as jest.Mock).mockResolvedValue([{ themeId: 1, _count: { _all: 2 } }]);
+      (prisma.expense.groupBy as jest.Mock).mockResolvedValue([{ themeId: 1, _count: { _all: 5 } }]);
+
+      const result = await themeService.getThemeUsage(OWNER_ID);
+
+      expect(prisma.theme.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isActive: true, OR: [{ userId: null }, { userId: OWNER_ID }] } })
+      );
+      expect(prisma.expense.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { themeId: { in: [1, 2] }, groupId: { in: [10] } } })
+      );
+      expect(result).toEqual([
+        expect.objectContaining({ id: 1, groupCount: 2, expenseCount: 5 }),
+        expect.objectContaining({ id: 2, groupCount: 0, expenseCount: 0 }),
+      ]);
+    });
+  });
 });

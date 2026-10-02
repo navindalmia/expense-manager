@@ -85,3 +85,45 @@ export async function assertThemeVisible(userId: number, themeId: number): Promi
     throw new AppError('THEME.NOT_FOUND', 404, 'THEME_NOT_FOUND', { themeId });
   }
 }
+
+/**
+ * Per-theme usage counts for the Manage Themes screen (R4): how many of
+ * the user's accessible groups and expenses carry each visible, active
+ * theme. Counts are scoped to groups the user created or belongs to, so a
+ * global theme never leaks other users' usage.
+ */
+export async function getThemeUsage(userId: number) {
+  const visibleThemes = await prisma.theme.findMany({
+    where: { isActive: true, OR: [{ userId: null }, { userId }] },
+    orderBy: { name: 'asc' },
+  });
+
+  const accessibleGroups = await prisma.group.findMany({
+    where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+    select: { id: true },
+  });
+  const accessibleGroupIds = accessibleGroups.map((g) => g.id);
+  const themeIds = visibleThemes.map((t) => t.id);
+
+  const [groupCounts, expenseCounts] = await Promise.all([
+    prisma.group.groupBy({
+      by: ['themeId'],
+      where: { themeId: { in: themeIds }, id: { in: accessibleGroupIds } },
+      _count: { _all: true },
+    }),
+    prisma.expense.groupBy({
+      by: ['themeId'],
+      where: { themeId: { in: themeIds }, groupId: { in: accessibleGroupIds } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const groupsByTheme = new Map(groupCounts.map((c) => [c.themeId, c._count._all]));
+  const expensesByTheme = new Map(expenseCounts.map((c) => [c.themeId, c._count._all]));
+
+  return visibleThemes.map((theme) => ({
+    ...theme,
+    groupCount: groupsByTheme.get(theme.id) ?? 0,
+    expenseCount: expensesByTheme.get(theme.id) ?? 0,
+  }));
+}
