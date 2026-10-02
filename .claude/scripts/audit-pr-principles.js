@@ -20,7 +20,7 @@
 //   Rule 3 (UI-needs-visual-regression): a commit touching screens/components
 //     must also touch maestro-flows/visual/*.yaml, or carry
 //     `Visual-Regression-Exempt:`.
-//   Rule 4 (UI-needs-real-E2E): a commit touching screens/components must
+//   Rule 1 (UI-needs-real-E2E): a commit touching screens/components must
 //     also touch e2e/, or carry `E2E-Exempt:`.
 //
 // Deliberately NOT checked (see CLAUDE.md's Compound Engineering workflow
@@ -45,14 +45,6 @@ const {
   extractTrailer,
 } = require('./lib/commit-rules');
 
-function isBackendOrFrontendSource(file) {
-  return (
-    (/^backend\/src\//.test(file) || /^frontend\/src\//.test(file)) &&
-    !/\/__tests__\//.test(file) &&
-    !/\.test\.tsx?$/.test(file)
-  );
-}
-
 function run(args, cwd) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 1024 * 1024 * 64 });
   if (result.status !== 0) {
@@ -70,7 +62,7 @@ function getCommitRange(base, head, cwd) {
 
   return shas.map((sha) => {
     const message = run(['log', '-1', '--format=%B', sha], cwd).replace(/\n+$/, '');
-    const files = run(['diff-tree', '--no-commit-id', '--name-only', '-r', sha], cwd)
+    const files = run(['-c', 'core.quotepath=false', 'diff-tree', '--no-commit-id', '--name-only', '-r', sha], cwd)
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean);
@@ -102,7 +94,7 @@ function evaluateCommit(commit) {
         violations.push({
           sha,
           rule: 'fix/feat needs a regression test',
-          detail: 'fix(/feat( commit touches backend/frontend source but no test file, and no Test-Exempt trailer.',
+          detail: 'fix(/feat( commit has no test file, and no Test-Exempt trailer.',
         });
       }
     }
@@ -195,7 +187,6 @@ function formatSummary({ commits, violations, exemptions }) {
 }
 
 module.exports = {
-  isBackendOrFrontendSource,
   getCommitRange,
   evaluateCommit,
   auditRange,

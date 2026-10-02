@@ -55,10 +55,14 @@ jobs:
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
       - name: Post summary comment on the PR
         if: always()
+        # Fork/Dependabot PRs get a read-only token; the audit script already
+        # writes the same summary to GITHUB_STEP_SUMMARY, so never fail on this.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          [ -f /tmp/principles-audit-summary.md ] || exit 0
           gh pr comment "$PR_NUMBER" --body-file /tmp/principles-audit-summary.md \
             --repo "${{ github.repository }}"
       - name: Fail the job if any unexempted violation was found

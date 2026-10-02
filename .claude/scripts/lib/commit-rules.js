@@ -19,10 +19,6 @@ function isScreenOrComponentTsx(file) {
   return true;
 }
 
-function isE2eOrMaestroFile(file) {
-  return /^e2e\//.test(file) || /^maestro-flows\//.test(file);
-}
-
 function isPlaywrightE2eFile(file) {
   return /^e2e\//.test(file);
 }
@@ -41,11 +37,11 @@ function isFixOrFeatCommit(commitMessage) {
 
 // Parses a `<Name>: <reason>` git trailer out of a commit message. Returns
 // the reason string (trimmed) if the trailer is present, or null otherwise.
-// Matches the existing hooks' loose `/Name:\s*\S+/` detection (any non-empty
-// reason token counts) but also captures the reason text, which the hook
+// Line-anchored: the reason must start on the same line as the trailer name
+// (an empty trailer followed by another line does not count). Also captures the reason text, which the hook
 // itself never needed but the PR-level audit summary does.
 function extractTrailer(commitMessage, trailerName) {
-  const re = new RegExp(`^${trailerName}:\\s*(.+)$`, 'm');
+  const re = new RegExp(`^${trailerName}:[ \\t]*(\\S.*)$`, 'm');
   const match = commitMessage.match(re);
   if (!match) return null;
   const reason = match[1].trim();
@@ -54,7 +50,6 @@ function extractTrailer(commitMessage, trailerName) {
 
 module.exports = {
   isScreenOrComponentTsx,
-  isE2eOrMaestroFile,
   isPlaywrightE2eFile,
   isMaestroVisualFile,
   isTestFile,

@@ -206,3 +206,46 @@ test('evaluateCommit fires the fix/feat-needs-test rule regardless of which file
   assert.equal(violations.length, 1);
   assert.match(violations[0].rule, /fix\/feat needs a regression test/);
 });
+
+test('CLI exits 1 and reports an unexempted violation for a violating range, and exits 0 with a clean message for a clean range', () => {
+  const scriptPath = path.join(__dirname, '..', 'audit-pr-principles.js');
+  const summaryFile = path.join(os.tmpdir(), `principles-audit-cli-${process.pid}-${Date.now()}.md`);
+  const env = { ...process.env, AUDIT_SUMMARY_FILE: summaryFile };
+
+  const bad = makeRepo();
+  const badBase = bad.run(['rev-parse', 'HEAD']).trim();
+  commitFileChange(bad, 'backend/src/services/groupService.ts', '// fix\n', 'fix(groups): no test');
+  const badHead = bad.run(['rev-parse', 'HEAD']).trim();
+  const badResult = spawnSync('node', [scriptPath, badBase, badHead, bad.dir], { encoding: 'utf8', env });
+  assert.equal(badResult.status, 1);
+  assert.match(fs.readFileSync(summaryFile, 'utf8'), /unexempted violation/);
+
+  const good = makeRepo();
+  const goodBase = good.run(['rev-parse', 'HEAD']).trim();
+  commitFileChange(good, 'backend/src/services/groupService.ts', '// ok\n', 'chore: tidy');
+  const goodHead = good.run(['rev-parse', 'HEAD']).trim();
+  const goodResult = spawnSync('node', [scriptPath, goodBase, goodHead, good.dir], { encoding: 'utf8', env });
+  assert.equal(goodResult.status, 0);
+  assert.match(fs.readFileSync(summaryFile, 'utf8'), /No unexempted rule violations found\./);
+
+  fs.rmSync(summaryFile, { force: true });
+});
+
+test('extractTrailer requires the reason on the same line and tolerates mid-body trailers', () => {
+  const { extractTrailer } = require('../lib/commit-rules');
+  assert.equal(extractTrailer('fix(a): x\n\nTest-Exempt: docs only', 'Test-Exempt'), 'docs only');
+  assert.equal(extractTrailer('fix(a): x\n\nTest-Exempt:\nCo-Authored-By: Someone', 'Test-Exempt'), null);
+  assert.equal(extractTrailer('fix(a): x\n\nTest-Exempt:   \n', 'Test-Exempt'), null);
+  assert.equal(extractTrailer('fix(a): x', 'Test-Exempt'), null);
+});
+
+test('non-ASCII file paths are listed unquoted so UI classification still sees them', () => {
+  const repo = makeRepo();
+  const base = repo.run(['rev-parse', 'HEAD']).trim();
+  fs.writeFileSync(path.join(repo.dir, 'frontend', 'src', 'screens', 'Écran.tsx'), 'export default function E() {}\n');
+  repo.run(['add', '-A']);
+  repo.commit('chore: add screen');
+  const head = repo.run(['rev-parse', 'HEAD']).trim();
+  const result = auditRange(base, head, repo.dir);
+  assert.ok(result.commits[0].files.includes('frontend/src/screens/Écran.tsx'));
+});
