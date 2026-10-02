@@ -41,6 +41,11 @@ vi.mock('../../services/labelService', () => ({
   createLabel: vi.fn(),
 }));
 
+vi.mock('../../services/themeService', () => ({
+  getThemes: vi.fn(),
+  createTheme: vi.fn(),
+}));
+
 vi.mock('../../services/groupService', () => ({
   getGroup: vi.fn(),
 }));
@@ -55,6 +60,7 @@ vi.mock('../../services/expenseService', () => ({
 
 import { getCategories, createCategory } from '../../services/categoryService';
 import { getLabels, createLabel } from '../../services/labelService';
+import { getThemes, createTheme } from '../../services/themeService';
 import { getGroup } from '../../services/groupService';
 import { getExpenseById, deleteExpense, createExpense, updateExpense, suggestExpenses, type SuggestedExpenseMatch } from '../../services/expenseService';
 
@@ -98,6 +104,7 @@ describe('EditExpenseScreen (CREATE mode)', () => {
     vi.clearAllMocks();
     (getCategories as any).mockResolvedValue(mockCategories);
     (getLabels as any).mockResolvedValue([]);
+    (getThemes as any).mockResolvedValue([]);
     (getGroup as any).mockResolvedValue({ id: 1, members: mockGroupMembers });
     (suggestExpenses as any).mockResolvedValue({ matches: [], categorySuggestion: null });
   });
@@ -458,6 +465,58 @@ describe('EditExpenseScreen (EDIT mode)', () => {
       await waitFor(() => {
         expect(updateExpense).toHaveBeenCalledWith(42, expect.objectContaining({ labelId: 5 }));
       });
+    });
+
+    it('selecting an existing theme persists themeId on expense save (R6)', async () => {
+      const user = userEvent.setup();
+      (getThemes as any).mockResolvedValue([{ id: 4, name: 'Holiday', userId: 1, isActive: true }]);
+      (updateExpense as any).mockResolvedValue({ id: 42 });
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-theme-picker-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-theme-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-theme-option-4'));
+      await user.click(getByTestId(container, 'edit-expense-save-button'));
+
+      await waitFor(() => {
+        expect(updateExpense).toHaveBeenCalledWith(42, expect.objectContaining({ themeId: 4 }));
+      });
+    });
+
+    it('omits themeId from the payload when no theme is selected (optional field)', async () => {
+      const user = userEvent.setup();
+      (updateExpense as any).mockResolvedValue({ id: 42 });
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-save-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-save-button'));
+
+      await waitFor(() => expect(updateExpense).toHaveBeenCalled());
+      expect((updateExpense as any).mock.calls[0][1].themeId).toBeUndefined();
+    });
+
+    it('using "Add new" on the theme dropdown creates it via createTheme, then selects it immediately', async () => {
+      const user = userEvent.setup();
+      (createTheme as any).mockResolvedValue({ id: 8, name: 'Weekend', userId: 1, isActive: true });
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-theme-picker-button')).toBeTruthy());
+      await user.click(getByTestId(container, 'edit-expense-theme-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-theme-add-new-button'));
+      await user.type(getByTestId(container, 'edit-expense-theme-create-input'), 'Weekend');
+      await user.click(getByTestId(container, 'edit-expense-theme-create-submit-button'));
+
+      await waitFor(() => {
+        expect(createTheme).toHaveBeenCalledWith('Weekend');
+        expect(getByTestId(container, 'edit-expense-theme-picker-button').textContent).toContain('Weekend');
+      });
+    });
+
+    it('still renders the form when the theme list fails to load (theme is optional)', async () => {
+      (getThemes as any).mockRejectedValue(new Error('boom'));
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-theme-picker-button')).toBeTruthy());
     });
 
     it('using "Add new" on the category dropdown creates it via createCategory, then selects it without reopening the dropdown', async () => {

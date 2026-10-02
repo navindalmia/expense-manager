@@ -62,7 +62,11 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
           expensePromise,
           getCategories(),
           getLabels(),
-          getThemes(),
+          // Theme is an optional tag -- a failed theme load must not block the whole form.
+          getThemes().catch((themeError: unknown): Theme[] => {
+            logger.warn('Failed to load themes for expense form', { error: getErrorMessage(themeError) });
+            return [];
+          }),
           getGroup(groupId),
         ]);
 
