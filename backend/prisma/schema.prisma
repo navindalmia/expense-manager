@@ -86,6 +86,7 @@ model Theme {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   groups    Group[]
+  expenses  Expense[]
 
   @@index([userId])
 }
@@ -173,6 +174,8 @@ model Expense {
   categoryId   Int
   label        Label?    @relation(fields: [labelId], references: [id])
   labelId      Int?      // Optional -- free-text, cross-group tag (e.g. "Liverpool")
+  theme        Theme?    @relation(fields: [themeId], references: [id])
+  themeId      Int?      // Optional -- expense-level theme tag (same Theme master data as Group.themeId)
   notes        String?
   expenseDate  DateTime  @default(now())  // Defaults to today's date (current timestamp)
   isSettled    Boolean   @default(false)
@@ -185,6 +188,7 @@ model Expense {
   @@index([currencyId])
   @@index([expenseDate])
   @@index([labelId])
+  @@index([themeId])
 }
 
 

@@ -11,6 +11,7 @@ import { cleanData } from "../utils/cleanData";
 import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
+import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 
@@ -112,6 +113,7 @@ export async function createExpense(data: {
   paidById: number;
   categoryId: number;
   labelId?: number;
+  themeId?: number;
   splitWithIds?: number[];
   splitType?: SplitType;
   splitAmount?: number[];
@@ -128,6 +130,7 @@ export async function createExpense(data: {
     paidById,
     categoryId,
     labelId,
+    themeId,
     splitWithIds = [],
     splitType = SplitType.EQUAL,
     splitAmount = [],
@@ -247,6 +250,10 @@ export async function createExpense(data: {
       await assertLabelVisible(paidById, labelId);
     }
 
+    if (themeId !== undefined) {
+      await assertThemeVisible(paidById, themeId);
+    }
+
     // Build the expense data object
     const expenseData: Prisma.ExpenseCreateInput = {
       title,
@@ -256,6 +263,7 @@ export async function createExpense(data: {
       paidBy: { connect: { id: paidById } },
       category: { connect: { id: categoryId } },
       ...(labelId !== undefined ? { label: { connect: { id: labelId } } } : {}),
+      ...(themeId !== undefined ? { theme: { connect: { id: themeId } } } : {}),
       splitType,
       notes: notes || null,
       expenseDate: new Date(expenseDate),
@@ -446,6 +454,7 @@ export async function updateExpense(
     amount?: number;
     categoryId?: number;
     labelId?: number;
+  themeId?: number;
     paidById?: number;
     splitWithIds?: number[];
     splitType?: SplitType;
@@ -489,6 +498,7 @@ export async function updateExpense(
       amount,
       categoryId,
       labelId,
+      themeId,
       paidById,
       splitWithIds,
       splitType = expense.splitType,
@@ -591,6 +601,10 @@ export async function updateExpense(
     if (labelId !== undefined) {
       await assertLabelVisible(userId, labelId);
       updateData.label = { connect: { id: labelId } };
+    }
+    if (themeId !== undefined) {
+      await assertThemeVisible(userId, themeId);
+      updateData.theme = { connect: { id: themeId } };
     }
     if (paidById !== undefined) updateData.paidBy = { connect: { id: paidById } };
     if (notes !== undefined) updateData.notes = notes || null;
