@@ -309,7 +309,7 @@ jobs:
     # are visible for an in-progress run, so a hang here is otherwise invisible
     # until it's force-cancelled). Tune up if a legitimately slow cold build
     # starts tripping this.
-    timeout-minutes: 25
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:17
@@ -400,7 +400,31 @@ jobs:
           GROUP_ID=$(echo "$GROUP" | jq -r '.data.id')
           curl -sf -X POST http://localhost:4000/api/expenses \
             -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
-            -d "{\"title\":\"Diberr Repro\",\"amount\":42.50,\"groupId\":$GROUP_ID,\"paidById\":$USER_ID,\"categoryId\":$CATEGORY_ID,\"expenseDate\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}"
+            -d "{\"title\":\"Diberr Repro\",\"amount\":42.50,\"groupId\":$GROUP_ID,\"paidById\":$USER_ID,\"categoryId\":$CATEGORY_ID,\"expenseDate\":\"2026-07-15T12:00:00.000Z\"}"
+          # Fixed expense date (not `date -u`): group-list/expense-list/edit-expense
+          # baselines render it ("July 2026", the When field), so a
+          # wall-clock date would break every baseline as time passes.
+          #
+          # Multi-member fixtures the flows expect (run 36242232847: CI's
+          # group had 1 member, so edit-expense-paid-by-option-2 never
+          # existed). POST /members takes name+email and needs no account.
+          add_member() {
+            curl -sf -X POST "http://localhost:4000/api/groups/$3/members" \
+              -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+              -d "{\"name\":\"$1\",\"email\":\"$2\"}" > /dev/null
+          }
+          add_member "Alex Rivera" alex@test.com "$GROUP_ID"
+          add_member "Bailey Chen" bailey@test.com "$GROUP_ID"
+          add_member "Casey Morgan" casey@test.com "$GROUP_ID"
+          # payer-picker-modal-safe-area.yaml (issue #45) needs a many-member
+          # group named e2e-paidby45-group.
+          BIG=$(curl -sf -X POST http://localhost:4000/api/groups \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"e2e-paidby45-group","currency":"GBP"}')
+          BIG_ID=$(echo "$BIG" | jq -r '.data.id')
+          for n in 1 2 3 4 5 6 7 8; do
+            add_member "Member $n" "member$n@test.com" "$BIG_ID"
+          done
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps
@@ -470,7 +494,11 @@ jobs:
         # it derive the job's actual pass/fail from that captured result
         # instead - so a teardown hang can no longer masquerade as a test
         # failure.
-        timeout-minutes: 18
+        # Raised 18 -> 30 (2026-09-26, run 36242232847): with 9 flows one
+        # whole-suite attempt takes ~6min (measured: 12:42:07 -> 12:48:31),
+        # so 3 attempts after the ~9min build need ~27min; 18 cut attempt 2
+        # off mid-run.
+        timeout-minutes: 25
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -568,15 +596,27 @@ jobs:
           # per-flow optional "Wait" taps only cover moments before the
           # password field, and the dialog recurs. hide_error_dialogs=1 makes
           # the emulator never show ANR/crash dialogs at all.
+          # All 9 flows in maestro-flows/visual/ - including their assertScreenshot
+          # step - are BLOCKING, each retried individually (max 2 attempts) to
+          # absorb cold-launch latency. Visual baselines (maestro-flows/visual/*.png)
+          # were regenerated from real CI-emulator screenshots (run 36263266511's
+          # maestro-debug-output artifact) so the 95% threshold is meaningful here -
+          # do not loosen it. See scripts/run-maestro-ci.sh.
           script: >
             set -m;
             npx expo start & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
+            adb shell settings put global sysui_demo_allowed 1;
+            adb shell am broadcast -a com.android.systemui.demo -e command enter;
+            adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200;
+            adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false;
+            adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4;
+            adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false;
             npx wait-on tcp:8081 --timeout 120000 &&
             npx expo run:android --variant debug --no-bundler &&
             adb reverse tcp:8081 tcp:8081 &&
-            (for i in 1 2 3; do maestro test ../maestro-flows/visual/ && exit 0; echo "Maestro attempt $i failed, retrying..."; done; exit 1);
+            bash ../scripts/run-maestro-ci.sh;
             code=$?;
             echo "$code" > "$GITHUB_WORKSPACE/maestro-result.txt";
             exit "$code"
@@ -605,8 +645,8 @@ jobs:
           echo "Captured Maestro/build exit code: $RESULT"
           [[ "$RESULT" =~ ^[0-9]+$ ]] || { echo "maestro-result.txt contained a non-numeric value: '$RESULT' - treating as failure"; exit 1; }
           exit "$RESULT"
-      - name: Upload Maestro debug artifacts on failure
-        if: failure()
+      - name: Upload Maestro debug artifacts (always, for baseline regeneration/debugging)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maestro-debug-output
