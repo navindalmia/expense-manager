@@ -138,4 +138,13 @@ describe('ThemeService', () => {
       ]);
     });
   });
+  describe('renameTheme collision', () => {
+    it('throws 409 when another active theme already has that name', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: OWNER_ID });
+      (prisma.theme.findFirst as jest.Mock).mockResolvedValue({ id: 2, name: 'Taken' });
+
+      await expect(themeService.renameTheme(OWNER_ID, 1, 'taken')).rejects.toMatchObject({ statusCode: 409 });
+      expect(prisma.theme.update).not.toHaveBeenCalled();
+    });
+  });
 });

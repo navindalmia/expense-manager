@@ -29,7 +29,8 @@
   "THEME": {
     "NOT_FOUND": "Thème non trouvé.",
     "ALREADY_DISABLED": "Le thème est déjà désactivé.",
-    "NOT_OWNER": "Vous ne pouvez renommer ou désactiver qu'un thème que vous avez créé."
+    "NOT_OWNER": "Vous ne pouvez renommer ou désactiver qu'un thème que vous avez créé.",
+    "NAME_EXISTS": "Un thème portant ce nom existe déjà."
   },
   "LABEL": {
     "NOT_FOUND": "Étiquette non trouvée.",

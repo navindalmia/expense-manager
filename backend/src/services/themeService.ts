@@ -46,6 +46,19 @@ export async function renameTheme(userId: number, themeId: number, name: string)
     throw new AppError('THEME.NOT_OWNER', 403, 'THEME_NOT_OWNER', { themeId });
   }
 
+  const collision = await prisma.theme.findFirst({
+    where: {
+      name: { equals: name, mode: 'insensitive' },
+      isActive: true,
+      id: { not: themeId },
+      OR: [{ userId: null }, { userId }],
+    },
+  });
+
+  if (collision) {
+    throw new AppError('THEME.NAME_EXISTS', 409, 'THEME_NAME_EXISTS', { themeId });
+  }
+
   return prisma.theme.update({
     where: { id: themeId },
     data: { name },

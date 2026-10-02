@@ -454,7 +454,7 @@ export async function updateExpense(
     amount?: number;
     categoryId?: number;
     labelId?: number;
-  themeId?: number;
+    themeId?: number;
     paidById?: number;
     splitWithIds?: number[];
     splitType?: SplitType;

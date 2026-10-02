@@ -50,7 +50,13 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-        run: echo "RELEASE_NOTES=$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA")" >> "$GITHUB_ENV"
+        run: |
+          NOTES="$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA" || true)"
+          if [ -z "$NOTES" ]; then
+            echo "::warning::release-notes script produced no output; using generic message"
+            NOTES="Bug fixes and improvements"
+          fi
+          echo "RELEASE_NOTES=$NOTES" >> "$GITHUB_ENV"
 
       - name: Build Android (preview profile)
         working-directory: frontend
@@ -99,7 +105,13 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
-        run: echo "RELEASE_NOTES=$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA")" >> "$GITHUB_ENV"
+        run: |
+          NOTES="$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA" || true)"
+          if [ -z "$NOTES" ]; then
+            echo "::warning::release-notes script produced no output; using generic message"
+            NOTES="Bug fixes and improvements"
+          fi
+          echo "RELEASE_NOTES=$NOTES" >> "$GITHUB_ENV"
 
       - name: Publish EAS Update (preview channel)
         working-directory: frontend
