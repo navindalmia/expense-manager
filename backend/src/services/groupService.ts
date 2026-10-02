@@ -12,6 +12,20 @@ import { logger } from '../utils/logger';
 import { assertThemeVisible } from './themeService';
 
 /**
+ * Shared catch-block policy: rethrow an AppError untouched, otherwise throw a
+ * fixed 500 AppError built from the fallback. Always throws.
+ */
+function rethrowOrWrapAsAppError(
+  error: unknown,
+  fallback: { messageKey: string; code: string; details?: unknown }
+): never {
+  if (error instanceof AppError) {
+    throw error;
+  }
+  throw new AppError(fallback.messageKey, 500, fallback.code, fallback.details);
+}
+
+/**
  * Expense data from database with required fields for split calculations
  */
 interface ExpenseWithSplit {
@@ -43,10 +57,12 @@ function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): numbe
       const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidById) ?? -1;
       if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
         return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
-      } else if (exp.splitPercentage?.[0]) {
-        // Fallback: payer is not in split
-        return (exp.amount * exp.splitPercentage[0]) / 100;
       }
+      // Payer opted out of the percentage split entirely (not in
+      // splitWith) -- their own share is 0, same as the EQUAL branch
+      // above. Bug fixed here (issue #46): this used to fall back to
+      // exp.splitPercentage[0], which is splitWith[0]'s percentage, not
+      // the payer's -- attributing another member's share to the payer.
     } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
       // Amount split: total - sum of others' amounts
       return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
@@ -369,10 +385,10 @@ export async function addMemberByEmail(
 
     return { ...updated, addedMember: user };
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to add member to group', 500, 'ADD_MEMBER_ERROR');
+    return rethrowOrWrapAsAppError(error, {
+      messageKey: 'Failed to add member to group',
+      code: 'ADD_MEMBER_ERROR',
+    });
   }
 }
 
@@ -615,20 +631,18 @@ export async function removeMemberFromGroup(
 
     return updated;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
+    if (!(error instanceof AppError)) {
+      logger.error('Error removing member from group', error, {
+        groupId,
+        memberId,
+        requestorId,
+      });
     }
-    logger.error('Error removing member from group', error, {
-      groupId,
-      memberId,
-      requestorId,
+    return rethrowOrWrapAsAppError(error, {
+      messageKey: 'GROUP.MEMBER_REMOVAL_FAILED',
+      code: 'MEMBER_REMOVAL_ERROR',
+      details: { error },
     });
-    throw new AppError(
-      'GROUP.MEMBER_REMOVAL_FAILED',
-      500,
-      'MEMBER_REMOVAL_ERROR',
-      { error }
-    );
   }
 }
 
@@ -752,10 +766,10 @@ export async function updateGroup(
 
     return updated;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Failed to update group', 500, 'UPDATE_GROUP_ERROR');
+    return rethrowOrWrapAsAppError(error, {
+      messageKey: 'Failed to update group',
+      code: 'UPDATE_GROUP_ERROR',
+    });
   }
 }
 
@@ -899,9 +913,9 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 
     return expenses;
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error; // Re-throw AppError as-is
-    }
-    throw new AppError('Failed to fetch group expenses', 500, 'FETCH_EXPENSES_ERROR');
+    return rethrowOrWrapAsAppError(error, {
+      messageKey: 'Failed to fetch group expenses',
+      code: 'FETCH_EXPENSES_ERROR',
+    });
   }
 }

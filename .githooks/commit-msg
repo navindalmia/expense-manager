@@ -1,0 +1,4 @@
+#!/bin/sh
+# STATIC only: fix commits must ADD a new qualifying regression test (or carry Regression-Exempt:).
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+exec node "$ROOT/scripts/regression-gate.js" msg "$1"

@@ -17,8 +17,10 @@ appId: com.navindalmia.expensemanager
 - tapOn:
     text: "Wait"
     optional: true
-- assertVisible:
-    id: "email-input"
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
 - tapOn:
     id: "email-input"
 - inputText: "test@test.com"

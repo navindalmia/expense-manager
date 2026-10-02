@@ -8,6 +8,10 @@
     "frontend:dev": "cd frontend && npm start",
     "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm test -- --run",
+    "test:regression": "node scripts/regression-gate.js suites",
+    "test:gate": "node --test scripts/__tests__/regression-gate.test.js scripts/__tests__/regression-gate-r2.test.js scripts/__tests__/regression-gate-r3.test.js",
+    "hooks:install": "node scripts/install-hooks.js",
+    "prepare": "node scripts/install-hooks.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug"

@@ -4,6 +4,7 @@
   "main": "index.ts",
   "scripts": {
     "test": "vitest",
+    "test:regression": "vitest run src/__tests__/regression",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "start": "expo start",

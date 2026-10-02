@@ -1,0 +1,9 @@
+# The regression gate must not be weakened without owner review.
+/scripts/regression-gate.js @navindalmia
+/scripts/install-hooks.js @navindalmia
+/.githooks/ @navindalmia
+/.github/workflows/ci.yml @navindalmia
+/.github/CODEOWNERS @navindalmia
+/backend/src/__tests__/regression/ @navindalmia
+/frontend/src/__tests__/regression/ @navindalmia
+/e2e/regression/ @navindalmia

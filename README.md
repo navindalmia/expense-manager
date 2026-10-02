@@ -39,6 +39,9 @@ expense-manager/
 ├── backend/          # Express API (port 4000)
 ├── frontend/         # React Native / Expo app (port 8081)
 ├── maestro-flows/    # Mobile UI automation tests
+│   └── visual/        # Visual-regression + a11y baselines (.yaml flow + .png baseline per screen/state) —
+│                       # a UI-visible fix should add/update a baseline here alongside its functional test,
+│                       # so a future change that visually re-breaks it is caught in CI, not just by a text assertion
 ├── PROJECT_MEMORY/   # Persistent project context and decisions
 ├── ROADMAP.md        # Feature roadmap and planned phases
 └── docker-compose.yml
@@ -65,7 +68,10 @@ cd expense-manager
 npm install
 cd backend && npm install
 cd ../frontend && npm install
+cd .. && npm run hooks:install   # git hooks (.githooks/); root `npm install` also does this via `prepare`
 ```
+
+The local hooks are lightweight and STATIC only (no npm, no jest/vitest, no node_modules needed): `commit-msg` requires `fix...` commits to ADD a new `issue-<N>-*.test.ts` under a backend/frontend `regression/` directory (or carry a `Regression-Exempt: <reason>` trailer), and `pre-commit` rejects `.skip`/`.todo`/`.only` in those dirs. The regression suites themselves run ONLY in GitHub CI (`regression-gate` and `e2e-regression` jobs; the repo owner must mark them as required checks in branch protection). `npm run test:regression` runs them by hand if you want.
 
 ### 2. Start the database
 

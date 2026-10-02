@@ -22,6 +22,7 @@ import type { RootStackParamList } from '../types/navigation';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
+import CurrencyPicker from '../components/CurrencyPicker';
 import AddMemberModal from '../components/AddMemberModal';
 import type { Group } from '../services/groupService';
 import { alertThenContinue } from '../utils/crossPlatformAlert';
@@ -72,33 +73,6 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
-  currencyContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  currencyButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
-    marginBottom: 8,
-  },
-  currencyButtonActive: {
-    borderColor: '#0066cc',
-    backgroundColor: '#e6f0ff',
-  },
-  currencyText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  currencyTextActive: {
-    color: '#0066cc',
-    fontWeight: '600',
-  },
   buttonContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -133,8 +107,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-
-const CURRENCIES = ['GBP', 'USD', 'EUR', 'INR', 'AUD', 'CAD', 'JPY', 'CNY'];
 
 /**
  * Create Group Form Screen
@@ -282,33 +254,12 @@ function CreateGroupScreen({ navigation }: Props) {
         {/* Currency Selection */}
         <View style={styles.formSection}>
           <Text style={styles.label}>Default Currency</Text>
-          <View style={styles.currencyContainer}>
-            {CURRENCIES.map((curr) => (
-              <TouchableOpacity
-                key={curr}
-                style={[
-                  styles.currencyButton,
-                  currency === curr && styles.currencyButtonActive,
-                ]}
-                onPress={() => setCurrency(curr)}
-                testID={`currency-${curr}`}
-                accessible={true}
-                accessibilityLabel={`Select ${curr}`}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: currency === curr }}
-                disabled={loading}
-              >
-                <Text
-                  style={[
-                    styles.currencyText,
-                    currency === curr && styles.currencyTextActive,
-                  ]}
-                >
-                  {curr}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <CurrencyPicker
+            value={currency}
+            onChange={setCurrency}
+            disabled={loading}
+            testIDPrefix="currency-"
+          />
         </View>
 
         {/* Theme Selection */}

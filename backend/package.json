@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
+    "test:regression": "jest src/__tests__/regression",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
