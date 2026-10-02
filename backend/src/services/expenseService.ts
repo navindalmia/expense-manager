@@ -670,6 +670,30 @@ export async function updateExpense(
 }
 
 /**
+ * Collapse expenses sharing the same title (case-insensitive, trimmed) to
+ * the most recent one (latest expenseDate, ties broken by highest id), so
+ * the suggestion list shows each distinct past title once (R8).
+ */
+function latestPerTitle<T extends { id: number; title: string; expenseDate: Date }>(expenses: T[]): T[] {
+  const latest = new Map<string, T>();
+
+  for (const expense of expenses) {
+    const key = expense.title.trim().toLowerCase();
+    const current = latest.get(key);
+    const isNewer =
+      !current ||
+      expense.expenseDate.getTime() > current.expenseDate.getTime() ||
+      (expense.expenseDate.getTime() === current.expenseDate.getTime() && expense.id > current.id);
+
+    if (isNewer) {
+      latest.set(key, expense);
+    }
+  }
+
+  return Array.from(latest.values());
+}
+
+/**
  * Fuzzy-match a typed expense title against the user's own past expenses,
  * globally across all of that user's groups (R5, KTD4 -- not scoped to the
  * group/theme currently being edited).
@@ -702,7 +726,12 @@ export async function findSimilarExpenses(
       include: { splitWith: { select: { id: true } } },
     });
 
-    const ranked = rankMatches(titleQuery, candidates, (expense) => expense.title, SUGGESTION_LIMIT);
+    const ranked = rankMatches(
+      titleQuery,
+      latestPerTitle(candidates),
+      (expense) => expense.title,
+      SUGGESTION_LIMIT
+    );
 
     return ranked.map(({ item }) => ({
       expenseId: item.id,
