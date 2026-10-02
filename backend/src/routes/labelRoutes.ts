@@ -16,6 +16,7 @@ const router = Router();
 router.get('/', authMiddleware, labelController.getLabels);
 router.get('/totals', authMiddleware, labelController.getLabelTotals);
 router.post('/', authMiddleware, labelController.createLabel);
+router.patch('/:id', authMiddleware, labelController.renameLabel);
 router.patch('/:id/disable', authMiddleware, labelController.disableLabel);
 
 export default router;

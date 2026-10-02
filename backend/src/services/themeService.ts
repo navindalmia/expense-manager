@@ -8,6 +8,7 @@
 
 import prisma from '../lib/prisma';
 import { AppError } from '../errors/AppError';
+import { findOrReactivate } from '../lib/masterDataLookup';
 
 export async function listThemes(userId: number) {
   return prisma.theme.findMany({
@@ -20,8 +21,17 @@ export async function listThemes(userId: number) {
 }
 
 export async function createTheme(userId: number, name: string) {
-  return prisma.theme.create({
-    data: { name, userId, isActive: true },
+  return findOrReactivate({
+    findActiveVisible: () =>
+      prisma.theme.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isActive: true, OR: [{ userId: null }, { userId }] },
+      }),
+    findOwnDisabled: () =>
+      prisma.theme.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isActive: false, userId },
+      }),
+    reactivate: (id: number) => prisma.theme.update({ where: { id }, data: { isActive: true } }),
+    create: () => prisma.theme.create({ data: { name, userId, isActive: true } }),
   });
 }
 

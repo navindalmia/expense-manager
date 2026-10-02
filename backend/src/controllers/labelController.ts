@@ -32,6 +32,20 @@ export async function createLabel(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function renameLabel(req: Request, res: Response, next: NextFunction) {
+  try {
+    const validated = validateLabelNameInput(req.body);
+    const userId = req.user!.id;
+    const labelId = Number(req.params.id);
+
+    const label = await labelService.renameLabel(userId, labelId, validated.name);
+
+    res.status(200).json({ statusCode: 200, data: label });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function disableLabel(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;

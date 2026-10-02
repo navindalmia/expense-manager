@@ -8,6 +8,7 @@
 
 import prisma from '../lib/prisma';
 import { AppError } from '../errors/AppError';
+import { findOrReactivate } from '../lib/masterDataLookup';
 
 export async function listLabels(userId: number) {
   return prisma.label.findMany({
@@ -20,9 +21,50 @@ export async function listLabels(userId: number) {
 }
 
 export async function createLabel(userId: number, name: string) {
-  return prisma.label.create({
-    data: { name, userId, isActive: true },
+  return findOrReactivate({
+    findActiveVisible: () =>
+      prisma.label.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isActive: true, OR: [{ userId: null }, { userId }] },
+      }),
+    findOwnDisabled: () =>
+      prisma.label.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isActive: false, userId },
+      }),
+    reactivate: (id: number) => prisma.label.update({ where: { id }, data: { isActive: true } }),
+    create: () => prisma.label.create({ data: { name, userId, isActive: true } }),
   });
+}
+
+/**
+ * Rename a label the user owns. A name colliding (case-insensitive) with a
+ * DIFFERENT active label is rejected -- silently succeeding would merge two
+ * distinct entities and their already-tagged expenses.
+ */
+export async function renameLabel(userId: number, labelId: number, name: string) {
+  const label = await prisma.label.findUnique({ where: { id: labelId } });
+
+  if (!label) {
+    throw new AppError('LABEL.NOT_FOUND', 404, 'LABEL_NOT_FOUND', { labelId });
+  }
+
+  if (label.userId !== userId) {
+    throw new AppError('LABEL.NOT_OWNER', 403, 'LABEL_NOT_OWNER', { labelId });
+  }
+
+  const collision = await prisma.label.findFirst({
+    where: {
+      name: { equals: name, mode: 'insensitive' },
+      isActive: true,
+      id: { not: labelId },
+      OR: [{ userId: null }, { userId }],
+    },
+  });
+
+  if (collision) {
+    throw new AppError('LABEL.NAME_EXISTS', 409, 'LABEL_NAME_EXISTS', { labelId });
+  }
+
+  return prisma.label.update({ where: { id: labelId }, data: { name } });
 }
 
 export async function disableLabel(userId: number, labelId: number) {
@@ -69,7 +111,7 @@ export async function assertLabelVisible(userId: number, labelId: number): Promi
  */
 export async function getLabelTotals(userId: number) {
   const visibleLabels = await prisma.label.findMany({
-    where: { OR: [{ userId: null }, { userId }] },
+    where: { isActive: true, OR: [{ userId: null }, { userId }] },
     orderBy: { name: 'asc' },
   });
 
