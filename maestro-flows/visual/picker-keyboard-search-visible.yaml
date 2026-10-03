@@ -1,0 +1,52 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #88: the Category/Label/Theme picker's search input must stay visible
+# above the on-screen keyboard (TypeAheadDropdown's own KeyboardAvoidingView).
+# Uses the standing QA fixtures (test@test.com, "QA Test Group", "Diberr Repro").
+#
+# NOTE: no `assertScreenshot` baseline is committed yet. A pixel baseline must
+# be captured on a real Android emulator/CI run (the Maestro CI fixture-seeding
+# gap tracked against PR #85 makes it advisory until then); add
+#   - assertScreenshot: "picker-keyboard-search-visible"
+# together with the generated picker-keyboard-search-visible.png once captured.
+# Until then the visibility assertions below are the functional check.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    text: "Diberr Repro"
+- assertVisible:
+    id: "edit-expense-label-picker-button"
+- tapOn:
+    id: "edit-expense-label-picker-button"
+- assertVisible:
+    id: "edit-expense-label-filter-input"
+# Focusing the search input opens the keyboard; the input must remain on screen.
+- tapOn:
+    id: "edit-expense-label-filter-input"
+- assertVisible:
+    id: "edit-expense-label-filter-input"

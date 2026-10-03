@@ -1,7 +1,7 @@
 /**
  * Manage Labels Screen
  *
- * Shows per-label spend totals and lets the user disable a label (R4, R6).
+ * Shows per-label spend totals and lets the user rename or disable a label (R4, R5, R6).
  * Disabling has no undo path in this UI, so it requires confirmation first.
  */
 
@@ -9,12 +9,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ManageLabelsScreenProps } from '../types/navigation';
-import { getLabelTotals, disableLabel, type LabelTotal } from '../services/labelService';
+import { getLabelTotals, disableLabel, renameLabel, type LabelTotal } from '../services/labelService';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
+import RenameModal from '../components/RenameModal';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
@@ -30,6 +31,9 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 15, fontWeight: '600', color: '#333' },
   total: { fontSize: 13, color: '#666', marginTop: 2 },
+  actions: { flexDirection: 'row', gap: 8 },
+  editButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#e6f0ff' },
+  editButtonText: { fontSize: 13, color: '#0066cc', fontWeight: '600' },
   disableButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#fdecea' },
   disableButtonText: { fontSize: 13, color: '#cc0000', fontWeight: '600' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
@@ -40,6 +44,7 @@ export default function ManageLabelsScreen({ navigation }: ManageLabelsScreenPro
   const [labels, setLabels] = useState<LabelTotal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState<LabelTotal | null>(null);
 
   const loadLabels = useCallback(async () => {
     try {
@@ -76,6 +81,20 @@ export default function ManageLabelsScreen({ navigation }: ManageLabelsScreenPro
     );
   }, []);
 
+  const handleRenameSave = useCallback(
+    async (name: string) => {
+      if (!editingLabel) {
+        return;
+      }
+      // Rejections (e.g. a name collision with another label) propagate to
+      // RenameModal, which shows them inline and stays open.
+      const updated = await renameLabel(editingLabel.id, name);
+      setLabels((prev) => prev.map((l) => (l.id === updated.id ? { ...l, name: updated.name } : l)));
+      setEditingLabel(null);
+    },
+    [editingLabel]
+  );
+
   if (loading) {
     return <LoadingState message="Loading labels..." />;
   }
@@ -102,17 +121,34 @@ export default function ManageLabelsScreen({ navigation }: ManageLabelsScreenPro
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.total}>{item.total.toFixed(2)}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.disableButton}
-                onPress={() => handleDisable(item)}
-                testID={`manage-labels-disable-${item.id}`}
-              >
-                <Text style={styles.disableButtonText}>Disable</Text>
-              </TouchableOpacity>
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => setEditingLabel(item)}
+                  testID={`manage-labels-edit-${item.id}`}
+                >
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.disableButton}
+                  onPress={() => handleDisable(item)}
+                  testID={`manage-labels-disable-${item.id}`}
+                >
+                  <Text style={styles.disableButtonText}>Disable</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         />
       )}
+      <RenameModal
+        visible={editingLabel !== null}
+        title="Rename Label"
+        initialName={editingLabel?.name ?? ''}
+        onSave={handleRenameSave}
+        onCancel={() => setEditingLabel(null)}
+        testIDPrefix="manage-labels-rename"
+      />
     </SafeAreaView>
   );
 }

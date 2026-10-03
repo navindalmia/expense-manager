@@ -47,6 +47,7 @@ export interface Expense {
   categoryId: number;
   category: Category;
   labelId?: number | null;
+  themeId?: number | null;
   splitWith: User[];
   splitAmount: number[];
   splitPercentage: number[];
@@ -70,6 +71,7 @@ export interface CreateExpenseDTO {
   paidById: number;
   categoryId: number;
   labelId?: number;
+  themeId?: number;
   splitWithIds?: number[];
   splitType?: string;
   splitAmount?: number[];
@@ -88,6 +90,8 @@ export interface UpdateExpenseDTO {
   amount?: number;
   categoryId?: number;
   labelId?: number;
+  /** null explicitly clears the theme; omit to leave it unchanged. */
+  themeId?: number | null;
   paidById?: number;
   splitWithIds?: number[];
   splitType?: string;

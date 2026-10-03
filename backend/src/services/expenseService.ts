@@ -11,6 +11,7 @@ import { cleanData } from "../utils/cleanData";
 import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
+import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 
@@ -112,6 +113,7 @@ export async function createExpense(data: {
   paidById: number;
   categoryId: number;
   labelId?: number;
+  themeId?: number;
   splitWithIds?: number[];
   splitType?: SplitType;
   splitAmount?: number[];
@@ -128,6 +130,7 @@ export async function createExpense(data: {
     paidById,
     categoryId,
     labelId,
+    themeId,
     splitWithIds = [],
     splitType = SplitType.EQUAL,
     splitAmount = [],
@@ -244,7 +247,11 @@ export async function createExpense(data: {
     if (labelId !== undefined) {
       // paidById doubles as the requesting user's id -- the controller
       // always sets it from the JWT (see expenseController.createExpense)
-      await assertLabelVisible(paidById, labelId);
+      await assertLabelVisible(paidById, labelId, { requireActive: true });
+    }
+
+    if (themeId !== undefined) {
+      await assertThemeVisible(paidById, themeId, { requireActive: true });
     }
 
     // Build the expense data object
@@ -256,6 +263,7 @@ export async function createExpense(data: {
       paidBy: { connect: { id: paidById } },
       category: { connect: { id: categoryId } },
       ...(labelId !== undefined ? { label: { connect: { id: labelId } } } : {}),
+      ...(themeId !== undefined ? { theme: { connect: { id: themeId } } } : {}),
       splitType,
       notes: notes || null,
       expenseDate: new Date(expenseDate),
@@ -446,6 +454,7 @@ export async function updateExpense(
     amount?: number;
     categoryId?: number;
     labelId?: number;
+    themeId?: number | null;
     paidById?: number;
     splitWithIds?: number[];
     splitType?: SplitType;
@@ -489,6 +498,7 @@ export async function updateExpense(
       amount,
       categoryId,
       labelId,
+      themeId,
       paidById,
       splitWithIds,
       splitType = expense.splitType,
@@ -589,8 +599,22 @@ export async function updateExpense(
     if (amount !== undefined) updateData.amount = amount;
     if (categoryId !== undefined) updateData.category = { connect: { id: categoryId } };
     if (labelId !== undefined) {
-      await assertLabelVisible(userId, labelId);
+      // Labels are per-user: the edit form resubmits the expense's existing
+      // label on every save (possibly by a different group member or after it
+      // was disabled), so only validate when the label actually changes.
+      if (labelId !== expense.labelId) {
+        await assertLabelVisible(userId, labelId, { requireActive: true });
+      }
       updateData.label = { connect: { id: labelId } };
+    }
+    if (themeId === null) {
+      updateData.theme = { disconnect: true };
+    } else if (themeId !== undefined) {
+      // Only validate when the theme changes (see label above).
+      if (themeId !== expense.themeId) {
+        await assertThemeVisible(userId, themeId, { requireActive: true });
+      }
+      updateData.theme = { connect: { id: themeId } };
     }
     if (paidById !== undefined) updateData.paidBy = { connect: { id: paidById } };
     if (notes !== undefined) updateData.notes = notes || null;
@@ -656,6 +680,30 @@ export async function updateExpense(
 }
 
 /**
+ * Collapse expenses sharing the same title (case-insensitive, trimmed) to
+ * the most recent one (latest expenseDate, ties broken by highest id), so
+ * the suggestion list shows each distinct past title once (R8).
+ */
+function latestPerTitle<T extends { id: number; title: string; expenseDate: Date }>(expenses: T[]): T[] {
+  const latest = new Map<string, T>();
+
+  for (const expense of expenses) {
+    const key = expense.title.trim().toLowerCase();
+    const current = latest.get(key);
+    const isNewer =
+      !current ||
+      expense.expenseDate.getTime() > current.expenseDate.getTime() ||
+      (expense.expenseDate.getTime() === current.expenseDate.getTime() && expense.id > current.id);
+
+    if (isNewer) {
+      latest.set(key, expense);
+    }
+  }
+
+  return Array.from(latest.values());
+}
+
+/**
  * Fuzzy-match a typed expense title against the user's own past expenses,
  * globally across all of that user's groups (R5, KTD4 -- not scoped to the
  * group/theme currently being edited).
@@ -674,7 +722,7 @@ export async function findSimilarExpenses(
 ): Promise<SimilarExpenseMatch[]> {
   try {
     const accessibleGroups = await prisma.group.findMany({
-      where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+      where: { isActive: true, OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
       select: { id: true },
     });
     const accessibleGroupIds = accessibleGroups.map((g) => g.id);
@@ -688,7 +736,12 @@ export async function findSimilarExpenses(
       include: { splitWith: { select: { id: true } } },
     });
 
-    const ranked = rankMatches(titleQuery, candidates, (expense) => expense.title, SUGGESTION_LIMIT);
+    const ranked = rankMatches(
+      titleQuery,
+      latestPerTitle(candidates),
+      (expense) => expense.title,
+      SUGGESTION_LIMIT
+    );
 
     return ranked.map(({ item }) => ({
       expenseId: item.id,

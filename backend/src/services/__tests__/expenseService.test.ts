@@ -59,6 +59,12 @@ describe('ExpenseService', () => {
       ({ where }: { where: { id: number } }) =>
         Promise.resolve({ id: where.id, name: 'Liverpool', userId: 1 })
     );
+
+    // themeId validation resolves to a visible theme by default.
+    (prisma.theme.findUnique as jest.Mock).mockImplementation(
+      ({ where }: { where: { id: number } }) =>
+        Promise.resolve({ id: where.id, name: 'Holiday', userId: 1 })
+    );
   });
 
   // TODO: Update all createExpense tests to include groupId parameter
@@ -440,6 +446,7 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible labelId', async () => {
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1, isActive: true });
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
 
       await expenseService.createExpense({
@@ -470,6 +477,57 @@ describe('ExpenseService', () => {
           expenseDate: new Date().toISOString(),
         })
       ).rejects.toThrow('LABEL.NOT_FOUND');
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('persists a valid, visible themeId', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 1, isActive: true });
+      (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await expenseService.createExpense({
+        title: 'Fuel',
+        amount: 50,
+        paidById: 1,
+        categoryId: 1,
+        groupId: 1,
+        themeId: 4,
+        expenseDate: new Date().toISOString(),
+      });
+
+      const callArgs = (prisma.expense.create as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.theme).toEqual({ connect: { id: 4 } });
+    });
+
+    it('leaves theme unset when no themeId is given', async () => {
+      (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await expenseService.createExpense({
+        title: 'Fuel',
+        amount: 50,
+        paidById: 1,
+        categoryId: 1,
+        groupId: 1,
+        expenseDate: new Date().toISOString(),
+      });
+
+      const callArgs = (prisma.expense.create as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.theme).toBeUndefined();
+    });
+
+    it('throws AppError when themeId is not visible to the caller', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 99 });
+
+      await expect(
+        expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          themeId: 4,
+          expenseDate: new Date().toISOString(),
+        })
+      ).rejects.toThrow('THEME.NOT_FOUND');
       expect(prisma.expense.create).not.toHaveBeenCalled();
     });
 
@@ -671,12 +729,27 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible labelId', async () => {
-      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1 });
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1, isActive: true });
 
       await expenseService.updateExpense(1, 1, { labelId: 7 });
 
       const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];
       expect(callArgs.data.label).toEqual({ connect: { id: 7 } });
+    });
+
+    it('persists a valid, visible themeId', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 1, isActive: true });
+      await expenseService.updateExpense(1, 1, { themeId: 4 });
+
+      const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.theme).toEqual({ connect: { id: 4 } });
+    });
+
+    it('throws AppError when themeId is not visible to the requestor', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(expenseService.updateExpense(1, 1, { themeId: 999 })).rejects.toThrow('THEME.NOT_FOUND');
+      expect(prisma.expense.update).not.toHaveBeenCalled();
     });
 
     it('throws AppError when labelId is invalid or not visible to the requestor', async () => {

@@ -13,6 +13,7 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 const router = Router();
 
 router.get('/', authMiddleware, themeController.getThemes);
+router.get('/usage', authMiddleware, themeController.getThemeUsage);
 router.post('/', authMiddleware, themeController.createTheme);
 router.patch('/:id', authMiddleware, themeController.renameTheme);
 router.patch('/:id/disable', authMiddleware, themeController.disableTheme);

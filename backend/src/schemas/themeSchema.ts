@@ -10,9 +10,9 @@ import { z } from 'zod';
 export const themeNameSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, 'Theme name is required')
-    .max(50, 'Theme name must be less than 50 characters')
-    .trim(),
+    .max(50, 'Theme name must be less than 50 characters'),
 });
 
 export type ThemeNameRequest = z.infer<typeof themeNameSchema>;

@@ -19,6 +19,17 @@ export async function getThemes(req: Request, res: Response, next: NextFunction)
   }
 }
 
+export async function getThemeUsage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const usage = await themeService.getThemeUsage(userId);
+
+    res.status(200).json({ statusCode: 200, data: usage });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createTheme(req: Request, res: Response, next: NextFunction) {
   try {
     const validated = validateThemeNameInput(req.body);

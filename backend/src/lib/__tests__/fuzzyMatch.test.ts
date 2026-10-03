@@ -65,4 +65,20 @@ describe('fuzzyMatch', () => {
       expect(ranked).toEqual([]);
     });
   });
+
+  describe('filler words and empty input (Fuse-backed)', () => {
+    it('should not match a filler-only query against a longer title', () => {
+      expect(rankMatches('to', [{ title: 'Taxi to airport' }], (i) => i.title, 5)).toEqual([]);
+    });
+
+    it('should still return a filler-only query that equals a title exactly', () => {
+      const ranked = rankMatches('the', [{ title: 'The' }], (i) => i.title, 5);
+      expect(ranked).toHaveLength(1);
+    });
+
+    it('should return nothing for an empty query or empty candidate list', () => {
+      expect(rankMatches('  ', [{ title: 'Fuel' }], (i) => i.title, 5)).toEqual([]);
+      expect(rankMatches('Fuel', [], (i: { title: string }) => i.title, 5)).toEqual([]);
+    });
+  });
 });

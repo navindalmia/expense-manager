@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Platform, Alert } from 'react-native';
 import ManageLabelsScreen from '../ManageLabelsScreen';
@@ -12,10 +12,12 @@ import type { LabelTotal } from '../../services/labelService';
 
 const mockGetLabelTotals = vi.fn();
 const mockDisableLabel = vi.fn();
+const mockRenameLabel = vi.fn();
 
 vi.mock('../../services/labelService', () => ({
   getLabelTotals: (...args: unknown[]) => mockGetLabelTotals(...args),
   disableLabel: (...args: unknown[]) => mockDisableLabel(...args),
+  renameLabel: (...args: unknown[]) => mockRenameLabel(...args),
 }));
 
 // RN's testID renders as a lowercase `testid` attribute on web, not the
@@ -133,5 +135,57 @@ describe('ManageLabelsScreen', () => {
 
     await waitFor(() => expect(getByTestId(container, 'manage-labels-empty-state')).toBeTruthy());
     expect(queryByTestId(container, 'error-state')).toBeNull();
+  });
+  describe('rename (R5)', () => {
+    it('Edit opens a modal prefilled with the name; Save calls renameLabel and updates the row', async () => {
+      const user = userEvent.setup();
+      mockGetLabelTotals.mockResolvedValue(baseLabels);
+      mockRenameLabel.mockResolvedValue({ id: 1, name: 'Anfield', userId: 1, isActive: true });
+      const { container } = renderScreen();
+
+      await waitFor(() => expect(screen.getByText('Liverpool')).toBeTruthy());
+      await user.click(getByTestId(container, 'manage-labels-edit-1'));
+
+      const input = getByTestId(container, 'manage-labels-rename-input') as HTMLInputElement;
+      expect(input.value).toBe('Liverpool');
+      fireEvent.change(input, { target: { value: 'Anfield' } });
+      await user.click(getByTestId(container, 'manage-labels-rename-save-button'));
+
+      await waitFor(() => expect(mockRenameLabel).toHaveBeenCalledWith(1, 'Anfield'));
+      await waitFor(() => expect(screen.getByText('Anfield')).toBeTruthy());
+      expect(screen.queryByText('Liverpool')).toBeNull();
+    });
+
+    it('shows an inline error and keeps the original name when the rename collides', async () => {
+      const user = userEvent.setup();
+      mockGetLabelTotals.mockResolvedValue(baseLabels);
+      mockRenameLabel.mockRejectedValue(new Error('A label with this name already exists.'));
+      const { container } = renderScreen();
+
+      await waitFor(() => expect(screen.getByText('Liverpool')).toBeTruthy());
+      await user.click(getByTestId(container, 'manage-labels-edit-1'));
+      fireEvent.change(getByTestId(container, 'manage-labels-rename-input'), { target: { value: 'Work Trips' } });
+      await user.click(getByTestId(container, 'manage-labels-rename-save-button'));
+
+      await waitFor(() =>
+        expect(getByTestId(container, 'manage-labels-rename-error').textContent).toBe('A label with this name already exists.')
+      );
+      expect(screen.getByText('Liverpool')).toBeTruthy();
+    });
+
+    it('Cancel closes the modal without calling renameLabel', async () => {
+      const user = userEvent.setup();
+      mockGetLabelTotals.mockResolvedValue(baseLabels);
+      const { container } = renderScreen();
+
+      await waitFor(() => expect(screen.getByText('Liverpool')).toBeTruthy());
+      await user.click(getByTestId(container, 'manage-labels-edit-1'));
+      fireEvent.change(getByTestId(container, 'manage-labels-rename-input'), { target: { value: 'Changed' } });
+      await user.click(getByTestId(container, 'manage-labels-rename-cancel-button'));
+
+      expect(mockRenameLabel).not.toHaveBeenCalled();
+      expect(queryByTestId(container, 'manage-labels-rename-input')).toBeNull();
+      expect(screen.getByText('Liverpool')).toBeTruthy();
+    });
   });
 });

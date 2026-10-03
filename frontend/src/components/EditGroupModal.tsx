@@ -20,6 +20,7 @@ import {
 import { updateGroup, Group } from '../services/groupService';
 import CurrencyPicker from './CurrencyPicker';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
+import FieldHelp from './FieldHelp';
 import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
 import { logger } from '../utils/logger';
@@ -306,7 +307,10 @@ export default function EditGroupModal({
             />
 
             {/* Theme */}
-            <Text style={styles.label}>Theme (optional)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.label}>Theme (optional)</Text>
+              <FieldHelp topic="Theme" testIDPrefix="edit-group-theme" />
+            </View>
             <TouchableOpacity
               style={styles.input}
               onPress={() => setShowThemePicker(true)}
