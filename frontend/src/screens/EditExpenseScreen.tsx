@@ -24,6 +24,9 @@ import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import FieldHelp from '../components/FieldHelp';
 
+// Sentinel picker row id (real theme ids are positive) meaning "clear the theme".
+const NO_THEME_ID = 0;
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   scrollContent: { padding: 12, paddingBottom: 100 },
@@ -105,13 +108,16 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // clobber the newer state -- only the latest requestId's response applies.
   const suggestRequestIdRef = useRef(0);
 
-  useEffect(() => {
-    return () => {
-      if (suggestDebounceRef.current) {
-        clearTimeout(suggestDebounceRef.current);
-      }
-    };
+  // Invalidate any pending/in-flight suggestion so a late response cannot
+  // reopen the matches list or overwrite a category the user just chose.
+  const cancelPendingSuggestion = useCallback(() => {
+    suggestRequestIdRef.current += 1;
+    if (suggestDebounceRef.current) {
+      clearTimeout(suggestDebounceRef.current);
+    }
   }, []);
+
+  useEffect(() => cancelPendingSuggestion, [cancelPendingSuggestion]);
 
   const handleTitleChange = useCallback((val: string) => {
     updateField('title', val);
@@ -156,6 +162,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   }, [isCreateMode, updateField]);
 
   const selectSuggestedMatch = useCallback((match: SuggestedExpenseMatch) => {
+    cancelPendingSuggestion();
     updateField('amount', match.amount.toString());
     updateField('category', match.categoryId);
     // Belt-and-suspenders per AE2: always default to today client-side even
@@ -174,7 +181,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     match.splitWithIds.filter((memberId) => groupMemberIds.has(memberId)).forEach((memberId) => addMember(memberId));
     setSuggestedMatches([]);
     setSuggestedCategoryId(null);
-  }, [updateField, addMember, groupMembers]);
+  }, [updateField, addMember, groupMembers, cancelPendingSuggestion]);
 
   // Set header with group name on the right and title
   useEffect(() => {
@@ -304,7 +311,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         amount: parseFloat(formState.amount),
         categoryId: formState.category,
         labelId: formState.labelId || undefined,
-        themeId: formState.themeId || undefined,
+        themeId: formState.themeId || (!isCreateMode && expense?.themeId ? null : undefined),
         paidById: formState.paidById,
         expenseDate: formState.date,
         currency: currency,  // ← ADD CURRENCY!
@@ -454,8 +461,11 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <TypeAheadDropdown
           visible={showThemePicker}
           title="Select Theme"
-          items={themes.map((theme): TypeAheadItem => ({ id: theme.id, name: theme.name }))}
-          onSelect={(item) => updateField('themeId', item.id)}
+          items={[
+            { id: NO_THEME_ID, name: 'No theme' },
+            ...themes.map((theme): TypeAheadItem => ({ id: theme.id, name: theme.name })),
+          ]}
+          onSelect={(item) => updateField('themeId', item.id === NO_THEME_ID ? null : item.id)}
           onCreateNew={async (name) => {
             const created = await createTheme(name);
             setExtraThemes(prev => [...prev, created]);
@@ -471,7 +481,10 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
           visible={showCategoryPicker}
           title="Select Category"
           items={categories.map((cat): TypeAheadItem => ({ id: cat.id, name: cat.label }))}
-          onSelect={(item) => updateField('category', item.id)}
+          onSelect={(item) => {
+            cancelPendingSuggestion();
+            updateField('category', item.id);
+          }}
           onCreateNew={async (name) => {
             const created = await createCategory(name);
             setExtraCategories(prev => [...prev, created]);

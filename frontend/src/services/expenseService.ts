@@ -90,7 +90,8 @@ export interface UpdateExpenseDTO {
   amount?: number;
   categoryId?: number;
   labelId?: number;
-  themeId?: number;
+  /** null explicitly clears the theme; omit to leave it unchanged. */
+  themeId?: number | null;
   paidById?: number;
   splitWithIds?: number[];
   splitType?: string;
