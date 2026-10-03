@@ -436,6 +436,29 @@ describe('EditExpenseScreen (EDIT mode)', () => {
       expect(getByTestId(container, 'edit-expense-category-picker-button').textContent).toContain('Other');
     });
 
+    it('lets the user change the payer to the 2nd and later group members (issue #45)', async () => {
+      const user = userEvent.setup();
+      const threeMembers = [...editModeMembers, { id: 3, name: 'Carol', email: 'carol@test.com' }];
+      (getGroup as any).mockResolvedValue({ id: 1, members: threeMembers });
+      (updateExpense as any).mockResolvedValue({ id: 42 });
+      const { container } = renderEditScreen(42);
+
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-paid-by-picker-button').textContent).toContain('Alice'));
+
+      await user.click(getByTestId(container, 'edit-expense-paid-by-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-paid-by-option-2'));
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-paid-by-picker-button').textContent).toContain('Bob'));
+
+      await user.click(getByTestId(container, 'edit-expense-paid-by-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-paid-by-option-3'));
+      await waitFor(() => expect(getByTestId(container, 'edit-expense-paid-by-picker-button').textContent).toContain('Carol'));
+
+      await user.click(getByTestId(container, 'edit-expense-save-button'));
+      await waitFor(() => {
+        expect(updateExpense).toHaveBeenCalledWith(42, expect.objectContaining({ paidById: 3 }));
+      });
+    });
+
     it('selecting an existing category persists categoryId on expense save', async () => {
       const user = userEvent.setup();
       (updateExpense as any).mockResolvedValue({ id: 42 });
