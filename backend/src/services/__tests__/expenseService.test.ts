@@ -446,6 +446,7 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible labelId', async () => {
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1, isActive: true });
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
 
       await expenseService.createExpense({
@@ -480,6 +481,7 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible themeId', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 1, isActive: true });
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
 
       await expenseService.createExpense({
@@ -727,7 +729,7 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible labelId', async () => {
-      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1 });
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1, isActive: true });
 
       await expenseService.updateExpense(1, 1, { labelId: 7 });
 
@@ -736,6 +738,7 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible themeId', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 1, isActive: true });
       await expenseService.updateExpense(1, 1, { themeId: 4 });
 
       const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];

@@ -10,9 +10,9 @@ import { z } from 'zod';
 export const labelNameSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, 'Label name is required')
-    .max(50, 'Label name must be less than 50 characters')
-    .trim(),
+    .max(50, 'Label name must be less than 50 characters'),
 });
 
 export type LabelNameRequest = z.infer<typeof labelNameSchema>;

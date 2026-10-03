@@ -247,11 +247,11 @@ export async function createExpense(data: {
     if (labelId !== undefined) {
       // paidById doubles as the requesting user's id -- the controller
       // always sets it from the JWT (see expenseController.createExpense)
-      await assertLabelVisible(paidById, labelId);
+      await assertLabelVisible(paidById, labelId, { requireActive: true });
     }
 
     if (themeId !== undefined) {
-      await assertThemeVisible(paidById, themeId);
+      await assertThemeVisible(paidById, themeId, { requireActive: true });
     }
 
     // Build the expense data object
@@ -454,7 +454,7 @@ export async function updateExpense(
     amount?: number;
     categoryId?: number;
     labelId?: number;
-    themeId?: number;
+    themeId?: number | null;
     paidById?: number;
     splitWithIds?: number[];
     splitType?: SplitType;
@@ -599,11 +599,16 @@ export async function updateExpense(
     if (amount !== undefined) updateData.amount = amount;
     if (categoryId !== undefined) updateData.category = { connect: { id: categoryId } };
     if (labelId !== undefined) {
-      await assertLabelVisible(userId, labelId);
+      // Grandfather the label the expense already has: the edit form
+      // resubmits it on every save, even after it was disabled.
+      await assertLabelVisible(userId, labelId, { requireActive: labelId !== expense.labelId });
       updateData.label = { connect: { id: labelId } };
     }
-    if (themeId !== undefined) {
-      await assertThemeVisible(userId, themeId);
+    if (themeId === null) {
+      updateData.theme = { disconnect: true };
+    } else if (themeId !== undefined) {
+      // Grandfather the theme the expense already has (see label above).
+      await assertThemeVisible(userId, themeId, { requireActive: themeId !== expense.themeId });
       updateData.theme = { connect: { id: themeId } };
     }
     if (paidById !== undefined) updateData.paidBy = { connect: { id: paidById } };
@@ -712,7 +717,7 @@ export async function findSimilarExpenses(
 ): Promise<SimilarExpenseMatch[]> {
   try {
     const accessibleGroups = await prisma.group.findMany({
-      where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+      where: { isActive: true, OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
       select: { id: true },
     });
     const accessibleGroupIds = accessibleGroups.map((g) => g.id);

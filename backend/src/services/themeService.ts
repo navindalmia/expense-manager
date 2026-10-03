@@ -49,9 +49,10 @@ export async function renameTheme(userId: number, themeId: number, name: string)
   const collision = await prisma.theme.findFirst({
     where: {
       name: { equals: name, mode: 'insensitive' },
-      isActive: true,
       id: { not: themeId },
-      OR: [{ userId: null }, { userId }],
+      // Any other row of this user (active OR disabled -- a disabled row
+      // can be reactivated later, creating a duplicate) or an active global.
+      OR: [{ userId }, { userId: null, isActive: true }],
     },
   });
 
@@ -91,10 +92,18 @@ export async function disableTheme(userId: number, themeId: number) {
  * to a theme the given user can see -- global (userId null) or their
  * own. Used by groupService so the visibility rule lives in one place.
  */
-export async function assertThemeVisible(userId: number, themeId: number): Promise<void> {
+export async function assertThemeVisible(
+  userId: number,
+  themeId: number,
+  options: { requireActive?: boolean } = {}
+): Promise<void> {
   const theme = await prisma.theme.findUnique({ where: { id: themeId } });
 
-  if (!theme || (theme.userId !== null && theme.userId !== userId)) {
+  if (
+    !theme ||
+    (theme.userId !== null && theme.userId !== userId) ||
+    (options.requireActive && !theme.isActive)
+  ) {
     throw new AppError('THEME.NOT_FOUND', 404, 'THEME_NOT_FOUND', { themeId });
   }
 }
@@ -112,7 +121,7 @@ export async function getThemeUsage(userId: number) {
   });
 
   const accessibleGroups = await prisma.group.findMany({
-    where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+    where: { isActive: true, OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
     select: { id: true },
   });
   const accessibleGroupIds = accessibleGroups.map((g) => g.id);
@@ -121,7 +130,7 @@ export async function getThemeUsage(userId: number) {
   const [groupCounts, expenseCounts] = await Promise.all([
     prisma.group.groupBy({
       by: ['themeId'],
-      where: { themeId: { in: themeIds }, id: { in: accessibleGroupIds } },
+      where: { themeId: { in: themeIds }, id: { in: accessibleGroupIds }, isActive: true },
       _count: { _all: true },
     }),
     prisma.expense.groupBy({

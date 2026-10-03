@@ -54,9 +54,10 @@ export async function renameLabel(userId: number, labelId: number, name: string)
   const collision = await prisma.label.findFirst({
     where: {
       name: { equals: name, mode: 'insensitive' },
-      isActive: true,
       id: { not: labelId },
-      OR: [{ userId: null }, { userId }],
+      // Any other row of this user (active OR disabled -- a disabled row
+      // can be reactivated later, creating a duplicate) or an active global.
+      OR: [{ userId }, { userId: null, isActive: true }],
     },
   });
 
@@ -93,10 +94,18 @@ export async function disableLabel(userId: number, labelId: number) {
  * resolves to a label the given user can see -- mirrors
  * themeService.assertThemeVisible.
  */
-export async function assertLabelVisible(userId: number, labelId: number): Promise<void> {
+export async function assertLabelVisible(
+  userId: number,
+  labelId: number,
+  options: { requireActive?: boolean } = {}
+): Promise<void> {
   const label = await prisma.label.findUnique({ where: { id: labelId } });
 
-  if (!label || (label.userId !== null && label.userId !== userId)) {
+  if (
+    !label ||
+    (label.userId !== null && label.userId !== userId) ||
+    (options.requireActive && !label.isActive)
+  ) {
     throw new AppError('LABEL.NOT_FOUND', 404, 'LABEL_NOT_FOUND', { labelId });
   }
 }
@@ -116,7 +125,7 @@ export async function getLabelTotals(userId: number) {
   });
 
   const accessibleGroups = await prisma.group.findMany({
-    where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+    where: { isActive: true, OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
     select: { id: true },
   });
   const accessibleGroupIds = accessibleGroups.map((g) => g.id);

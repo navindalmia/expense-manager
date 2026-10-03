@@ -37,7 +37,7 @@ export const updateExpenseSchema = z.object({
   paidById: z.number().int().positive("Invalid payer ID").optional(),
   categoryId: z.number().int().positive("Invalid category ID").optional(),
   labelId: z.number().int().positive("Invalid label ID").optional(),
-  themeId: z.number().int().positive("Invalid theme ID").optional(),
+  themeId: z.number().int().positive("Invalid theme ID").nullable().optional(),
   splitWithIds: z.array(z.number().int().positive()).optional(),
   splitAmount: z.array(z.number().positive()).optional(),
   splitPercentage: z.array(z.number().positive()).optional(),
