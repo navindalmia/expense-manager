@@ -264,6 +264,9 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   }, [formState, getValidationError, clearErrors, setError]);
 
   const handleUpdate = useCallback(async () => {
+    // A late suggestion response must not mutate the form once submit begins.
+    cancelPendingSuggestion();
+
     // Validate form FIRST, show errors if any
     if (!validateForm()) {
       logger.warn('Form validation failed', { errors: formState.errors });
@@ -354,7 +357,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     } finally {
       setSubmitting(false);
     }
-  }, [formState, expense, validateForm, getSplitPayload, expenseId, groupId, isCreateMode, navigation, splitState.splitType]);
+  }, [formState, expense, validateForm, getSplitPayload, expenseId, groupId, isCreateMode, navigation, splitState.splitType, cancelPendingSuggestion]);
 
   const handleDelete = useCallback(() => {
     if (!expenseId) return;
@@ -486,6 +489,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             updateField('category', item.id);
           }}
           onCreateNew={async (name) => {
+            cancelPendingSuggestion();
             const created = await createCategory(name);
             setExtraCategories(prev => [...prev, created]);
             return { id: created.id, name: created.label };

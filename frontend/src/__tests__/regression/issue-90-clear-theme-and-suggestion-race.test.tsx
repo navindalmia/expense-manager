@@ -173,4 +173,32 @@ describe('issue #90 E: stale suggestion response after the user chose a value', 
 
     expect(byTestId(container, 'edit-expense-category-picker-button')?.textContent).toContain('Travel');
   });
+
+  it('should ignore an in-flight suggestion response that resolves after submit', async () => {
+    const container = await setupWithFirstMatchShown();
+    await typeAndFlush(container, 'Fuel'); // second request in flight
+
+    fireEvent.click(byTestId(container, 'edit-expense-save-button') as HTMLElement);
+    await act(async () => {
+      resolveSecond({ matches: [], categorySuggestion: { categoryId: 3 } as SuggestResult['categorySuggestion'] });
+    });
+
+    expect(byTestId(container, 'edit-expense-title-suggestion-11')).toBeNull();
+    expect(byTestId(container, 'edit-expense-category-picker-button')?.textContent).toContain('Other');
+  });
+
+  it('should not fire a pending debounced request after the screen unmounts', async () => {
+    vi.mocked(suggestExpenses).mockResolvedValue({ matches: [], categorySuggestion: null });
+    const { container, unmount } = renderScreen();
+    await waitFor(() => expect(byTestId(container, 'edit-expense-title-input')).not.toBeNull());
+    vi.useFakeTimers();
+    fireEvent.change(byTestId(container, 'edit-expense-title-input') as HTMLElement, { target: { value: 'Fue' } });
+
+    unmount();
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(suggestExpenses).not.toHaveBeenCalled();
+  });
 });

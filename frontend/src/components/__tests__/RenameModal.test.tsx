@@ -68,7 +68,7 @@ describe('RenameModal', () => {
     expect(q('error')).toBeNull();
   });
 
-  it('should disable input, cancel and save while submitting', async () => {
+  it('should disable the Cancel and Save buttons while submitting', async () => {
     let finish: () => void = () => undefined;
     onSave.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
     renderModal();

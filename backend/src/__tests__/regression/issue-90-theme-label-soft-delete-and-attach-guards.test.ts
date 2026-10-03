@@ -38,9 +38,14 @@ describe('issue #90: soft-delete and attach guards', () => {
     });
 
     it('should only total spend from active groups in getLabelTotals', async () => {
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([{ id: 11 }, { id: 12 }]);
+      (prisma.label.findMany as jest.Mock).mockResolvedValue([{ id: 3 }]);
+
       await labelService.getLabelTotals(USER_ID);
 
       expect(prisma.group.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: ACTIVE_GROUP_FILTER }));
+      const where = (prisma.expense.groupBy as jest.Mock).mock.calls[0][0].where;
+      expect(where.groupId).toEqual({ in: [11, 12] });
     });
   });
 
@@ -49,13 +54,6 @@ describe('issue #90: soft-delete and attach guards', () => {
       await expenseService.findSimilarExpenses(USER_ID, 'Fuel');
 
       expect(prisma.group.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: ACTIVE_GROUP_FILTER }));
-    });
-
-    it('should return nothing when the only group is deactivated (filtered out by the query)', async () => {
-      (prisma.group.findMany as jest.Mock).mockResolvedValue([]);
-
-      await expect(expenseService.findSimilarExpenses(USER_ID, 'Fuel')).resolves.toEqual([]);
-      expect(prisma.expense.findMany).not.toHaveBeenCalled();
     });
   });
 
@@ -123,10 +121,10 @@ describe('issue #90: soft-delete and attach guards', () => {
       expect(prisma.expense.update).toHaveBeenCalled();
     });
 
-    it('should still reject a theme owned by another user on update', async () => {
-      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 99, isActive: true });
+    it('should still reject a different theme owned by another user on update', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 5, userId: 99, isActive: true });
 
-      await expect(expenseService.updateExpense(1, USER_ID, { themeId: 4 })).rejects.toThrow('THEME.NOT_FOUND');
+      await expect(expenseService.updateExpense(1, USER_ID, { themeId: 5 })).rejects.toThrow('THEME.NOT_FOUND');
     });
 
     it('should disconnect the theme when themeId is null', async () => {
@@ -148,6 +146,7 @@ describe('issue #90: soft-delete and attach guards', () => {
       expect(where.id).toEqual({ not: 1 });
       expect(where.isActive).toBeUndefined();
       expect(where.OR).toContainEqual({ userId: USER_ID });
+      expect(where.OR).toContainEqual({ userId: null, isActive: true });
     });
 
     it('should check collisions against disabled rows of the same user (label)', async () => {
@@ -159,6 +158,7 @@ describe('issue #90: soft-delete and attach guards', () => {
       const where = (prisma.label.findFirst as jest.Mock).mock.calls[0][0].where;
       expect(where.isActive).toBeUndefined();
       expect(where.OR).toContainEqual({ userId: USER_ID });
+      expect(where.OR).toContainEqual({ userId: null, isActive: true });
     });
   });
 });

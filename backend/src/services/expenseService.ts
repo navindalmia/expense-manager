@@ -599,16 +599,21 @@ export async function updateExpense(
     if (amount !== undefined) updateData.amount = amount;
     if (categoryId !== undefined) updateData.category = { connect: { id: categoryId } };
     if (labelId !== undefined) {
-      // Grandfather the label the expense already has: the edit form
-      // resubmits it on every save, even after it was disabled.
-      await assertLabelVisible(userId, labelId, { requireActive: labelId !== expense.labelId });
+      // Labels are per-user: the edit form resubmits the expense's existing
+      // label on every save (possibly by a different group member or after it
+      // was disabled), so only validate when the label actually changes.
+      if (labelId !== expense.labelId) {
+        await assertLabelVisible(userId, labelId, { requireActive: true });
+      }
       updateData.label = { connect: { id: labelId } };
     }
     if (themeId === null) {
       updateData.theme = { disconnect: true };
     } else if (themeId !== undefined) {
-      // Grandfather the theme the expense already has (see label above).
-      await assertThemeVisible(userId, themeId, { requireActive: themeId !== expense.themeId });
+      // Only validate when the theme changes (see label above).
+      if (themeId !== expense.themeId) {
+        await assertThemeVisible(userId, themeId, { requireActive: true });
+      }
       updateData.theme = { connect: { id: themeId } };
     }
     if (paidById !== undefined) updateData.paidBy = { connect: { id: paidById } };
