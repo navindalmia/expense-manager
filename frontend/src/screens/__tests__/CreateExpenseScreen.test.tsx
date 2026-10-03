@@ -110,4 +110,28 @@ describe('CreateExpenseScreen', () => {
     const payload = (http.post as any).mock.calls[0][1];
     expect(payload.categoryId).toBe(2); // "OTHER" category id from mockCategories
   });
+
+  it('lets the user pick a payer other than the first member (issue #45)', async () => {
+    const { getByTestId } = renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Other')).toBeTruthy();
+    });
+
+    fireEvent.click(getByTestId('create-expense-paid-by-picker-button'));
+    fireEvent.click(getByTestId('create-expense-paid-by-option-2'));
+
+    await waitFor(() => {
+      expect(getByTestId('create-expense-paid-by-picker-button').textContent).toContain('Bob');
+    });
+
+    fireEvent.change(getByTestId('expense-title-input'), { target: { value: 'Dinner' } });
+    fireEvent.change(getByTestId('expense-amount-input'), { target: { value: '25' } });
+    fireEvent.click(screen.getByText('Create Expense'));
+
+    await waitFor(() => {
+      expect(http.post).toHaveBeenCalledTimes(1);
+    });
+    expect((http.post as any).mock.calls[0][1].paidById).toBe(2);
+  });
 });
