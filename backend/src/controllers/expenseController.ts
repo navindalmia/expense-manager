@@ -89,18 +89,14 @@ export async function suggestExpenses(req: Request, res: Response, next?: NextFu
 
     const matches = await expenseService.findSimilarExpenses(userId, title);
 
-    // Dictionary category suggestion only fires when autocomplete found
-    // nothing (R8's trigger condition -- see U6's Approach). It's a
-    // non-critical enhancement on top of the (already-succeeded) title
-    // match lookup, so its own failure must not fail the whole request --
-    // fall back to no suggestion instead of a 500.
+    // Category suggestion (history majority, then keyword dictionary) is a
+    // non-critical enhancement on top of the already-succeeded match lookup,
+    // so its own failure must not fail the request.
     let categorySuggestion = null;
-    if (matches.length === 0) {
-      try {
-        categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title);
-      } catch (suggestionError) {
-        console.error('Failed to compute category suggestion (non-fatal):', suggestionError);
-      }
+    try {
+      categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title, matches);
+    } catch (suggestionError) {
+      console.error('Failed to compute category suggestion (non-fatal):', suggestionError);
     }
 
     res.status(200).json({

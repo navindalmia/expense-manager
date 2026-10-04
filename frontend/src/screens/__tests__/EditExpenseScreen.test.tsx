@@ -205,6 +205,39 @@ describe('EditExpenseScreen (CREATE mode)', () => {
       );
     });
 
+    it('applies the suggested category even when title matches exist', async () => {
+      (suggestExpenses as any).mockResolvedValue({
+        matches: [{ expenseId: 5, title: 'Dinner out', amount: 30, categoryId: 1, splitWithIds: [] }],
+        categorySuggestion: { categoryId: 1, code: 'FOOD', source: 'history' },
+      });
+      const { container } = renderScreen();
+      await waitFor(() => expect(screen.getByText('Other')).toBeTruthy());
+
+      fireEvent.change(getByTestId(container, 'edit-expense-title-input'), { target: { value: 'dinner' } });
+
+      await waitFor(
+        () => expect(getByTestId(container, 'edit-expense-category-picker-button').textContent).toContain('Food'),
+        { timeout: 2000 }
+      );
+    });
+
+    it('does not override a category the user picked manually', async () => {
+      const user = userEvent.setup();
+      (suggestExpenses as any).mockResolvedValue({
+        matches: [],
+        categorySuggestion: { categoryId: 7, code: 'OTHER', source: 'keyword' },
+      });
+      const { container } = renderScreen();
+      await waitFor(() => expect(screen.getByText('Other')).toBeTruthy());
+
+      await user.click(getByTestId(container, 'edit-expense-category-picker-button'));
+      await user.click(getByTestId(container, 'edit-expense-category-option-1'));
+      fireEvent.change(getByTestId(container, 'edit-expense-title-input'), { target: { value: 'misc' } });
+
+      await waitFor(() => expect(suggestExpenses).toHaveBeenCalled(), { timeout: 2000 });
+      expect(getByTestId(container, 'edit-expense-category-picker-button').textContent).toContain('Food');
+    });
+
     it('includes suggestedCategoryId in the save payload, matching whatever category the user ultimately chose', async () => {
       const user = userEvent.setup();
       (suggestExpenses as any).mockResolvedValue({

@@ -107,6 +107,9 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // request resolves before an older one, the older response must not
   // clobber the newer state -- only the latest requestId's response applies.
   const suggestRequestIdRef = useRef(0);
+  // Once the user picks a category themselves (picker or a past suggestion),
+  // later auto-suggestions must never override it.
+  const categoryTouchedRef = useRef(false);
 
   // Invalidate any pending/in-flight suggestion so a late response cannot
   // reopen the matches list or overwrite a category the user just chose.
@@ -146,7 +149,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             return; // a newer request has since superseded this one
           }
           setSuggestedMatches(result.matches);
-          if (result.matches.length === 0 && result.categorySuggestion) {
+          if (result.categorySuggestion && !categoryTouchedRef.current) {
             updateField('category', result.categorySuggestion.categoryId);
             setSuggestedCategoryId(result.categorySuggestion.categoryId);
           } else {
@@ -163,6 +166,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
 
   const selectSuggestedMatch = useCallback((match: SuggestedExpenseMatch) => {
     cancelPendingSuggestion();
+    categoryTouchedRef.current = true;
     updateField('amount', match.amount.toString());
     updateField('category', match.categoryId);
     // Belt-and-suspenders per AE2: always default to today client-side even
@@ -486,10 +490,12 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
           items={categories.map((cat): TypeAheadItem => ({ id: cat.id, name: cat.label }))}
           onSelect={(item) => {
             cancelPendingSuggestion();
+            categoryTouchedRef.current = true;
             updateField('category', item.id);
           }}
           onCreateNew={async (name) => {
             cancelPendingSuggestion();
+            categoryTouchedRef.current = true;
             const created = await createCategory(name);
             setExtraCategories(prev => [...prev, created]);
             return { id: created.id, name: created.label };

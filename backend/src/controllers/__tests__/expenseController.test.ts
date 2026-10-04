@@ -325,7 +325,7 @@ describe('Expense Controller', () => {
   });
 
   describe('GET /api/expenses/suggest', () => {
-    it('should return matches and a null categorySuggestion when matches are found', async () => {
+    it('should return matches and the category suggestion computed from them', async () => {
       req.query = { title: 'Fuel' };
       const mockMatches = [{ expenseId: 1, title: 'Fuel', amount: 45, categoryId: 3, splitWithIds: [1, 2] }];
       (expenseService.findSimilarExpenses as jest.Mock).mockResolvedValue(mockMatches);
@@ -336,14 +336,12 @@ describe('Expense Controller', () => {
       expect(statusCode).toBe(200);
       expect(jsonData).toEqual({
         statusCode: 200,
-        data: { matches: mockMatches, categorySuggestion: null },
+        data: { matches: mockMatches, categorySuggestion: { categoryId: 3, code: 'TRAVEL' } },
       });
-      // Dictionary suggestion is R8's "no match" fallback -- must not run
-      // when autocomplete already found something.
-      expect(expenseService.suggestCategoryForTitle).not.toHaveBeenCalled();
+      expect(expenseService.suggestCategoryForTitle).toHaveBeenCalledWith(1, 'Fuel', mockMatches);
     });
 
-    it('should fall back to a category suggestion only when no matches are found', async () => {
+    it('should still compute a category suggestion when no matches are found', async () => {
       req.query = { title: 'Gas station fill-up' };
       (expenseService.findSimilarExpenses as jest.Mock).mockResolvedValue([]);
       (expenseService.suggestCategoryForTitle as jest.Mock).mockResolvedValue({ categoryId: 3, code: 'TRAVEL' });
@@ -355,7 +353,7 @@ describe('Expense Controller', () => {
         statusCode: 200,
         data: { matches: [], categorySuggestion: { categoryId: 3, code: 'TRAVEL' } },
       });
-      expect(expenseService.suggestCategoryForTitle).toHaveBeenCalledWith(1, 'Gas station fill-up');
+      expect(expenseService.suggestCategoryForTitle).toHaveBeenCalledWith(1, 'Gas station fill-up', []);
     });
 
     it('should still return matches with a null categorySuggestion when the category-suggestion lookup fails (non-critical, must not fail the whole request)', async () => {

@@ -870,9 +870,49 @@ describe('ExpenseService', () => {
 
       const suggestion = await expenseService.suggestCategoryForTitle(1, 'Gas station fill-up');
 
-      expect(suggestion).toEqual({ categoryId: 3, code: 'TRAVEL' });
+      expect(suggestion).toEqual({ categoryId: 3, code: 'TRAVEL', source: 'keyword' });
       expect(prisma.category.findFirst).toHaveBeenCalledWith({
         where: { code: 'TRAVEL', isActive: true, OR: [{ userId: null }, { userId: 1 }] },
+      });
+    });
+
+    describe('history-based suggestion', () => {
+      const match = (expenseId: number, categoryId: number) => ({
+        expenseId, title: 'Dinner out', amount: 10, categoryId, splitWithIds: [],
+      });
+
+      it('suggests the most-used category among matches, beating the dictionary', async () => {
+        (prisma.category.findMany as jest.Mock).mockResolvedValue([
+          { id: 7, code: 'OTHER' },
+          { id: 8, code: 'ENTERTAINMENT' },
+        ]);
+
+        const suggestion = await expenseService.suggestCategoryForTitle(1, 'dinner', [
+          match(1, 8), match(2, 7), match(3, 7),
+        ]);
+
+        expect(suggestion).toEqual({ categoryId: 7, code: 'OTHER', source: 'history' });
+        expect(prisma.category.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('breaks ties in favour of the best-ranked (first) match', async () => {
+        (prisma.category.findMany as jest.Mock).mockResolvedValue([
+          { id: 7, code: 'OTHER' },
+          { id: 8, code: 'ENTERTAINMENT' },
+        ]);
+
+        const suggestion = await expenseService.suggestCategoryForTitle(1, 'dinner', [match(1, 8), match(2, 7)]);
+
+        expect(suggestion?.categoryId).toBe(8);
+      });
+
+      it('ignores history categories the user cannot select and falls back to the dictionary', async () => {
+        (prisma.category.findMany as jest.Mock).mockResolvedValue([]);
+        (prisma.category.findFirst as jest.Mock).mockResolvedValue({ id: 2, code: 'FOOD' });
+
+        const suggestion = await expenseService.suggestCategoryForTitle(1, 'dinners', [match(1, 9)]);
+
+        expect(suggestion).toEqual({ categoryId: 2, code: 'FOOD', source: 'keyword' });
       });
     });
 

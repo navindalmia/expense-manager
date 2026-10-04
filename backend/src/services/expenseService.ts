@@ -763,32 +763,87 @@ export async function findSimilarExpenses(
   }
 }
 
+export interface CategorySuggestion {
+  categoryId: number;
+  code: string;
+  source?: 'history' | 'keyword';
+}
+
 /**
- * Resolve a keyword-dictionary category suggestion (R8) into a category id
+ * Pick the category the user used most often among similar past expenses
+ * (ties go to the best-ranked match, i.e. the earliest in `matches`), limited
+ * to categories the user can currently select.
+ */
+async function suggestCategoryFromHistory(
+  userId: number,
+  matches: SimilarExpenseMatch[]
+): Promise<CategorySuggestion | null> {
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const selectable = await prisma.category.findMany({
+    where: {
+      id: { in: matches.map((m) => m.categoryId) },
+      isActive: true,
+      OR: [{ userId: null }, { userId }],
+    },
+  });
+  const selectableById = new Map(selectable.map((c) => [c.id, c]));
+
+  const counts = new Map<number, number>();
+  for (const match of matches) {
+    if (selectableById.has(match.categoryId)) {
+      counts.set(match.categoryId, (counts.get(match.categoryId) ?? 0) + 1);
+    }
+  }
+
+  let bestId: number | null = null;
+  let bestCount = 0;
+  for (const match of matches) {
+    const count = counts.get(match.categoryId) ?? 0;
+    if (count > bestCount) {
+      bestId = match.categoryId;
+      bestCount = count;
+    }
+  }
+
+  const best = bestId === null ? undefined : selectableById.get(bestId);
+  return best ? { categoryId: best.id, code: best.code, source: 'history' } : null;
+}
+
+/**
+ * Resolve a category suggestion (history majority first, then keyword dictionary R8) into a category id
  * the given user can actually see (KTD7's userId-null-or-own visibility
  * model), falling back to null (caller then falls back to "Other" per
  * KTD8) when the dictionary has no match or the matched category code
  * isn't visible to this user.
  *
  * @param userId - The current user ID
+ * @param matches - Similar past expenses already found for the title
  * @param titleQuery - The expense title text to run through the dictionary
  */
 export async function suggestCategoryForTitle(
   userId: number,
-  titleQuery: string
-): Promise<{ categoryId: number; code: string } | null> {
-  const code = suggestCategoryCode(titleQuery);
-
-  if (!code) {
-    return null;
-  }
-
+  titleQuery: string,
+  matches: SimilarExpenseMatch[] = []
+): Promise<CategorySuggestion | null> {
   try {
+    const fromHistory = await suggestCategoryFromHistory(userId, matches);
+    if (fromHistory) {
+      return fromHistory;
+    }
+
+    const code = suggestCategoryCode(titleQuery);
+    if (!code) {
+      return null;
+    }
+
     const category = await prisma.category.findFirst({
       where: { code, isActive: true, OR: [{ userId: null }, { userId }] },
     });
 
-    return category ? { categoryId: category.id, code: category.code } : null;
+    return category ? { categoryId: category.id, code: category.code, source: 'keyword' } : null;
   } catch (error) {
     if (error instanceof AppError) {
       throw error;

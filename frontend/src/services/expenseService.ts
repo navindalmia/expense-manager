@@ -208,6 +208,7 @@ export interface SuggestedExpenseMatch {
 export interface CategorySuggestion {
   categoryId: number;
   code: string;
+  source?: 'history' | 'keyword';
 }
 
 export interface SuggestExpensesResult {
