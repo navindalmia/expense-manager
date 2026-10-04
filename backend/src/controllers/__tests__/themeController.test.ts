@@ -16,7 +16,7 @@ describe('Theme Controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    req = { body: {}, params: {}, user: { id: 1 } as Request['user'] };
+    req = { body: {}, params: {}, query: {}, user: { id: 1 } as Request['user'] };
     res = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
     next = jest.fn();
   });
@@ -28,7 +28,7 @@ describe('Theme Controller', () => {
 
       await getThemeUsage(req as Request, res as Response, next);
 
-      expect(themeService.getThemeUsage).toHaveBeenCalledWith(1);
+      expect(themeService.getThemeUsage).toHaveBeenCalledWith(1, false);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ statusCode: 200, data: usage });
     });

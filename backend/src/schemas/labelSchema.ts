@@ -20,3 +20,18 @@ export type LabelNameRequest = z.infer<typeof labelNameSchema>;
 export function validateLabelNameInput(data: unknown): LabelNameRequest {
   return labelNameSchema.parse(data);
 }
+
+/**
+ * Query for the Manage Labels screen: `includeDisabled=true` adds the user's
+ * own disabled rows to the list. Defaults to false for every other caller.
+ */
+export const includeDisabledQuerySchema = z.object({
+  includeDisabled: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+});
+
+export function validateIncludeDisabledQuery(data: unknown): boolean {
+  return includeDisabledQuerySchema.parse(data).includeDisabled;
+}

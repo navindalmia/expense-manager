@@ -2,18 +2,17 @@
  * Manage Themes Screen
  *
  * Lists the user's active themes with how many groups/expenses use each,
- * and lets the user rename or disable one (R4). Mirrors ManageLabelsScreen.
- * Disabling has no undo path in this UI, so it requires confirmation first.
+ * and lets the user rename, disable or re-enable one (R4). Mirrors ManageLabelsScreen.
+ * Disabled rows stay in the list (dimmed, tagged) with an Enable button.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ManageThemesScreenProps } from '../types/navigation';
-import { getThemeUsage, disableTheme, renameTheme, type ThemeUsage } from '../services/themeService';
+import { getThemeUsage, disableTheme, enableTheme, renameTheme, type ThemeUsage } from '../services/themeService';
 import { getErrorMessage } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
-import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import RenameModal from '../components/RenameModal';
@@ -36,6 +35,10 @@ const styles = StyleSheet.create({
   editButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#e6f0ff' },
   editButtonText: { fontSize: 13, color: '#0066cc', fontWeight: '600' },
   disableButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#fdecea' },
+  enableButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#e6f6ea' },
+  enableButtonText: { fontSize: 13, color: '#1a7f37', fontWeight: '600' },
+  nameDisabled: { color: '#999' },
+  disabledTag: { fontSize: 11, color: '#888', marginTop: 2, fontStyle: 'italic' },
   disableButtonText: { fontSize: 13, color: '#cc0000', fontWeight: '600' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   emptyText: { fontSize: 15, color: '#666', textAlign: 'center' },
@@ -57,7 +60,7 @@ export default function ManageThemesScreen(_props: ManageThemesScreenProps) {
     try {
       setLoading(true);
       setError(null);
-      setThemes(await getThemeUsage());
+      setThemes(await getThemeUsage({ includeDisabled: true }));
     } catch (err) {
       setError(getErrorMessage(err));
       logger.error('Failed to load theme usage', err, { screen: 'ManageThemesScreen' });
@@ -70,22 +73,35 @@ export default function ManageThemesScreen(_props: ManageThemesScreenProps) {
     loadThemes();
   }, [loadThemes]);
 
-  const handleDisable = useCallback((theme: ThemeUsage) => {
-    confirmThenProceed(
-      'Disable Theme',
-      `Disable "${theme.name}"? It will no longer be available to select on new groups or expenses. This can't be undone from here.`,
-      'Disable',
-      async () => {
-        try {
-          await disableTheme(theme.id);
-          setThemes((prev) => prev.filter((t) => t.id !== theme.id));
-        } catch (err) {
-          Alert.alert('Error', getErrorMessage(err));
-          logger.error('Failed to disable theme', err, { screen: 'ManageThemesScreen', themeId: theme.id });
-        }
-      }
-    );
+  const setActive = useCallback((id: number, isActive: boolean) => {
+    setThemes((prev) => prev.map((row) => (row.id === id ? { ...row, isActive } : row)));
   }, []);
+
+  const handleDisable = useCallback(
+    async (theme: ThemeUsage) => {
+      try {
+        await disableTheme(theme.id);
+        setActive(theme.id, false);
+      } catch (err) {
+        Alert.alert('Error', getErrorMessage(err));
+        logger.error('Failed to disable theme', err, { screen: 'ManageThemesScreen', themeId: theme.id });
+      }
+    },
+    [setActive]
+  );
+
+  const handleEnable = useCallback(
+    async (theme: ThemeUsage) => {
+      try {
+        await enableTheme(theme.id);
+        setActive(theme.id, true);
+      } catch (err) {
+        Alert.alert('Error', getErrorMessage(err));
+        logger.error('Failed to enable theme', err, { screen: 'ManageThemesScreen', themeId: theme.id });
+      }
+    },
+    [setActive]
+  );
 
   const handleRenameSave = useCallback(
     async (name: string) => {
@@ -122,7 +138,10 @@ export default function ManageThemesScreen(_props: ManageThemesScreenProps) {
           renderItem={({ item }) => (
             <View style={styles.row} testID={`manage-themes-row-${item.id}`}>
               <View>
-                <Text style={styles.name}>{item.name}</Text>
+                <Text style={[styles.name, !item.isActive && styles.nameDisabled]}>{item.name}</Text>
+                {!item.isActive && (
+                  <Text style={styles.disabledTag} testID={`manage-themes-disabled-tag-${item.id}`}>Disabled</Text>
+                )}
                 <Text style={styles.usage}>{describeUsage(item)}</Text>
               </View>
               {/* System themes (no owner) cannot be renamed or disabled by a user. */}
@@ -135,13 +154,23 @@ export default function ManageThemesScreen(_props: ManageThemesScreenProps) {
                   >
                     <Text style={styles.editButtonText}>Edit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.disableButton}
-                    onPress={() => handleDisable(item)}
-                    testID={`manage-themes-disable-${item.id}`}
-                  >
-                    <Text style={styles.disableButtonText}>Disable</Text>
-                  </TouchableOpacity>
+                  {item.isActive ? (
+                    <TouchableOpacity
+                      style={styles.disableButton}
+                      onPress={() => handleDisable(item)}
+                      testID={`manage-themes-disable-${item.id}`}
+                    >
+                      <Text style={styles.disableButtonText}>Disable</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.enableButton}
+                      onPress={() => handleEnable(item)}
+                      testID={`manage-themes-enable-${item.id}`}
+                    >
+                      <Text style={styles.enableButtonText}>Enable</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>

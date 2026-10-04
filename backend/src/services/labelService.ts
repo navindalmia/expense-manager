@@ -68,6 +68,45 @@ export async function renameLabel(userId: number, labelId: number, name: string)
   return prisma.label.update({ where: { id: labelId }, data: { name } });
 }
 
+/**
+ * Re-enable a label the user owns. Idempotent when already active. Fails
+ * with 409 when another active label (the user's own or a global one)
+ * already uses the same name, so enabling never creates a duplicate.
+ */
+export async function enableLabel(userId: number, labelId: number) {
+  const label = await prisma.label.findUnique({ where: { id: labelId } });
+
+  if (!label) {
+    throw new AppError('LABEL.NOT_FOUND', 404, 'LABEL_NOT_FOUND', { labelId });
+  }
+
+  if (label.userId !== userId) {
+    throw new AppError('LABEL.NOT_OWNER', 403, 'LABEL_NOT_OWNER', { labelId });
+  }
+
+  if (label.isActive) {
+    return label;
+  }
+
+  const collision = await prisma.label.findFirst({
+    where: {
+      name: { equals: label.name, mode: 'insensitive' },
+      id: { not: labelId },
+      isActive: true,
+      OR: [{ userId }, { userId: null }],
+    },
+  });
+
+  if (collision) {
+    throw new AppError('LABEL.NAME_EXISTS', 409, 'LABEL_NAME_EXISTS', { labelId });
+  }
+
+  return prisma.label.update({
+    where: { id: labelId },
+    data: { isActive: true },
+  });
+}
+
 export async function disableLabel(userId: number, labelId: number) {
   const label = await prisma.label.findUnique({ where: { id: labelId } });
 
@@ -118,9 +157,11 @@ export async function assertLabelVisible(
  * created -- a label is visible app-wide, but expense amounts under it
  * are still group-scoped private data (see U4's Approach note).
  */
-export async function getLabelTotals(userId: number) {
+export async function getLabelTotals(userId: number, includeDisabled = false) {
   const visibleLabels = await prisma.label.findMany({
-    where: { isActive: true, OR: [{ userId: null }, { userId }] },
+    where: includeDisabled
+      ? { OR: [{ userId: null, isActive: true }, { userId }] }
+      : { isActive: true, OR: [{ userId: null }, { userId }] },
     orderBy: { name: 'asc' },
   });
 

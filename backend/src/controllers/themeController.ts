@@ -6,7 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import * as themeService from '../services/themeService';
-import { validateThemeNameInput } from '../schemas/themeSchema';
+import { validateThemeNameInput, validateIncludeDisabledQuery } from '../schemas/themeSchema';
 
 export async function getThemes(req: Request, res: Response, next: NextFunction) {
   try {
@@ -22,7 +22,8 @@ export async function getThemes(req: Request, res: Response, next: NextFunction)
 export async function getThemeUsage(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    const usage = await themeService.getThemeUsage(userId);
+    const includeDisabled = validateIncludeDisabledQuery(req.query);
+    const usage = await themeService.getThemeUsage(userId, includeDisabled);
 
     res.status(200).json({ statusCode: 200, data: usage });
   } catch (error) {
@@ -63,6 +64,19 @@ export async function disableTheme(req: Request, res: Response, next: NextFuncti
     const themeId = Number(req.params.id);
 
     const theme = await themeService.disableTheme(userId, themeId);
+
+    res.status(200).json({ statusCode: 200, data: theme });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function enableTheme(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const themeId = Number(req.params.id);
+
+    const theme = await themeService.enableTheme(userId, themeId);
 
     res.status(200).json({ statusCode: 200, data: theme });
   } catch (error) {

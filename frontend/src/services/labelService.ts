@@ -60,11 +60,24 @@ export async function disableLabel(labelId: number): Promise<Label> {
 }
 
 /**
- * Fetch per-label spend totals for the Manage Labels screen (U10).
+ * Re-enable a previously disabled label the current user owns.
  *
- * GET /api/labels/totals
+ * PATCH /api/labels/:id/enable
  */
-export async function getLabelTotals(): Promise<LabelTotal[]> {
-  const response = await http.get<{ statusCode: number; data: LabelTotal[] }>('/labels/totals');
+export async function enableLabel(labelId: number): Promise<Label> {
+  const response = await http.patch<{ statusCode: number; data: Label }>(`/labels/${labelId}/enable`);
+  return response.data.data;
+}
+
+/**
+ * Fetch per-label spend totals for the Manage Labels screen (U10).
+ * `includeDisabled` also returns the user's own disabled labels (isActive=false).
+ *
+ * GET /api/labels/totals[?includeDisabled=true]
+ */
+export async function getLabelTotals(options: { includeDisabled?: boolean } = {}): Promise<LabelTotal[]> {
+  const response = await http.get<{ statusCode: number; data: LabelTotal[] }>('/labels/totals', {
+    params: options.includeDisabled ? { includeDisabled: 'true' } : undefined,
+  });
   return response.data.data;
 }

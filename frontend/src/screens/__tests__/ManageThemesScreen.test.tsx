@@ -13,11 +13,13 @@ import type { ManageThemesScreenProps } from '../../types/navigation';
 
 const mockGetThemeUsage = vi.fn();
 const mockDisableTheme = vi.fn();
+const mockEnableTheme = vi.fn();
 const mockRenameTheme = vi.fn();
 
 vi.mock('../../services/themeService', () => ({
   getThemeUsage: (...args: unknown[]) => mockGetThemeUsage(...args),
   disableTheme: (...args: unknown[]) => mockDisableTheme(...args),
+  enableTheme: (...args: unknown[]) => mockEnableTheme(...args),
   renameTheme: (...args: unknown[]) => mockRenameTheme(...args),
 }));
 
@@ -37,6 +39,9 @@ const baseThemes: ThemeUsage[] = [
   { id: 2, name: 'Monthly Expense', userId: 1, isActive: true, groupCount: 1, expenseCount: 0 },
   { id: 3, name: 'System Theme', userId: null, isActive: true, groupCount: 0, expenseCount: 0 },
 ];
+
+const disabledRow: ThemeUsage = { id: 4, name: 'Old One', userId: 1, isActive: false, groupCount: 0, expenseCount: 0 };
+const baseItems = () => [...baseThemes, disabledRow];
 
 function renderScreen() {
   const props = {
@@ -82,40 +87,74 @@ describe('ManageThemesScreen', () => {
     expect(getByTestId(container, 'manage-themes-disable-1')).toBeTruthy();
   });
 
-  it('confirming Disable calls disableTheme and removes the row', async () => {
+  it('Disable acts immediately with no confirmation dialog and marks the row disabled', async () => {
     const user = userEvent.setup();
-    mockGetThemeUsage.mockResolvedValue(baseThemes);
+    mockGetThemeUsage.mockResolvedValue(baseItems());
     mockDisableTheme.mockResolvedValue({ id: 1, isActive: false });
-    confirmSpy.mockReturnValue(true);
     const { container } = renderScreen();
 
     await waitFor(() => expect(screen.getByText('Holiday')).toBeTruthy());
     await user.click(getByTestId(container, 'manage-themes-disable-1'));
 
-    await waitFor(() => {
-      expect(mockDisableTheme).toHaveBeenCalledWith(1);
-      expect(screen.queryByText('Holiday')).toBeNull();
-    });
+    await waitFor(() => expect(mockDisableTheme).toHaveBeenCalledWith(1));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(getByTestId(container, 'manage-themes-enable-1')).toBeTruthy());
+    expect(getByTestId(container, 'manage-themes-disabled-tag-1')).toBeTruthy();
+    expect(screen.getByText('Holiday')).toBeTruthy();
   });
 
-  it('dismissing the Disable confirmation never calls disableTheme', async () => {
-    const user = userEvent.setup();
-    mockGetThemeUsage.mockResolvedValue(baseThemes);
-    confirmSpy.mockReturnValue(false);
+  it('requests the includeDisabled variant of the list', async () => {
+    mockGetThemeUsage.mockResolvedValue(baseItems());
+    renderScreen();
+
+    await waitFor(() => expect(mockGetThemeUsage).toHaveBeenCalledWith({ includeDisabled: true }));
+  });
+
+  it('shows a disabled row with a Disabled tag, an Enable button and still an Edit button', async () => {
+    mockGetThemeUsage.mockResolvedValue(baseItems());
     const { container } = renderScreen();
 
-    await waitFor(() => expect(screen.getByText('Holiday')).toBeTruthy());
-    await user.click(getByTestId(container, 'manage-themes-disable-1'));
+    await waitFor(() => expect(screen.getByText('Old One')).toBeTruthy());
 
-    expect(mockDisableTheme).not.toHaveBeenCalled();
-    expect(screen.getByText('Holiday')).toBeTruthy();
+    expect(getByTestId(container, 'manage-themes-disabled-tag-4')).toBeTruthy();
+    expect(getByTestId(container, 'manage-themes-enable-4')).toBeTruthy();
+    expect(queryByTestId(container, 'manage-themes-disable-4')).toBeNull();
+    expect(getByTestId(container, 'manage-themes-edit-4')).toBeTruthy();
+  });
+
+  it('tapping Enable calls enableTheme and the row becomes active again', async () => {
+    const user = userEvent.setup();
+    mockGetThemeUsage.mockResolvedValue(baseItems());
+    mockEnableTheme.mockResolvedValue({ id: 4, isActive: true });
+    const { container } = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Old One')).toBeTruthy());
+    await user.click(getByTestId(container, 'manage-themes-enable-4'));
+
+    await waitFor(() => expect(mockEnableTheme).toHaveBeenCalledWith(4));
+    await waitFor(() => expect(getByTestId(container, 'manage-themes-disable-4')).toBeTruthy());
+    expect(queryByTestId(container, 'manage-themes-disabled-tag-4')).toBeNull();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an Alert and keeps the row disabled when enableTheme fails (e.g. name conflict)', async () => {
+    const user = userEvent.setup();
+    mockGetThemeUsage.mockResolvedValue(baseItems());
+    mockEnableTheme.mockRejectedValue(new Error('Name already exists'));
+    const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
+    const { container } = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Old One')).toBeTruthy());
+    await user.click(getByTestId(container, 'manage-themes-enable-4'));
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith('Error', 'Name already exists'));
+    expect(getByTestId(container, 'manage-themes-enable-4')).toBeTruthy();
   });
 
   it('surfaces an Alert and keeps the row when disableTheme fails', async () => {
     const user = userEvent.setup();
     mockGetThemeUsage.mockResolvedValue(baseThemes);
     mockDisableTheme.mockRejectedValue(new Error('Network error'));
-    confirmSpy.mockReturnValue(true);
     const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
     const { container } = renderScreen();
 

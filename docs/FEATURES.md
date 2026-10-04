@@ -16,11 +16,15 @@ Every expense can carry up to three kinds of tags. Tap the small **i** next to C
 
 ## Manage Themes
 
-Open **Themes** from the top of the home screen to see every theme you have, with how many groups and expenses use it. You can rename a theme or disable one you no longer need. Disabled themes disappear from pickers but existing expenses keep their tag.
+Open **Themes** from the top of the home screen to see every theme you have, with how many groups and expenses use it. You can rename a theme, disable one you no longer need, and enable it again later with one tap. Disabled themes stay in this list (dimmed, tagged "Disabled") but disappear from pickers; existing expenses keep their tag. You can still rename a disabled theme. If you enable a theme whose name is now used by another active theme, you will see a message and nothing changes.
 
 Creating a theme with the same name as one you disabled brings the old one back instead of making a duplicate.
 
 Screenshot: `docs/screenshots/manage-themes.png` (to be captured)
+
+## Manage Labels
+
+On **Manage Labels**, each label shows its total. Disable a label with one tap (no confirmation) and it stays in the list, dimmed and tagged "Disabled", with an **Enable** button to bring it back. Disabled labels are hidden from pickers.
 
 ## Rename Labels
 

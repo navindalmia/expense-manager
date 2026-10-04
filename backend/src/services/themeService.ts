@@ -66,6 +66,45 @@ export async function renameTheme(userId: number, themeId: number, name: string)
   });
 }
 
+/**
+ * Re-enable a theme the user owns. Idempotent when already active. Fails
+ * with 409 when another active theme (the user's own or a global one)
+ * already uses the same name, so enabling never creates a duplicate.
+ */
+export async function enableTheme(userId: number, themeId: number) {
+  const theme = await prisma.theme.findUnique({ where: { id: themeId } });
+
+  if (!theme) {
+    throw new AppError('THEME.NOT_FOUND', 404, 'THEME_NOT_FOUND', { themeId });
+  }
+
+  if (theme.userId !== userId) {
+    throw new AppError('THEME.NOT_OWNER', 403, 'THEME_NOT_OWNER', { themeId });
+  }
+
+  if (theme.isActive) {
+    return theme;
+  }
+
+  const collision = await prisma.theme.findFirst({
+    where: {
+      name: { equals: theme.name, mode: 'insensitive' },
+      id: { not: themeId },
+      isActive: true,
+      OR: [{ userId }, { userId: null }],
+    },
+  });
+
+  if (collision) {
+    throw new AppError('THEME.NAME_EXISTS', 409, 'THEME_NAME_EXISTS', { themeId });
+  }
+
+  return prisma.theme.update({
+    where: { id: themeId },
+    data: { isActive: true },
+  });
+}
+
 export async function disableTheme(userId: number, themeId: number) {
   const theme = await prisma.theme.findUnique({ where: { id: themeId } });
 
@@ -108,15 +147,22 @@ export async function assertThemeVisible(
   }
 }
 
+/** Active global rows plus the user's own rows (disabled ones only when asked). */
+function visibleWhere(userId: number, includeDisabled: boolean) {
+  return includeDisabled
+    ? { OR: [{ userId: null, isActive: true }, { userId }] }
+    : { isActive: true, OR: [{ userId: null }, { userId }] };
+}
+
 /**
  * Per-theme usage counts for the Manage Themes screen (R4): how many of
- * the user's accessible groups and expenses carry each visible, active
- * theme. Counts are scoped to groups the user created or belongs to, so a
+ * the user's accessible groups and expenses carry each visible theme
+ * (active only, unless `includeDisabled` adds the user's own disabled ones). Counts are scoped to groups the user created or belongs to, so a
  * global theme never leaks other users' usage.
  */
-export async function getThemeUsage(userId: number) {
+export async function getThemeUsage(userId: number, includeDisabled = false) {
   const visibleThemes = await prisma.theme.findMany({
-    where: { isActive: true, OR: [{ userId: null }, { userId }] },
+    where: visibleWhere(userId, includeDisabled),
     orderBy: { name: 'asc' },
   });
 

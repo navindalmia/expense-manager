@@ -18,5 +18,6 @@ router.get('/totals', authMiddleware, labelController.getLabelTotals);
 router.post('/', authMiddleware, labelController.createLabel);
 router.patch('/:id', authMiddleware, labelController.renameLabel);
 router.patch('/:id/disable', authMiddleware, labelController.disableLabel);
+router.patch('/:id/enable', authMiddleware, labelController.enableLabel);
 
 export default router;

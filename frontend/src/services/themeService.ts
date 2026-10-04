@@ -51,6 +51,16 @@ export async function disableTheme(themeId: number): Promise<Theme> {
 }
 
 /**
+ * Re-enable a previously disabled custom theme the current user owns.
+ *
+ * PATCH /api/themes/:id/enable
+ */
+export async function enableTheme(themeId: number): Promise<Theme> {
+  const response = await http.patch<{ statusCode: number; data: Theme }>(`/themes/${themeId}/enable`);
+  return response.data.data;
+}
+
+/**
  * Rename a custom theme the current user owns.
  *
  * PATCH /api/themes/:id
@@ -62,10 +72,13 @@ export async function renameTheme(themeId: number, name: string): Promise<Theme>
 
 /**
  * Fetch themes with group/expense usage counts for the Manage Themes screen.
+ * `includeDisabled` also returns the user's own disabled themes (isActive=false).
  *
- * GET /api/themes/usage
+ * GET /api/themes/usage[?includeDisabled=true]
  */
-export async function getThemeUsage(): Promise<ThemeUsage[]> {
-  const response = await http.get<{ statusCode: number; data: ThemeUsage[] }>('/themes/usage');
+export async function getThemeUsage(options: { includeDisabled?: boolean } = {}): Promise<ThemeUsage[]> {
+  const response = await http.get<{ statusCode: number; data: ThemeUsage[] }>('/themes/usage', {
+    params: options.includeDisabled ? { includeDisabled: 'true' } : undefined,
+  });
   return response.data.data;
 }

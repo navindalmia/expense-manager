@@ -12,11 +12,13 @@ import type { LabelTotal } from '../../services/labelService';
 
 const mockGetLabelTotals = vi.fn();
 const mockDisableLabel = vi.fn();
+const mockEnableLabel = vi.fn();
 const mockRenameLabel = vi.fn();
 
 vi.mock('../../services/labelService', () => ({
   getLabelTotals: (...args: unknown[]) => mockGetLabelTotals(...args),
   disableLabel: (...args: unknown[]) => mockDisableLabel(...args),
+  enableLabel: (...args: unknown[]) => mockEnableLabel(...args),
   renameLabel: (...args: unknown[]) => mockRenameLabel(...args),
 }));
 
@@ -36,6 +38,9 @@ const baseLabels: LabelTotal[] = [
   { id: 1, name: 'Liverpool', userId: 1, isActive: true, total: 245.5 },
   { id: 2, name: 'Work Trips', userId: 1, isActive: true, total: 0 },
 ];
+
+const disabledRow: LabelTotal = { id: 4, name: 'Old One', userId: 1, isActive: false, total: 0 };
+const baseItems = () => [...baseLabels, disabledRow];
 
 function renderScreen() {
   const navigation = { goBack: vi.fn(), setOptions: vi.fn(), navigate: vi.fn() } as any;
@@ -76,40 +81,74 @@ describe('ManageLabelsScreen', () => {
     expect(screen.getByText('0.00')).toBeTruthy();
   });
 
-  it('confirming the disable prompt calls disableLabel and removes the row from the list', async () => {
+  it('Disable acts immediately with no confirmation dialog and marks the row disabled', async () => {
     const user = userEvent.setup();
-    mockGetLabelTotals.mockResolvedValue(baseLabels);
-    mockDisableLabel.mockResolvedValue({ id: 1, name: 'Liverpool', isActive: false });
-    confirmSpy.mockReturnValue(true);
+    mockGetLabelTotals.mockResolvedValue(baseItems());
+    mockDisableLabel.mockResolvedValue({ id: 1, isActive: false });
     const { container } = renderScreen();
 
     await waitFor(() => expect(screen.getByText('Liverpool')).toBeTruthy());
     await user.click(getByTestId(container, 'manage-labels-disable-1'));
 
-    await waitFor(() => {
-      expect(mockDisableLabel).toHaveBeenCalledWith(1);
-      expect(screen.queryByText('Liverpool')).toBeNull();
-    });
+    await waitFor(() => expect(mockDisableLabel).toHaveBeenCalledWith(1));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(getByTestId(container, 'manage-labels-enable-1')).toBeTruthy());
+    expect(getByTestId(container, 'manage-labels-disabled-tag-1')).toBeTruthy();
+    expect(screen.getByText('Liverpool')).toBeTruthy();
   });
 
-  it('dismissing the disable confirmation leaves the label untouched -- disableLabel is never called', async () => {
-    const user = userEvent.setup();
-    mockGetLabelTotals.mockResolvedValue(baseLabels);
-    confirmSpy.mockReturnValue(false);
+  it('requests the includeDisabled variant of the list', async () => {
+    mockGetLabelTotals.mockResolvedValue(baseItems());
+    renderScreen();
+
+    await waitFor(() => expect(mockGetLabelTotals).toHaveBeenCalledWith({ includeDisabled: true }));
+  });
+
+  it('shows a disabled row with a Disabled tag, an Enable button and still an Edit button', async () => {
+    mockGetLabelTotals.mockResolvedValue(baseItems());
     const { container } = renderScreen();
 
-    await waitFor(() => expect(screen.getByText('Liverpool')).toBeTruthy());
-    await user.click(getByTestId(container, 'manage-labels-disable-1'));
+    await waitFor(() => expect(screen.getByText('Old One')).toBeTruthy());
 
-    expect(mockDisableLabel).not.toHaveBeenCalled();
-    expect(screen.getByText('Liverpool')).toBeTruthy();
+    expect(getByTestId(container, 'manage-labels-disabled-tag-4')).toBeTruthy();
+    expect(getByTestId(container, 'manage-labels-enable-4')).toBeTruthy();
+    expect(queryByTestId(container, 'manage-labels-disable-4')).toBeNull();
+    expect(getByTestId(container, 'manage-labels-edit-4')).toBeTruthy();
+  });
+
+  it('tapping Enable calls enableLabel and the row becomes active again', async () => {
+    const user = userEvent.setup();
+    mockGetLabelTotals.mockResolvedValue(baseItems());
+    mockEnableLabel.mockResolvedValue({ id: 4, isActive: true });
+    const { container } = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Old One')).toBeTruthy());
+    await user.click(getByTestId(container, 'manage-labels-enable-4'));
+
+    await waitFor(() => expect(mockEnableLabel).toHaveBeenCalledWith(4));
+    await waitFor(() => expect(getByTestId(container, 'manage-labels-disable-4')).toBeTruthy());
+    expect(queryByTestId(container, 'manage-labels-disabled-tag-4')).toBeNull();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an Alert and keeps the row disabled when enableLabel fails (e.g. name conflict)', async () => {
+    const user = userEvent.setup();
+    mockGetLabelTotals.mockResolvedValue(baseItems());
+    mockEnableLabel.mockRejectedValue(new Error('Name already exists'));
+    const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
+    const { container } = renderScreen();
+
+    await waitFor(() => expect(screen.getByText('Old One')).toBeTruthy());
+    await user.click(getByTestId(container, 'manage-labels-enable-4'));
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledWith('Error', 'Name already exists'));
+    expect(getByTestId(container, 'manage-labels-enable-4')).toBeTruthy();
   });
 
   it('surfaces a visible error when disableLabel fails, not just a silent console log (regression: peer-session review found this only logger.error\'d)', async () => {
     const user = userEvent.setup();
     mockGetLabelTotals.mockResolvedValue(baseLabels);
     mockDisableLabel.mockRejectedValue(new Error('Network error'));
-    confirmSpy.mockReturnValue(true);
     const mockAlert = Alert.alert as ReturnType<typeof vi.fn>;
     const { container } = renderScreen();
 

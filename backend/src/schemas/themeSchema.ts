@@ -20,3 +20,18 @@ export type ThemeNameRequest = z.infer<typeof themeNameSchema>;
 export function validateThemeNameInput(data: unknown): ThemeNameRequest {
   return themeNameSchema.parse(data);
 }
+
+/**
+ * Query for the Manage Themes screen: `includeDisabled=true` adds the user's
+ * own disabled rows to the list. Defaults to false for every other caller.
+ */
+export const includeDisabledQuerySchema = z.object({
+  includeDisabled: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+});
+
+export function validateIncludeDisabledQuery(data: unknown): boolean {
+  return includeDisabledQuerySchema.parse(data).includeDisabled;
+}
