@@ -1,0 +1,42 @@
+appId: com.navindalmia.expensemanager
+---
+# Visual-regression baseline for issue #93: the Edit Group modal's theme
+# picker. EditGroupModal used to fetch themes only once on mount, so a theme
+# created after HomeScreen loaded never showed up here. The functional
+# regression test (issue-93-edit-group-theme-list-stale.test.tsx) pins the
+# refetch-on-open behaviour; this flow pins how the opened picker looks.
+# Uses the standing pre-verified QA test user (test@test.com) and
+# "QA Test Group", same as edit-group-currency-picker-screen.yaml.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+# Tap by visible label, not testID (the testID embeds a DB autoincrement id).
+- tapOn:
+    text: ".*Edit Group.*"
+- assertVisible:
+    id: "edit-group-name-input"
+- tapOn:
+    id: "edit-group-theme-picker-button"
+- assertVisible:
+    text: "Select Theme"
+- assertScreenshot: "edit-group-theme-picker-screen"
