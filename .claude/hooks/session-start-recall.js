@@ -37,9 +37,11 @@ function latestHandoff(dir) {
   } catch {
     return null;
   }
+  // Only the NN- handoff parts (1-3 digit prefix); date-prefixed names must not outrank them.
   const parts = names
-    .map((name) => ({ name, n: parseInt(name.split('-')[0], 10) }))
-    .filter((p) => Number.isInteger(p.n) && p.name.endsWith('.md'))
+    .map((name) => ({ name, match: /^(\d{1,3})-.*\.md$/.exec(name) }))
+    .filter((p) => p.match !== null)
+    .map((p) => ({ name: p.name, n: parseInt(p.match[1], 10) }))
     .sort((a, b) => b.n - a.n);
   return parts.length > 0 ? path.join(dir, parts[0].name) : null;
 }
@@ -48,16 +50,18 @@ function countSolutions(root) {
   const dir = path.join(root, 'docs', 'solutions');
   let total = 0;
   const walk = (d) => {
-    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+    let entries;
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return; // one unreadable directory must not discard the rest of the count
+    }
+    for (const entry of entries) {
       if (entry.isDirectory()) walk(path.join(d, entry.name));
       else if (entry.name.endsWith('.md')) total += 1;
     }
   };
-  try {
-    walk(dir);
-  } catch {
-    return 0;
-  }
+  walk(dir);
   return total;
 }
 
@@ -81,4 +85,8 @@ function main() {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
-main();
+try {
+  main();
+} catch {
+  // Never let a recall hint block or error a session start.
+}
