@@ -40,7 +40,7 @@ The exemption is scoped per commit and read by CI and the local `.githooks/commi
 
 ## When to Apply
 
-Any commit that needs `Regression-Exempt:`, `Test-Exempt:`, `E2E-Exempt:` or `Visual-Regression-Exempt:` and also carries a `Co-Authored-By:` line.
+Any commit that needs `Regression-Exempt:` and also carries a `Co-Authored-By:` line (or any other trailer). The other exemption trailers (`Test-Exempt:`, `E2E-Exempt:`, `Visual-Regression-Exempt:`) are read by `.claude/hooks/pre-commit-quality-gate.js`, which matches them anywhere in the `-m` message (lines 144-146), so the last-paragraph rule is specific to `Regression-Exempt` (CI `regression-gate` and the local git hooks).
 
 ## Examples
 
