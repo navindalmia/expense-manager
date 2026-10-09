@@ -36,6 +36,7 @@
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
+const { isGitCommit } = require('./lib/is-git-commit');
 
 function readStdinJson() {
   try {
@@ -107,6 +108,10 @@ function isTestFile(file) {
 
 const hookInput = readStdinJson();
 const command = hookInput && hookInput.tool_input && hookInput.tool_input.command;
+// The settings matcher is just `Bash`, so this runs for every Bash call: only act on `git commit`.
+if (!isGitCommit(command)) {
+  process.exit(0);
+}
 const targetDir = resolveTargetDir(hookInput);
 const repoRoot = resolveRepoRoot(targetDir);
 
