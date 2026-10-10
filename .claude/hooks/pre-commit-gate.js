@@ -3,9 +3,11 @@
 // for every TypeScript project found in the repo actually being committed to.
 // Cross-platform (plain Node, no shell script) so it runs the same on macOS and Windows.
 //
-// Repo-aware: this hook is registered in expense-manager's .claude/settings.json, but
-// the matcher ("Bash(git commit*)") only inspects the command text, not which repo it
-// targets. A command like `git -C /some/other/repo commit` still matches. So this script
+// Repo-aware: this hook is registered in expense-manager's .claude/settings.json on
+// the plain `Bash` matcher, so it runs for EVERY Bash call and filters for `git commit`
+// itself (lib/is-git-commit.js). The old `Bash(git commit*)` matcher never matched at
+// all (matcher filters on the tool name only), so the gate never ran.
+// A command like `git -C /some/other/repo commit` still counts as a commit. So this script
 // resolves the ACTUAL target repo from the command (or falls back to the hook's cwd),
 // and only checks TypeScript projects that exist inside that repo. If the target repo has
 // no tsconfig.json at all, the check is skipped entirely rather than checking the wrong
@@ -17,6 +19,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { isGitCommit } = require('./lib/is-git-commit');
 
 function readStdinJson() {
   try {
@@ -67,6 +70,10 @@ function findTscBin(projectDir, repoRoot) {
 }
 
 const hookInput = readStdinJson();
+// The settings matcher is just `Bash`, so this runs for every Bash call: only act on `git commit`.
+if (!isGitCommit(hookInput && hookInput.tool_input && hookInput.tool_input.command)) {
+  process.exit(0);
+}
 const targetDir = resolveTargetDir(hookInput);
 const repoRoot = resolveRepoRoot(targetDir);
 const tsProjects = findTsProjects(repoRoot);

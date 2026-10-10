@@ -175,12 +175,20 @@ export default function EditGroupModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
 
-  // Fetch themes from database on component mount
+  // Re-fetch themes each time the modal opens: HomeScreen keeps it mounted
+  // (hidden), so a mount-only fetch misses themes created since.
   useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
     getThemes()
-      .then(setThemes)
+      .then((fetched) => {
+        if (!cancelled) setThemes(fetched);
+      })
       .catch((error) => logger.error('Failed to load themes', error));
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   // Initialize form with group data when modal opens
   useEffect(() => {
