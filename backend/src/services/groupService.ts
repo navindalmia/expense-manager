@@ -119,7 +119,7 @@ export async function createGroup(data: {
     }
 
     if (data.themeId !== undefined) {
-      await assertThemeVisible(data.createdById, data.themeId);
+      await assertThemeVisible(data.createdById, data.themeId, { requireActive: true });
     }
 
     const group = await prisma.group.create({
@@ -711,7 +711,9 @@ export async function updateGroup(
     }
 
     if (data.themeId !== undefined) {
-      await assertThemeVisible(requestorId, data.themeId);
+      if (data.themeId !== group.themeId) {
+        await assertThemeVisible(requestorId, data.themeId, { requireActive: true });
+      }
       updateData.themeId = data.themeId;
     }
 

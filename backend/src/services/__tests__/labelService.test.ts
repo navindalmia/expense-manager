@@ -45,6 +45,50 @@ describe('LabelService', () => {
       });
     });
 
+    describe('renameLabel', () => {
+      it('renames an owned label', async () => {
+        (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: OWNER_ID });
+        (prisma.label.findFirst as jest.Mock).mockResolvedValue(null);
+        (prisma.label.update as jest.Mock).mockResolvedValue({ id: 1, name: 'New' });
+
+        await labelService.renameLabel(OWNER_ID, 1, 'New');
+
+        expect(prisma.label.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { name: 'New' } });
+      });
+
+      it('excludes the label itself from the collision check so a case-only rename succeeds', async () => {
+        (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: OWNER_ID });
+        (prisma.label.findFirst as jest.Mock).mockResolvedValue(null);
+        (prisma.label.update as jest.Mock).mockResolvedValue({ id: 1, name: 'LIVERPOOL' });
+
+        await labelService.renameLabel(OWNER_ID, 1, 'LIVERPOOL');
+
+        expect(prisma.label.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({ where: expect.objectContaining({ id: { not: 1 } }) })
+        );
+      });
+
+      it('throws 409 when another active label has that name', async () => {
+        (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: OWNER_ID });
+        (prisma.label.findFirst as jest.Mock).mockResolvedValue({ id: 2, name: 'Taken' });
+
+        await expect(labelService.renameLabel(OWNER_ID, 1, 'taken')).rejects.toMatchObject({ statusCode: 409 });
+        expect(prisma.label.update).not.toHaveBeenCalled();
+      });
+
+      it('throws 403 for a label owned by another user', async () => {
+        (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: OTHER_USER_ID });
+
+        await expect(labelService.renameLabel(OWNER_ID, 1, 'X')).rejects.toMatchObject({ statusCode: 403 });
+      });
+
+      it('throws 404 for a missing label', async () => {
+        (prisma.label.findUnique as jest.Mock).mockResolvedValue(null);
+
+        await expect(labelService.renameLabel(OWNER_ID, 1, 'X')).rejects.toBeInstanceOf(AppError);
+      });
+    });
+
     it('throws AppError disabling a label owned by another user', async () => {
       (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: OTHER_USER_ID, isActive: true });
 

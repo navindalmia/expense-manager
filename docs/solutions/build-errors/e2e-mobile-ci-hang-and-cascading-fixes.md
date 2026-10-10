@@ -151,3 +151,13 @@ Layered on in this order, all in `.github/workflows/ci.yml` and `maestro-flows/v
 - PR #84 (merged 2026-09-26) — implements solution point 12 (ANR dialog OS-level suppression).
 - PR #85 (merged 2026-10-02; CI-verified green on the PR branch as run `36316090428`) — implements solution point 13 (baseline regeneration, fixture seeding, wait-strategy fixes). (2026-10-02 addendum: it is merged; the one 2026-10-02 `e2e-mobile` failure seen afterwards was an unrelated infrastructure flake, solution point 14.)
 - `docs/solutions/ui-bugs/rn-modal-bottom-sheet-ignores-safe-area-android-nav-bar.md` — its own Related Issues section discusses PR #84/#85 from the issue-#45 fix's perspective (the `payer-picker-modal-safe-area` baseline this doc's solution point 13 regenerates is that fix's own visual baseline). That doc's note should be read alongside this one; PR #85 is now merged, so any "unmerged" wording there is stale and due an update.
+
+## Sharded e2e-mobile and baseline extraction (PR #90)
+
+`e2e-mobile` is now an aggregating check over a matrix of `e2e-mobile-shard (N/M)` jobs. The shard count `M` is set once, as `MAESTRO_SHARD_COUNT` in the `e2e-mobile-plan` job of `.github/workflows/ci.yml`. Flows are dealt round-robin by sorted filename (`scripts/maestro-shards.js`, tested in `scripts/__tests__/maestro-shards.test.js`). Each shard boots its own emulator, runs its flows through `scripts/run-maestro-ci.sh` (per-attempt `FLOW_TIMEOUT`, default 240s, `[Timeout]` in the job summary, `pipefail` so a failed flow can no longer be counted as passed) and uploads `maestro-debug-output-<shard>` with `if: always()`. The `e2e-mobile` aggregate fails unless every shard reported `success`, so the required-check name is unchanged. Tradeoff: wall-clock shrinks roughly by the shard count, total Actions minutes grow by about the same factor (each shard pays the ~9 min APK build and emulator boot).
+
+Baselines always come from the CI emulator, never a local AVD:
+
+1. `gh run download <run-id> -D /tmp/maestro` (all shards' `maestro-debug-output-*` artifacts).
+2. For each flow, take `<timestamp>/<flow>/screenshots/step-NNN-assertScreenshot.png` and copy it to `maestro-flows/visual/<name>.png`, where `<name>` is the string passed to `assertScreenshot:` in the flow (a flow can assert several screenshots).
+3. Commit as `test(e2e): add <flow> baseline`, push, and let the next CI run confirm the baselines compare green.

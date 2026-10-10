@@ -8,8 +8,14 @@
 # Baselines (maestro-flows/visual/*.png) were regenerated from this same CI
 # emulator/renderer (see docs/solutions and PR #85) so the threshold is
 # meaningful here, unlike the earlier local-Mac-emulator baselines.
-set -u
-SRC="../maestro-flows/visual"
+# pipefail: `maestro test | tee` must report maestro's exit code, not tee's
+# (without it a failed flow was silently counted as passed).
+set -u -o pipefail
+# Each attempt is bounded so one hung flow (a known flaky one is
+# payer-picker-modal-safe-area: the emulator sometimes hangs on its launch)
+# cannot eat the whole job; later flows still run and artifacts still upload.
+FLOW_TIMEOUT="${FLOW_TIMEOUT:-240}"
+SRC="${MAESTRO_FLOWS_DIR:-../maestro-flows/visual}"
 OUT="${GITHUB_WORKSPACE:-..}"
 MAX_ATTEMPTS=2
 
@@ -17,26 +23,43 @@ failed=0
 : > "$OUT/visual-result.txt"
 echo "### Maestro visual flows (BLOCKING - assertScreenshot at 95% threshold)" >> "$OUT/visual-result.txt"
 
-for f in "$SRC"/*.yaml; do
+# Sharding: MAESTRO_SHARD (1-based) of MAESTRO_SHARD_COUNT picks this job's
+# flows via scripts/maestro-shards.js; unset runs every flow.
+if [ -n "${MAESTRO_SHARD:-}" ]; then
+  FLOW_FILES="$(node "$(dirname "$0")/maestro-shards.js" list "$MAESTRO_SHARD" "${MAESTRO_SHARD_COUNT:?}" "$SRC")"
+  echo "Shard $MAESTRO_SHARD/$MAESTRO_SHARD_COUNT flows:"; echo "$FLOW_FILES"
+else
+  FLOW_FILES="$(ls "$SRC"/*.yaml)"
+fi
+
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
   name="$(basename "$f" .yaml)"
   ok=1
+  status=0
   log="$OUT/${name}.log"
   for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-    if maestro test "$f" 2>&1 | tee "$log"; then
+    timeout "$FLOW_TIMEOUT" maestro test "$f" < /dev/null 2>&1 | tee "$log"
+    status=${PIPESTATUS[0]}
+    if [ "$status" -eq 0 ]; then
       ok=0
       break
     fi
-    echo "Flow $name failed on attempt $attempt"
+    echo "Flow $name failed on attempt $attempt (exit $status)"
   done
   if [ "$ok" -eq 0 ]; then
     echo "- [Passed] $name" >> "$OUT/visual-result.txt"
   else
     failed=$((failed + 1))
     detail=$(grep -m1 -E 'Comparison error|Assertion is false' "$log" || true)
-    echo "- [Failed] $name ($detail)" >> "$OUT/visual-result.txt"
+    if [ "$status" -eq 124 ]; then
+      echo "- [Timeout] $name (exceeded ${FLOW_TIMEOUT}s per attempt; known flaky: payer-picker-modal-safe-area)" >> "$OUT/visual-result.txt"
+    else
+      echo "- [Failed] $name ($detail)" >> "$OUT/visual-result.txt"
+    fi
     echo "VISUAL FAIL: $name" | tee -a "$OUT/visual-failures.txt"
   fi
-done
+done <<< "$FLOW_FILES"
 
 cat "$OUT/visual-result.txt"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$OUT/visual-result.txt" >> "$GITHUB_STEP_SUMMARY"; fi

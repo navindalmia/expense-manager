@@ -8,6 +8,7 @@
 
 import prisma from '../lib/prisma';
 import { AppError } from '../errors/AppError';
+import { findOrReactivate } from '../lib/masterDataLookup';
 
 export async function listLabels(userId: number) {
   return prisma.label.findMany({
@@ -20,8 +21,91 @@ export async function listLabels(userId: number) {
 }
 
 export async function createLabel(userId: number, name: string) {
-  return prisma.label.create({
-    data: { name, userId, isActive: true },
+  return findOrReactivate({
+    findActiveVisible: () =>
+      prisma.label.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isActive: true, OR: [{ userId: null }, { userId }] },
+      }),
+    findOwnDisabled: () =>
+      prisma.label.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, isActive: false, userId },
+      }),
+    reactivate: (id: number) => prisma.label.update({ where: { id }, data: { isActive: true } }),
+    create: () => prisma.label.create({ data: { name, userId, isActive: true } }),
+  });
+}
+
+/**
+ * Rename a label the user owns. A name colliding (case-insensitive) with a
+ * DIFFERENT active label is rejected -- silently succeeding would merge two
+ * distinct entities and their already-tagged expenses.
+ */
+export async function renameLabel(userId: number, labelId: number, name: string) {
+  const label = await prisma.label.findUnique({ where: { id: labelId } });
+
+  if (!label) {
+    throw new AppError('LABEL.NOT_FOUND', 404, 'LABEL_NOT_FOUND', { labelId });
+  }
+
+  if (label.userId !== userId) {
+    throw new AppError('LABEL.NOT_OWNER', 403, 'LABEL_NOT_OWNER', { labelId });
+  }
+
+  const collision = await prisma.label.findFirst({
+    where: {
+      name: { equals: name, mode: 'insensitive' },
+      id: { not: labelId },
+      // Any other row of this user (active OR disabled -- a disabled row
+      // can be reactivated later, creating a duplicate) or an active global.
+      OR: [{ userId }, { userId: null, isActive: true }],
+    },
+  });
+
+  if (collision) {
+    throw new AppError('LABEL.NAME_EXISTS', 409, 'LABEL_NAME_EXISTS', { labelId });
+  }
+
+  return prisma.label.update({ where: { id: labelId }, data: { name } });
+}
+
+/**
+ * Re-enable a label the user owns. Idempotent when already active. Fails
+ * with 409 when another active label (the user's own or a global one)
+ * already uses the same name, so enabling never creates a duplicate.
+ */
+export async function enableLabel(userId: number, labelId: number) {
+  const label = await prisma.label.findUnique({ where: { id: labelId } });
+
+  if (!label) {
+    throw new AppError('LABEL.NOT_FOUND', 404, 'LABEL_NOT_FOUND', { labelId });
+  }
+
+  if (label.userId !== userId) {
+    throw new AppError('LABEL.NOT_OWNER', 403, 'LABEL_NOT_OWNER', { labelId });
+  }
+
+  if (label.isActive) {
+    return label;
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const collision = await tx.label.findFirst({
+      where: {
+        name: { equals: label.name, mode: 'insensitive' },
+        id: { not: labelId },
+        isActive: true,
+        OR: [{ userId }, { userId: null }],
+      },
+    });
+
+    if (collision) {
+      throw new AppError('LABEL.NAME_EXISTS', 409, 'LABEL_NAME_EXISTS', { labelId });
+    }
+
+    return tx.label.update({
+      where: { id: labelId },
+      data: { isActive: true },
+    });
   });
 }
 
@@ -51,10 +135,18 @@ export async function disableLabel(userId: number, labelId: number) {
  * resolves to a label the given user can see -- mirrors
  * themeService.assertThemeVisible.
  */
-export async function assertLabelVisible(userId: number, labelId: number): Promise<void> {
+export async function assertLabelVisible(
+  userId: number,
+  labelId: number,
+  options: { requireActive?: boolean } = {}
+): Promise<void> {
   const label = await prisma.label.findUnique({ where: { id: labelId } });
 
-  if (!label || (label.userId !== null && label.userId !== userId)) {
+  if (
+    !label ||
+    (label.userId !== null && label.userId !== userId) ||
+    (options.requireActive && !label.isActive)
+  ) {
     throw new AppError('LABEL.NOT_FOUND', 404, 'LABEL_NOT_FOUND', { labelId });
   }
 }
@@ -67,14 +159,16 @@ export async function assertLabelVisible(userId: number, labelId: number): Promi
  * created -- a label is visible app-wide, but expense amounts under it
  * are still group-scoped private data (see U4's Approach note).
  */
-export async function getLabelTotals(userId: number) {
+export async function getLabelTotals(userId: number, includeDisabled = false) {
   const visibleLabels = await prisma.label.findMany({
-    where: { OR: [{ userId: null }, { userId }] },
+    where: includeDisabled
+      ? { OR: [{ userId: null, isActive: true }, { userId }] }
+      : { isActive: true, OR: [{ userId: null }, { userId }] },
     orderBy: { name: 'asc' },
   });
 
   const accessibleGroups = await prisma.group.findMany({
-    where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+    where: { isActive: true, OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
     select: { id: true },
   });
   const accessibleGroupIds = accessibleGroups.map((g) => g.id);

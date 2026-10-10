@@ -17,10 +17,15 @@ import { useAuth } from '../context/AuthContext';
 import { updateExpense, createExpense, deleteExpense, suggestExpenses, type SuggestedExpenseMatch } from '../services/expenseService';
 import { createCategory } from '../services/categoryService';
 import { createLabel } from '../services/labelService';
+import { createTheme } from '../services/themeService';
 import { useExpenseData, useExpenseForm, useSplitCalculator, DatePickerModal, SplitMembersInput } from './EditExpenseScreen/index';
 import { AccordionSection } from '../components/AccordionSection';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
+import FieldHelp from '../components/FieldHelp';
+
+// Sentinel picker row id (real theme ids are positive) meaning "clear the theme".
+const NO_THEME_ID = 0;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
@@ -28,6 +33,8 @@ const styles = StyleSheet.create({
   stickyFooter: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 12, paddingBottom: 20, flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: '#e0e0e0', marginTop: 8 },
   formSection: { backgroundColor: '#fff', borderRadius: 6, padding: 12, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
   label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 },
+  formSectionRaised: { zIndex: 10, elevation: 10 },
+  suggestionDropdown: { position: 'absolute', left: 12, right: 12, top: 72, maxHeight: 180, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 6, elevation: 6, zIndex: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
   required: { color: '#cc0000' },
   input: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 4, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: '#333', marginBottom: 8 },
   notesInput: { height: 60, textAlignVertical: 'top' },
@@ -66,13 +73,14 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const isCreateMode = !expenseId;
   const screenTitle = isCreateMode ? 'Create Expense' : 'Edit Expense';
 
-  const { expense, categories: fetchedCategories, labels: fetchedLabels, groupMembers, loading: dataLoading, error: dataError } = useExpenseData(expenseId, groupId);
+  const { expense, categories: fetchedCategories, labels: fetchedLabels, themes: fetchedThemes, groupMembers, loading: dataLoading, error: dataError } = useExpenseData(expenseId, groupId);
   const { formState, updateField, setError, clearErrors, prefillFromExpense } = useExpenseForm(expense);
   const { splitState, addMember, removeMember, updateAmount, updatePercentage, setSplitType, getValidationError, getSplitPayload } = useSplitCalculator(formState.amount, formState.paidById, groupMembers, expense);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showLabelPicker, setShowLabelPicker] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showPayerModal, setShowPayerModal] = useState(false);
   const [showSplitTypeModal, setShowSplitTypeModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -83,8 +91,10 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // without needing to refetch the full list.
   const [extraCategories, setExtraCategories] = useState<typeof fetchedCategories>([]);
   const [extraLabels, setExtraLabels] = useState<typeof fetchedLabels>([]);
+  const [extraThemes, setExtraThemes] = useState<typeof fetchedThemes>([]);
   const categories = [...fetchedCategories, ...extraCategories];
   const labels = [...fetchedLabels, ...extraLabels];
+  const themes = [...fetchedThemes, ...extraThemes];
 
   // Title autocomplete + category suggestion (U9, R5, R8) -- CREATE mode
   // only; re-triggering this on an EDIT-mode title edit would prefill
@@ -97,14 +107,20 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // request resolves before an older one, the older response must not
   // clobber the newer state -- only the latest requestId's response applies.
   const suggestRequestIdRef = useRef(0);
+  // Once the user picks a category themselves (picker or a past suggestion),
+  // later auto-suggestions must never override it.
+  const categoryTouchedRef = useRef(false);
 
-  useEffect(() => {
-    return () => {
-      if (suggestDebounceRef.current) {
-        clearTimeout(suggestDebounceRef.current);
-      }
-    };
+  // Invalidate any pending/in-flight suggestion so a late response cannot
+  // reopen the matches list or overwrite a category the user just chose.
+  const cancelPendingSuggestion = useCallback(() => {
+    suggestRequestIdRef.current += 1;
+    if (suggestDebounceRef.current) {
+      clearTimeout(suggestDebounceRef.current);
+    }
   }, []);
+
+  useEffect(() => cancelPendingSuggestion, [cancelPendingSuggestion]);
 
   const handleTitleChange = useCallback((val: string) => {
     updateField('title', val);
@@ -133,7 +149,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             return; // a newer request has since superseded this one
           }
           setSuggestedMatches(result.matches);
-          if (result.matches.length === 0 && result.categorySuggestion) {
+          if (result.categorySuggestion && !categoryTouchedRef.current) {
             updateField('category', result.categorySuggestion.categoryId);
             setSuggestedCategoryId(result.categorySuggestion.categoryId);
           } else {
@@ -148,7 +164,18 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     }, 300);
   }, [isCreateMode, updateField]);
 
+  // Dismiss the dropdown once the title field loses focus. Taps on a suggestion
+  // row still register because the form ScrollView and the dropdown use
+  // keyboardShouldPersistTaps="handled" (the row's onPress fires without the
+  // title input blurring first).
+  const handleTitleBlur = useCallback(() => {
+    cancelPendingSuggestion();
+    setSuggestedMatches([]);
+  }, [cancelPendingSuggestion]);
+
   const selectSuggestedMatch = useCallback((match: SuggestedExpenseMatch) => {
+    cancelPendingSuggestion();
+    categoryTouchedRef.current = true;
     updateField('amount', match.amount.toString());
     updateField('category', match.categoryId);
     // Belt-and-suspenders per AE2: always default to today client-side even
@@ -167,7 +194,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     match.splitWithIds.filter((memberId) => groupMemberIds.has(memberId)).forEach((memberId) => addMember(memberId));
     setSuggestedMatches([]);
     setSuggestedCategoryId(null);
-  }, [updateField, addMember, groupMembers]);
+  }, [updateField, addMember, groupMembers, cancelPendingSuggestion]);
 
   // Set header with group name on the right and title
   useEffect(() => {
@@ -250,6 +277,9 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   }, [formState, getValidationError, clearErrors, setError]);
 
   const handleUpdate = useCallback(async () => {
+    // A late suggestion response must not mutate the form once submit begins.
+    cancelPendingSuggestion();
+
     // Validate form FIRST, show errors if any
     if (!validateForm()) {
       logger.warn('Form validation failed', { errors: formState.errors });
@@ -297,6 +327,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         amount: parseFloat(formState.amount),
         categoryId: formState.category,
         labelId: formState.labelId || undefined,
+        themeId: formState.themeId || (!isCreateMode && expense?.themeId ? null : undefined),
         paidById: formState.paidById,
         expenseDate: formState.date,
         currency: currency,  // ← ADD CURRENCY!
@@ -339,7 +370,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     } finally {
       setSubmitting(false);
     }
-  }, [formState, expense, validateForm, getSplitPayload, expenseId, groupId, isCreateMode, navigation, splitState.splitType]);
+  }, [formState, expense, validateForm, getSplitPayload, expenseId, groupId, isCreateMode, navigation, splitState.splitType, cancelPendingSuggestion]);
 
   const handleDelete = useCallback(() => {
     if (!expenseId) return;
@@ -375,22 +406,25 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><SafeAreaView style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)} testID="edit-expense-paid-by-modal-close-button"><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }} testID={`edit-expense-paid-by-option-${member.id}`}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></SafeAreaView></Modal>
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
-        <View style={styles.formSection}>
+        <View style={[styles.formSection, suggestedMatches.length > 0 && styles.formSectionRaised]}>
           <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
-          <TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} editable={!submitting} testID="edit-expense-title-input" />
+          <TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
           {formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}
           {suggestedMatches.length > 0 && (
-            <View testID="edit-expense-title-suggestions">
-              {suggestedMatches.map((match) => (
-                <TouchableOpacity
-                  key={match.expenseId}
-                  style={styles.pickerItem}
-                  onPress={() => selectSuggestedMatch(match)}
-                  testID={`edit-expense-title-suggestion-${match.expenseId}`}
-                >
-                  <Text style={styles.pickerItemText}>{match.title} — {currency} {match.amount}</Text>
-                </TouchableOpacity>
-              ))}
+            // Bounded, scrollable overlay under the Title field: never grows the form.
+            <View style={styles.suggestionDropdown} testID="edit-expense-title-suggestions">
+              <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                {suggestedMatches.map((match) => (
+                  <TouchableOpacity
+                    key={match.expenseId}
+                    style={styles.pickerItem}
+                    onPress={() => selectSuggestedMatch(match)}
+                    testID={`edit-expense-title-suggestion-${match.expenseId}`}
+                  >
+                    <Text style={styles.pickerItemText}>{match.title} — {currency} {match.amount}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -403,7 +437,10 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             }} keyboardType="decimal-pad" editable={!submitting} testID="edit-expense-amount-input" />{formState.errors.amount && <Text style={styles.errorText}>{formState.errors.amount}</Text>}</View><View style={styles.flex1}><Text style={styles.label}>Split Type</Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowSplitTypeModal(true)} disabled={submitting} testID="edit-expense-split-type-picker-button"><Text style={{ color: '#333' }}>{splitState.splitType === 'EQUAL' ? 'Equal' : splitState.splitType === 'AMOUNT' ? 'AMOUNT' : 'Percentage'}</Text></TouchableOpacity></View></View></View>
         <View style={styles.row}>
           <View style={styles.flex1}>
-            <Text style={styles.label}>Category <Text style={styles.required}>*</Text></Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.label}>Category <Text style={styles.required}>*</Text></Text>
+              <FieldHelp topic="Category" testIDPrefix="edit-expense-category" />
+            </View>
             <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowCategoryPicker(true)} disabled={submitting} testID="edit-expense-category-picker-button">
               <Text style={{ color: formState.category ? '#333' : '#666', fontSize: 14, fontWeight: '500' }}>{categories.find(c => c.id === formState.category)?.label || 'Select category...'}</Text>
             </TouchableOpacity>
@@ -418,18 +455,56 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         </View>
 
         <View style={styles.formSection}>
-          <Text style={styles.label}>Label (optional)</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.label}>Label (optional)</Text>
+            <FieldHelp topic="Label" testIDPrefix="edit-expense-label" />
+          </View>
           <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowLabelPicker(true)} disabled={submitting} testID="edit-expense-label-picker-button">
             <Text style={{ color: formState.labelId ? '#333' : '#666', fontSize: 14, fontWeight: '500' }}>{labels.find(l => l.id === formState.labelId)?.name || 'Select label...'}</Text>
           </TouchableOpacity>
         </View>
 
+        <View style={styles.formSection}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.label}>Theme (optional)</Text>
+            <FieldHelp topic="Theme" testIDPrefix="edit-expense-theme" />
+          </View>
+          <TouchableOpacity style={[styles.interactiveInput, { justifyContent: 'center', paddingVertical: 12 }]} onPress={() => setShowThemePicker(true)} disabled={submitting} testID="edit-expense-theme-picker-button">
+            <Text style={{ color: formState.themeId ? '#333' : '#666', fontSize: 14, fontWeight: '500' }}>{themes.find(t => t.id === formState.themeId)?.name || 'Select theme...'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TypeAheadDropdown
+          visible={showThemePicker}
+          title="Select Theme"
+          items={[
+            { id: NO_THEME_ID, name: 'No theme' },
+            ...themes.map((theme): TypeAheadItem => ({ id: theme.id, name: theme.name })),
+          ]}
+          onSelect={(item) => updateField('themeId', item.id === NO_THEME_ID ? null : item.id)}
+          onCreateNew={async (name) => {
+            const created = await createTheme(name);
+            setExtraThemes(prev => [...prev, created]);
+            return { id: created.id, name: created.name };
+          }}
+          onClose={() => setShowThemePicker(false)}
+          placeholder="Search themes..."
+          testIDPrefix="edit-expense-theme"
+          selectedId={formState.themeId}
+        />
+
         <TypeAheadDropdown
           visible={showCategoryPicker}
           title="Select Category"
           items={categories.map((cat): TypeAheadItem => ({ id: cat.id, name: cat.label }))}
-          onSelect={(item) => updateField('category', item.id)}
+          onSelect={(item) => {
+            cancelPendingSuggestion();
+            categoryTouchedRef.current = true;
+            updateField('category', item.id);
+          }}
           onCreateNew={async (name) => {
+            cancelPendingSuggestion();
+            categoryTouchedRef.current = true;
             const created = await createCategory(name);
             setExtraCategories(prev => [...prev, created]);
             return { id: created.id, name: created.label };

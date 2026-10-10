@@ -80,7 +80,7 @@ describe('GroupService', () => {
 
     it('persists a valid, visible themeId -- Covers AE1 (reusing a theme creates no duplicate)', async () => {
       (prisma.currency.findUnique as jest.Mock).mockResolvedValue({ id: 10, code: 'GBP' });
-      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 5, userId: CREATOR_ID });
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 5, userId: CREATOR_ID, isActive: true });
       (prisma.group.create as jest.Mock).mockResolvedValue({
         id: 2,
         name: 'April Trip',

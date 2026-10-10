@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -44,9 +46,21 @@ jobs:
         working-directory: frontend
         run: npm test -- --run
 
+      - name: Generate release notes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          NOTES="$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA" || true)"
+          if [ -z "$NOTES" ]; then
+            echo "::warning::release-notes script produced no output; using generic message"
+            NOTES="Bug fixes and improvements"
+          fi
+          echo "RELEASE_NOTES=$NOTES" >> "$GITHUB_ENV"
+
       - name: Build Android (preview profile)
         working-directory: frontend
-        run: npx eas-cli build --platform android --profile preview --non-interactive --no-wait
+        run: npx eas-cli build --platform android --profile preview --non-interactive --no-wait --message "$RELEASE_NOTES"
 
   # Publishes a JS-only OTA update to already-installed builds on the "preview"
   # channel. Runs alongside the full build job (not instead of it) — existing
@@ -59,6 +73,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -85,8 +101,18 @@ jobs:
         working-directory: frontend
         run: npm test -- --run
 
+      - name: Generate release notes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          NOTES="$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA" || true)"
+          if [ -z "$NOTES" ]; then
+            echo "::warning::release-notes script produced no output; using generic message"
+            NOTES="Bug fixes and improvements"
+          fi
+          echo "RELEASE_NOTES=$NOTES" >> "$GITHUB_ENV"
+
       - name: Publish EAS Update (preview channel)
         working-directory: frontend
-        env:
-          UPDATE_MESSAGE: ${{ github.event.head_commit.message }}
-        run: npx eas-cli update --branch preview --message "$UPDATE_MESSAGE" --non-interactive
+        run: npx eas-cli update --branch preview --message "$RELEASE_NOTES" --non-interactive

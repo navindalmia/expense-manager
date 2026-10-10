@@ -1,5 +1,6 @@
 
 import { Request, Response, NextFunction } from "express";
+import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
 import i18next from "../utils/i18n";
 
@@ -27,6 +28,15 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
       code: err.code ?? null,
       details: err.details ?? null
 
+    });
+  }
+
+  // Request validation failures are client errors, not server faults
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      error: i18next.t("VALIDATION.ERROR", { lng: lang }),
+      code: "VALIDATION_ERROR",
+      details: { fields: err.issues }
     });
   }
 

@@ -9,12 +9,33 @@
  */
 
 export const CATEGORY_KEYWORD_DICTIONARY: Record<string, string[]> = {
-  FOOD: ['food', 'restaurant', 'lunch', 'dinner', 'breakfast', 'groceries', 'grocery', 'cafe', 'coffee'],
-  ACCOMMODATION: ['hotel', 'hostel', 'airbnb', 'accommodation', 'lodging', 'rent'],
-  TRAVEL: ['travel', 'flight', 'taxi', 'uber', 'train', 'bus', 'fuel', 'gas', 'petrol', 'parking'],
-  ENTERTAINMENT: ['movie', 'cinema', 'concert', 'entertainment', 'games', 'tickets'],
-  SHOPPING: ['shopping', 'clothes', 'clothing', 'shoes', 'electronics'],
-  UTILITIES: ['electricity', 'water', 'gas bill', 'internet', 'utilities', 'phone bill'],
+  FOOD: [
+    'food', 'restaurant', 'lunch', 'dinner', 'breakfast', 'groceries', 'grocery', 'cafe', 'coffee',
+    'pizza', 'burger', 'supper', 'brunch', 'snack', 'meal', 'takeaway', 'takeout', 'drink', 'tea',
+    'bar', 'pub', 'bakery', 'dessert', 'icecream', 'sandwich', 'biryani', 'sushi', 'pasta', 'noodle',
+    'beer', 'wine', 'swiggy', 'zomato', 'doordash', 'eat', 'eatery', 'diner',
+  ],
+  ACCOMMODATION: [
+    'hotel', 'hostel', 'airbnb', 'accommodation', 'lodging', 'rent', 'motel', 'resort', 'villa',
+    'stay', 'booking', 'guesthouse', 'homestay',
+  ],
+  TRAVEL: [
+    'travel', 'flight', 'taxi', 'uber', 'train', 'bus', 'fuel', 'gas', 'petrol', 'parking',
+    'metro', 'cab', 'ride', 'toll', 'ferry', 'ola', 'lyft', 'subway', 'airfare', 'diesel', 'trip',
+    'rickshaw', 'commute', 'airport',
+  ],
+  ENTERTAINMENT: [
+    'movie', 'cinema', 'concert', 'entertainment', 'games', 'tickets', 'netflix', 'spotify', 'show',
+    'theatre', 'theater', 'museum', 'party', 'club', 'bowling',
+  ],
+  SHOPPING: [
+    'shopping', 'clothes', 'clothing', 'shoes', 'electronics', 'shirt', 'dress', 'jacket', 'amazon',
+    'mall', 'gift', 'jeans', 'bag', 'watch', 'gadget', 'furniture',
+  ],
+  UTILITIES: [
+    'electricity', 'water', 'gas bill', 'internet', 'utilities', 'phone bill', 'wifi', 'broadband',
+    'mobile bill', 'recharge', 'electric', 'sewage', 'cable', 'power bill', 'utility',
+  ],
 };
 
 /**
@@ -27,6 +48,23 @@ function tokenize(title: string): string[] {
 }
 
 /**
+ * Simple plural variants of a word (no stemming library): the word itself,
+ * minus a trailing "s", and minus a trailing "es". Short words are left alone
+ * so "gas" never becomes "ga".
+ */
+function variants(word: string): string[] {
+  const result = [word];
+  if (word.length > 3 && word.endsWith('s')) result.push(word.slice(0, -1));
+  if (word.length > 4 && word.endsWith('es')) result.push(word.slice(0, -2));
+  return result;
+}
+
+/** Whether two whole words are equal once simple plurals are normalised. */
+export function wordsMatch(a: string, b: string): boolean {
+  return a === b || variants(a).includes(b) || variants(b).includes(a);
+}
+
+/**
  * Whether `keyword` (one or more words) appears in `titleTokens` as a
  * contiguous run of whole-word tokens, e.g. tokens ["gas", "bill"] contain
  * the keyword "gas bill" but tokens ["gas", "billboard"] do not.
@@ -34,7 +72,7 @@ function tokenize(title: string): string[] {
 function containsWholeWordPhrase(titleTokens: string[], keyword: string): boolean {
   const keywordTokens = keyword.split(' ');
   for (let start = 0; start <= titleTokens.length - keywordTokens.length; start++) {
-    if (keywordTokens.every((token, offset) => titleTokens[start + offset] === token)) {
+    if (keywordTokens.every((token, offset) => wordsMatch(titleTokens[start + offset] ?? '', token))) {
       return true;
     }
   }
@@ -59,7 +97,6 @@ export function suggestCategoryCode(title: string): string | null {
   }
 
   const titleTokens = tokenize(normalizedTitle);
-  const titleTokenSet = new Set(titleTokens);
 
   // Multi-word keywords (e.g. "gas bill") are checked across every category
   // before any single-word keyword (e.g. "gas") -- otherwise a shorter,
@@ -75,7 +112,7 @@ export function suggestCategoryCode(title: string): string | null {
 
   for (const [categoryCode, keywords] of Object.entries(CATEGORY_KEYWORD_DICTIONARY)) {
     for (const keyword of keywords) {
-      if (!keyword.includes(' ') && titleTokenSet.has(keyword)) {
+      if (!keyword.includes(' ') && titleTokens.some((token) => wordsMatch(token, keyword))) {
         return categoryCode;
       }
     }
