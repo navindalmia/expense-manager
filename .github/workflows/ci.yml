@@ -446,6 +446,11 @@ jobs:
           add_member "Alex Rivera" alex@test.com "$GROUP_ID"
           add_member "Bailey Chen" bailey@test.com "$GROUP_ID"
           add_member "Casey Morgan" casey@test.com "$GROUP_ID"
+          # Deterministic baselines: the group-list card renders the group's
+          # createdAt month, which is "now" in a fresh CI database and would
+          # drift every month. Pin it to the same fixed date as the fixture
+          # expense (the API has no way to set createdAt).
+          psql "$DATABASE_URL" -c "UPDATE \"Group\" SET \"createdAt\" = '2026-07-15T12:00:00Z'"
           # PR #90 flows (Manage Themes/Labels, rename modal, theme picker): an
           # active theme, an active label and a DISABLED label (dimmed row,
           # Disabled tag, Enable button) so those screens are never empty.
@@ -651,6 +656,10 @@ jobs:
             npx expo start & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
+            adb root || true;
+            adb shell settings put global auto_time 0 || true;
+            adb shell settings put global auto_time_zone 0 || true;
+            adb shell date 071512002026.00 || true;
             adb shell settings put global sysui_demo_allowed 1;
             adb shell am broadcast -a com.android.systemui.demo -e command enter;
             adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200;
