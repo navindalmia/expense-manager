@@ -164,6 +164,15 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     }, 300);
   }, [isCreateMode, updateField]);
 
+  // Dismiss the dropdown once the title field loses focus. Taps on a suggestion
+  // row still register because the form ScrollView and the dropdown use
+  // keyboardShouldPersistTaps="handled" (the row's onPress fires without the
+  // title input blurring first).
+  const handleTitleBlur = useCallback(() => {
+    cancelPendingSuggestion();
+    setSuggestedMatches([]);
+  }, [cancelPendingSuggestion]);
+
   const selectSuggestedMatch = useCallback((match: SuggestedExpenseMatch) => {
     cancelPendingSuggestion();
     categoryTouchedRef.current = true;
@@ -399,7 +408,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
         <View style={[styles.formSection, suggestedMatches.length > 0 && styles.formSectionRaised]}>
           <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
-          <TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} editable={!submitting} testID="edit-expense-title-input" />
+          <TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
           {formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}
           {suggestedMatches.length > 0 && (
             // Bounded, scrollable overlay under the Title field: never grows the form.
