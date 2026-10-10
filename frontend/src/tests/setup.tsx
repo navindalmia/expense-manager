@@ -56,6 +56,7 @@ vi.mock('react-native', () => ({
   ActivityIndicator: (props: any) => <div {...props}>loading</div>,
   StyleSheet: { create: (styles: any) => styles },
   Platform: { OS: 'ios' },
+  Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
   Alert: { alert: vi.fn() },
   Linking: { canOpenURL: vi.fn().mockResolvedValue(false), openURL: vi.fn() },
 }));

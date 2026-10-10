@@ -11,7 +11,7 @@
  * narrowing as the user types.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Modal,
@@ -22,9 +22,10 @@ import {
   StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getErrorMessage } from '../utils/errorHandler';
 
 export interface TypeAheadItem {
@@ -43,6 +44,27 @@ interface TypeAheadDropdownProps {
   testIDPrefix?: string;
   /** id of the currently-selected item, if any -- highlights that row. */
   selectedId?: number | null;
+}
+
+/**
+ * Current on-screen keyboard height (0 when hidden), from the keyboardDidShow /
+ * keyboardDidHide events. Used on Android, where KeyboardAvoidingView 'height'
+ * does not work inside a transparent Modal under edge-to-edge (the sheet ended
+ * up hidden behind the keyboard on API 34).
+ */
+function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  return height;
 }
 
 const styles = StyleSheet.create({
@@ -95,6 +117,13 @@ export default function TypeAheadDropdown({
   const [newName, setNewName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const keyboardHeight = useKeyboardHeight();
+  const insets = useSafeAreaInsets();
+  const isIOS = Platform.OS === 'ios';
+  // The SafeAreaView already pads the bottom inset, so only add what the
+  // keyboard covers beyond it.
+  const keyboardPadding = isIOS ? 0 : Math.max(0, keyboardHeight - insets.bottom);
+  const Avoider = isIOS ? KeyboardAvoidingView : View;
 
   const resetAndClose = () => {
     setFilterText('');
@@ -137,11 +166,18 @@ export default function TypeAheadDropdown({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={resetAndClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
       <SafeAreaView style={styles.pickerModal}>
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoider}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <Avoider
+          style={{ ...styles.keyboardAvoider, paddingBottom: keyboardPadding }}
+          {...(isIOS ? { behavior: 'padding' as const } : {})}
           testID={`${testIDPrefix}-keyboard-avoiding-view`}
         >
           <View style={styles.pickerContent}>
@@ -222,7 +258,7 @@ export default function TypeAheadDropdown({
               </>
             )}
           </View>
-        </KeyboardAvoidingView>
+        </Avoider>
       </SafeAreaView>
     </Modal>
   );
