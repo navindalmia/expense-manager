@@ -20,6 +20,7 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { isGitCommit } = require('./lib/is-git-commit');
+const { resolveTargetDir } = require('./lib/commit-context');
 
 function readStdinJson() {
   try {
@@ -28,15 +29,6 @@ function readStdinJson() {
   } catch {
     return {};
   }
-}
-
-function resolveTargetDir(hookInput) {
-  const command = hookInput && hookInput.tool_input && hookInput.tool_input.command;
-  if (typeof command === 'string') {
-    const match = command.match(/git\s+-C\s+"?([^"\s]+)"?/);
-    if (match) return match[1];
-  }
-  return (hookInput && hookInput.cwd) || process.env.CLAUDE_PROJECT_DIR || process.cwd();
 }
 
 function resolveRepoRoot(dir) {
