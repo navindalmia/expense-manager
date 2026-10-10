@@ -20,6 +20,8 @@ Open **Themes** from the top of the home screen to see every theme you have, wit
 
 Creating a theme with the same name as one you disabled brings the old one back instead of making a duplicate.
 
+Re-enabling a disabled theme or label makes it show again on every past expense that used it, because those expenses kept the tag the whole time.
+
 Screenshot: `docs/screenshots/manage-themes.png` (to be captured)
 
 ## Manage Labels

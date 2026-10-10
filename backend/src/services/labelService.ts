@@ -88,22 +88,24 @@ export async function enableLabel(userId: number, labelId: number) {
     return label;
   }
 
-  const collision = await prisma.label.findFirst({
-    where: {
-      name: { equals: label.name, mode: 'insensitive' },
-      id: { not: labelId },
-      isActive: true,
-      OR: [{ userId }, { userId: null }],
-    },
-  });
+  return prisma.$transaction(async (tx) => {
+    const collision = await tx.label.findFirst({
+      where: {
+        name: { equals: label.name, mode: 'insensitive' },
+        id: { not: labelId },
+        isActive: true,
+        OR: [{ userId }, { userId: null }],
+      },
+    });
 
-  if (collision) {
-    throw new AppError('LABEL.NAME_EXISTS', 409, 'LABEL_NAME_EXISTS', { labelId });
-  }
+    if (collision) {
+      throw new AppError('LABEL.NAME_EXISTS', 409, 'LABEL_NAME_EXISTS', { labelId });
+    }
 
-  return prisma.label.update({
-    where: { id: labelId },
-    data: { isActive: true },
+    return tx.label.update({
+      where: { id: labelId },
+      data: { isActive: true },
+    });
   });
 }
 

@@ -86,22 +86,24 @@ export async function enableTheme(userId: number, themeId: number) {
     return theme;
   }
 
-  const collision = await prisma.theme.findFirst({
-    where: {
-      name: { equals: theme.name, mode: 'insensitive' },
-      id: { not: themeId },
-      isActive: true,
-      OR: [{ userId }, { userId: null }],
-    },
-  });
+  return prisma.$transaction(async (tx) => {
+    const collision = await tx.theme.findFirst({
+      where: {
+        name: { equals: theme.name, mode: 'insensitive' },
+        id: { not: themeId },
+        isActive: true,
+        OR: [{ userId }, { userId: null }],
+      },
+    });
 
-  if (collision) {
-    throw new AppError('THEME.NAME_EXISTS', 409, 'THEME_NAME_EXISTS', { themeId });
-  }
+    if (collision) {
+      throw new AppError('THEME.NAME_EXISTS', 409, 'THEME_NAME_EXISTS', { themeId });
+    }
 
-  return prisma.theme.update({
-    where: { id: themeId },
-    data: { isActive: true },
+    return tx.theme.update({
+      where: { id: themeId },
+      data: { isActive: true },
+    });
   });
 }
 

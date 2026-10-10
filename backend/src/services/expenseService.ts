@@ -16,6 +16,8 @@ import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 
 const SUGGESTION_LIMIT = 5;
+// Most recent expenses scanned for autocomplete, to bound memory per keystroke
+const SUGGESTION_CANDIDATE_CAP = 500;
 
 /**
  * Prefill payload returned alongside each suggested match -- deliberately
@@ -733,7 +735,16 @@ export async function findSimilarExpenses(
 
     const candidates = await prisma.expense.findMany({
       where: { groupId: { in: accessibleGroupIds } },
-      include: { splitWith: { select: { id: true } } },
+      select: {
+        id: true,
+        title: true,
+        amount: true,
+        categoryId: true,
+        expenseDate: true,
+        splitWith: { select: { id: true } },
+      },
+      orderBy: [{ expenseDate: 'desc' }, { id: 'desc' }],
+      take: SUGGESTION_CANDIDATE_CAP,
     });
 
     const ranked = rankMatches(

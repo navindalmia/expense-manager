@@ -6,7 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import * as labelService from '../services/labelService';
-import { validateLabelNameInput, validateIncludeDisabledQuery } from '../schemas/labelSchema';
+import { validateLabelNameInput, validateIncludeDisabledQuery, validateIdParam } from '../schemas/labelSchema';
 
 export async function getLabels(req: Request, res: Response, next: NextFunction) {
   try {
@@ -74,7 +74,7 @@ export async function getLabelTotals(req: Request, res: Response, next: NextFunc
 export async function enableLabel(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    const labelId = Number(req.params.id);
+    const labelId = validateIdParam(req.params);
 
     const label = await labelService.enableLabel(userId, labelId);
 

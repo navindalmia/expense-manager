@@ -20,6 +20,7 @@ const model = prisma.theme as unknown as {
 describe('ThemeService enable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.$transaction as jest.Mock).mockImplementation(async (cb: (tx: unknown) => unknown) => cb(prisma));
   });
 
   const disabled = { id: 5, name: 'Trip', userId: OWNER_ID, isActive: false };

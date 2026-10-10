@@ -6,7 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import * as themeService from '../services/themeService';
-import { validateThemeNameInput, validateIncludeDisabledQuery } from '../schemas/themeSchema';
+import { validateThemeNameInput, validateIncludeDisabledQuery, validateIdParam } from '../schemas/themeSchema';
 
 export async function getThemes(req: Request, res: Response, next: NextFunction) {
   try {
@@ -74,7 +74,7 @@ export async function disableTheme(req: Request, res: Response, next: NextFuncti
 export async function enableTheme(req: Request, res: Response, next: NextFunction) {
   try {
     const userId = req.user!.id;
-    const themeId = Number(req.params.id);
+    const themeId = validateIdParam(req.params);
 
     const theme = await themeService.enableTheme(userId, themeId);
 

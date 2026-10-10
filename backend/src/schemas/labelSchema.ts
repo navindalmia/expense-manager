@@ -35,3 +35,12 @@ export const includeDisabledQuerySchema = z.object({
 export function validateIncludeDisabledQuery(data: unknown): boolean {
   return includeDisabledQuerySchema.parse(data).includeDisabled;
 }
+
+const idParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+/** Parse and validate the numeric :id route param (throws ZodError -> 400). */
+export function validateIdParam(params: unknown): number {
+  return idParamSchema.parse(params).id;
+}

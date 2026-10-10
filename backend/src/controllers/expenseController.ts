@@ -6,6 +6,9 @@ import { SplitType } from "@prisma/client";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
 
+// Titles shorter than this are too ambiguous to infer a category from
+const MIN_CATEGORY_SUGGEST_TITLE_LENGTH = 2;
+
 export async function getExpenses(req: Request, res: Response) {
   const expenses = await expenseService.getAllExpenses();
   res.json(expenses);
@@ -93,10 +96,12 @@ export async function suggestExpenses(req: Request, res: Response, next?: NextFu
     // non-critical enhancement on top of the already-succeeded match lookup,
     // so its own failure must not fail the request.
     let categorySuggestion = null;
-    try {
-      categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title, matches);
-    } catch (suggestionError) {
-      console.error('Failed to compute category suggestion (non-fatal):', suggestionError);
+    if (title.trim().length >= MIN_CATEGORY_SUGGEST_TITLE_LENGTH) {
+      try {
+        categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title, matches);
+      } catch (suggestionError) {
+        console.error('Failed to compute category suggestion (non-fatal):', suggestionError);
+      }
     }
 
     res.status(200).json({
