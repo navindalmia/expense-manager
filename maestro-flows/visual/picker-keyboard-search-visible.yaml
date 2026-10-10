@@ -50,3 +50,4 @@ appId: com.navindalmia.expensemanager
     id: "edit-expense-label-filter-input"
 - assertVisible:
     id: "edit-expense-label-filter-input"
+- assertScreenshot: "picker-keyboard-search-visible"
