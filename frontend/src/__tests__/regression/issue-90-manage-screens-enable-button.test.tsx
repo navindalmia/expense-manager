@@ -16,7 +16,7 @@ vi.mock('../../api/http', () => ({
 }));
 
 const byTestId = (c: HTMLElement, id: string) => c.querySelector(`[testid="${id}"]`) as HTMLElement | null;
-const nav = () => ({ goBack: vi.fn(), setOptions: vi.fn(), navigate: vi.fn() }) as any;
+const nav = () => ({ goBack: vi.fn(), setOptions: vi.fn(), navigate: vi.fn() });
 
 describe.each([
   ['labels', ManageLabelsScreen, 'Liverpool', { total: 5 }],
@@ -30,7 +30,8 @@ describe.each([
 
   it('should keep the disabled row listed with a Disabled tag and Enable button, then restore it', async () => {
     const user = userEvent.setup();
-    const { container } = render(<Screen navigation={nav()} route={{ params: undefined } as any} />);
+    const Rendered = Screen as unknown as React.ComponentType<{ navigation: unknown; route: unknown }>;
+    const { container } = render(<Rendered navigation={nav()} route={{ params: undefined }} />);
     await waitFor(() => expect(screen.getByText(name)).toBeTruthy());
 
     mockPatch.mockResolvedValueOnce({ data: { statusCode: 200, data: { ...row, isActive: false } } });
