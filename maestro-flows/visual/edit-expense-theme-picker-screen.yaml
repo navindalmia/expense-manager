@@ -1,8 +1,7 @@
 appId: com.navindalmia.expensemanager
 ---
-# Issue #88: the Category/Label/Theme picker's search input must stay visible
-# above the on-screen keyboard (TypeAheadDropdown's own KeyboardAvoidingView).
-# Uses the standing QA fixtures (test@test.com, "QA Test Group", "Diberr Repro").
+# PR #90: theme picker offers "No theme" plus the user's themes; then the edit screen with a theme chosen (not saved).
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
 - launchApp:
     clearState: true
 - tapOn:
@@ -32,15 +31,15 @@ appId: com.navindalmia.expensemanager
     id: "expense-list-screen"
 - tapOn:
     text: "Diberr Repro"
-- assertVisible:
-    id: "edit-expense-label-picker-button"
 - tapOn:
-    id: "edit-expense-label-picker-button"
+    id: "edit-expense-theme-picker-button"
 - assertVisible:
-    id: "edit-expense-label-filter-input"
-# Focusing the search input opens the keyboard; the input must remain on screen.
+    text: "Select Theme"
+- assertVisible:
+    text: "No theme"
+- assertScreenshot: "edit-expense-theme-picker-screen"
 - tapOn:
-    id: "edit-expense-label-filter-input"
+    text: "QA Theme"
 - assertVisible:
-    id: "edit-expense-label-filter-input"
-- assertScreenshot: "picker-keyboard-search-visible"
+    id: "edit-expense-theme-picker-button"
+- assertScreenshot: "edit-expense-with-theme-screen"

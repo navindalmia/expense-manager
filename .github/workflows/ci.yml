@@ -416,6 +416,20 @@ jobs:
           add_member "Alex Rivera" alex@test.com "$GROUP_ID"
           add_member "Bailey Chen" bailey@test.com "$GROUP_ID"
           add_member "Casey Morgan" casey@test.com "$GROUP_ID"
+          # PR #90 flows (Manage Themes/Labels, rename modal, theme picker): an
+          # active theme, an active label and a DISABLED label (dimmed row,
+          # Disabled tag, Enable button) so those screens are never empty.
+          curl -sf -X POST http://localhost:4000/api/themes \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"QA Theme"}' > /dev/null
+          curl -sf -X POST http://localhost:4000/api/labels \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"QA Label"}' > /dev/null
+          RETIRED_ID=$(curl -sf -X POST http://localhost:4000/api/labels \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d '{"name":"QA Retired Label"}' | jq -r '.data.id')
+          curl -sf -X PATCH "http://localhost:4000/api/labels/$RETIRED_ID/disable" \
+            -H "Authorization: Bearer $TOKEN" > /dev/null
           # payer-picker-modal-safe-area.yaml (issue #45) needs a many-member
           # group named e2e-paidby45-group.
           BIG=$(curl -sf -X POST http://localhost:4000/api/groups \

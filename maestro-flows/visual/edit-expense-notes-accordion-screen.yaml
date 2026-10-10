@@ -1,0 +1,39 @@
+appId: com.navindalmia.expensemanager
+---
+# PR #90: Notes accordion expanded (LayoutAnimation no-op removal must not change toggling).
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    text: "Diberr Repro"
+- tapOn:
+    id: "accordion-section-header-toggle"
+- assertVisible:
+    text: "Add details..."
+- hideKeyboard
+- assertScreenshot: "edit-expense-notes-accordion-screen"

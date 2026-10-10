@@ -1,0 +1,39 @@
+appId: com.navindalmia.expensemanager
+---
+# PR #90: the Rename modal opened from Manage Labels (first row's Edit button).
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "home-manage-labels-button"
+- assertVisible:
+    id: "manage-labels-list"
+- tapOn:
+    id: "manage-labels-edit-.*"
+- assertVisible:
+    text: "Rename Label"
+- assertVisible:
+    id: "manage-labels-rename-input"
+- hideKeyboard
+- assertScreenshot: "manage-labels-rename-modal-screen"

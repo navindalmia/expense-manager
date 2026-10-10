@@ -1,0 +1,36 @@
+appId: com.navindalmia.expensemanager
+---
+# PR #90: date picker modal (SafeAreaView from react-native-safe-area-context). Opens on the fixture expense date (July 2026).
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    text: "Diberr Repro"
+- tapOn:
+    id: "edit-expense-date-picker-button"
+- assertScreenshot: "edit-expense-date-picker-screen"
