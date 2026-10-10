@@ -23,13 +23,23 @@ failed=0
 : > "$OUT/visual-result.txt"
 echo "### Maestro visual flows (BLOCKING - assertScreenshot at 95% threshold)" >> "$OUT/visual-result.txt"
 
-for f in "$SRC"/*.yaml; do
+# Sharding: MAESTRO_SHARD (1-based) of MAESTRO_SHARD_COUNT picks this job's
+# flows via scripts/maestro-shards.js; unset runs every flow.
+if [ -n "${MAESTRO_SHARD:-}" ]; then
+  FLOW_FILES="$(node "$(dirname "$0")/maestro-shards.js" list "$MAESTRO_SHARD" "${MAESTRO_SHARD_COUNT:?}" "$SRC")"
+  echo "Shard $MAESTRO_SHARD/$MAESTRO_SHARD_COUNT flows:"; echo "$FLOW_FILES"
+else
+  FLOW_FILES="$(ls "$SRC"/*.yaml)"
+fi
+
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
   name="$(basename "$f" .yaml)"
   ok=1
   status=0
   log="$OUT/${name}.log"
   for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-    timeout "$FLOW_TIMEOUT" maestro test "$f" 2>&1 | tee "$log"
+    timeout "$FLOW_TIMEOUT" maestro test "$f" < /dev/null 2>&1 | tee "$log"
     status=${PIPESTATUS[0]}
     if [ "$status" -eq 0 ]; then
       ok=0
@@ -49,7 +59,7 @@ for f in "$SRC"/*.yaml; do
     fi
     echo "VISUAL FAIL: $name" | tee -a "$OUT/visual-failures.txt"
   fi
-done
+done <<< "$FLOW_FILES"
 
 cat "$OUT/visual-result.txt"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$OUT/visual-result.txt" >> "$GITHUB_STEP_SUMMARY"; fi

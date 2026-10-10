@@ -270,7 +270,30 @@ jobs:
             -d '{"clearCache":"do_not_clear"}' \
             https://api.render.com/v1/services/srv-d9n52drl550s739au83g/deploys
 
-  e2e-mobile:
+  # Maestro sharding: the number of parallel e2e-mobile shards is configured HERE
+  # and only here. Wall-clock shrinks roughly by the shard count, but total
+  # Actions minutes grow roughly by the same factor (each shard boots its own
+  # emulator + builds the debug APK, ~9 min fixed cost each), so raise it only
+  # while the queue time matters. Flows are split deterministically by sorted
+  # filename (scripts/maestro-shards.js).
+  e2e-mobile-plan:
+    runs-on: ubuntu-latest
+    env:
+      MAESTRO_SHARD_COUNT: "4"
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - id: plan
+        run: |
+          echo "matrix=$(node scripts/maestro-shards.js matrix "$MAESTRO_SHARD_COUNT")" >> "$GITHUB_OUTPUT"
+          echo "count=$MAESTRO_SHARD_COUNT" >> "$GITHUB_OUTPUT"
+
+  e2e-mobile-shard:
     # U6: runs maestro-flows/visual/ (U4 visual-regression + U5 accessibility,
     # verified locally 2026-08-31 - see docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md)
     # against a real Android emulator, on every PR. Does not depend on
@@ -302,6 +325,11 @@ jobs:
     # maestro-flows/on-hold-email-verification/ is intentionally excluded -
     # see that folder's README (REQUIRE_EMAIL_VERIFICATION=false makes its
     # target UI unreachable in the current app config).
+    name: e2e-mobile-shard (${{ matrix.shard }}/${{ needs.e2e-mobile-plan.outputs.count }})
+    needs: e2e-mobile-plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.e2e-mobile-plan.outputs.matrix) }}
     runs-on: ubuntu-latest
     # Hard ceiling so a stuck build/emulator/Maestro run fails fast and loud
     # instead of silently eating hours before GitHub's own 6h job cap kicks in
@@ -325,6 +353,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      MAESTRO_SHARD: ${{ matrix.shard }}
+      MAESTRO_SHARD_COUNT: ${{ needs.e2e-mobile-plan.outputs.count }}
       # The app's real backend, not the mocked/skipped one - Maestro flows
       # past the login screen make real network calls (10.0.2.2:4000 is the
       # Android emulator's alias for the runner's localhost). Found missing
@@ -663,12 +693,26 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: maestro-debug-output
+          name: maestro-debug-output-${{ matrix.shard }}
           path: ~/.maestro/tests/
           retention-days: 7
       - name: Stop backend server
         if: always()
         run: kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
+
+  # Aggregating check: keeps the required-check name `e2e-mobile` stable while
+  # the real work is sharded. Fails unless EVERY shard succeeded (a skipped,
+  # cancelled or missing shard is a failure, never a silent pass).
+  e2e-mobile:
+    needs: e2e-mobile-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - run: node scripts/maestro-shards.js aggregate "${{ needs.e2e-mobile-shard.result }}"
 
   e2e-web:
     # Runs the real Playwright spec at e2e/intelligence-layer.spec.ts (added
