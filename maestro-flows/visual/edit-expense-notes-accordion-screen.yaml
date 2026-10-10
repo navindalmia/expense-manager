@@ -31,9 +31,12 @@ appId: com.navindalmia.expensemanager
     id: "expense-list-screen"
 - tapOn:
     text: "Diberr Repro"
+- scrollUntilVisible:
+    element:
+      id: "accordion-section-header-toggle"
 - tapOn:
     id: "accordion-section-header-toggle"
-- assertVisible:
-    text: "Add details..."
-- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "Add details..."
 - assertScreenshot: "edit-expense-notes-accordion-screen"
