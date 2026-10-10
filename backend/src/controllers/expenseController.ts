@@ -139,12 +139,14 @@ export async function createExpense(req: Request, res: Response, next?: NextFunc
     // Validate input using ZOD
     const parsed = createExpenseSchema.parse({
       ...req.body,
-      paidById: userId, // Set paidBy from current user
+      // Honour the selected payer; default to the current user when omitted
+      paidById: req.body?.paidById ?? userId,
     });
 
     // Convert into proper type
     const expenseData = {
       ...parsed,
+      requesterId: userId,
       splitType: parsed.splitType as SplitType,
     } as Parameters<typeof expenseService.createExpense>[0];
 

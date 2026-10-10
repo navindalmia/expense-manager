@@ -113,6 +113,7 @@ export async function createExpense(data: {
   currency?: string;
   groupId: number;
   paidById: number;
+  requesterId?: number;
   categoryId: number;
   labelId?: number;
   themeId?: number;
@@ -130,6 +131,7 @@ export async function createExpense(data: {
     currency = 'GBP',
     groupId,
     paidById,
+    requesterId = paidById,
     categoryId,
     labelId,
     themeId,
@@ -192,6 +194,17 @@ export async function createExpense(data: {
       throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
     }
 
+    // Verify the requester (JWT user) belongs to the group; the payer may differ
+    const isRequesterMember = group.members.some((m) => m.id === requesterId);
+    if (!isRequesterMember && group.createdById !== requesterId) {
+      throw new AppError(
+        'Unauthorized: You are not a member of this group',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, userId: requesterId }
+      );
+    }
+
     // Verify paidById user is a member of the group
     const isPayerMember = group.members.some((m) => m.id === paidById);
     if (!isPayerMember && group.createdById !== paidById) {
@@ -247,13 +260,12 @@ export async function createExpense(data: {
     }
 
     if (labelId !== undefined) {
-      // paidById doubles as the requesting user's id -- the controller
-      // always sets it from the JWT (see expenseController.createExpense)
-      await assertLabelVisible(paidById, labelId, { requireActive: true });
+      // Label/theme visibility is checked against the requesting user (JWT), not the payer
+      await assertLabelVisible(requesterId, labelId, { requireActive: true });
     }
 
     if (themeId !== undefined) {
-      await assertThemeVisible(paidById, themeId, { requireActive: true });
+      await assertThemeVisible(requesterId, themeId, { requireActive: true });
     }
 
     // Build the expense data object
