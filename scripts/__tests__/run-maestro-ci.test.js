@@ -13,12 +13,13 @@ const SCRIPT = path.resolve(__dirname, '..', 'run-maestro-ci.sh');
 // real `timeout` on CI (Linux); a shim stands in on macOS
 const hasRealTimeout = spawnSync('timeout', ['--version']).status === 0;
 
-function run(flows) {
+function run(flows, quarantine) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maestro-ci-'));
   const flowsDir = path.join(dir, 'flows');
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(flowsDir);
   fs.mkdirSync(bin);
+  if (quarantine !== undefined) fs.writeFileSync(path.join(dir, 'quarantine.txt'), quarantine);
   for (const name of Object.keys(flows)) fs.writeFileSync(path.join(flowsDir, `${name}.yaml`), '');
   // Fake maestro: behaviour chosen by the flow file name.
   fs.writeFileSync(
@@ -34,7 +35,7 @@ function run(flows) {
     );
   }
   const res = spawnSync('bash', [SCRIPT], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, MAESTRO_FLOWS_DIR: flowsDir, GITHUB_WORKSPACE: dir, FLOW_TIMEOUT: '1' },
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, MAESTRO_FLOWS_DIR: flowsDir, MAESTRO_QUARANTINE_FILE: path.join(dir, 'quarantine.txt'), GITHUB_WORKSPACE: dir, FLOW_TIMEOUT: '1' },
     encoding: 'utf8',
   });
   return { res, summary: fs.readFileSync(path.join(dir, 'visual-result.txt'), 'utf8') };
@@ -58,4 +59,34 @@ test('a hanging flow is recorded as Timeout, later flows run, script fails', () 
   assert.notEqual(res.status, 0);
   assert.match(summary, /\[Timeout\] hang1/);
   assert.match(summary, /\[Passed\] z/);
+});
+
+test('a quarantined failing flow does not fail the job but is reported', () => {
+  const { res, summary } = run({ a: 1, fail1: 1, z: 1 }, '# comment\nfail1  #100  known failing\n');
+  assert.equal(res.status, 0);
+  assert.match(summary, /QUARANTINED \(known failing, issue #100\): fail1/);
+  assert.doesNotMatch(summary, /\[Failed\]/);
+  assert.match(summary, /\[Passed\] z/);
+});
+
+test('a non-quarantined failing flow still fails when another is quarantined', () => {
+  const { res, summary } = run({ fail1: 1, fail2: 1 }, 'fail1  #100  reason\n');
+  assert.notEqual(res.status, 0);
+  assert.match(summary, /\[Failed\] fail2/);
+  assert.match(summary, /QUARANTINED \(known failing, issue #100\): fail1/);
+});
+
+test('a quarantined flow that passes reports the removal hint', () => {
+  const { res, summary } = run({ a: 1 }, 'a  #100  reason\n');
+  assert.equal(res.status, 0);
+  assert.match(summary, /QUARANTINED FLOW NOW PASSING - remove it from the list/);
+});
+
+test('missing or empty quarantine list behaves strictly as before', () => {
+  for (const q of [undefined, '', '# only comments\n']) {
+    const { res, summary } = run({ fail1: 1 }, q);
+    assert.notEqual(res.status, 0);
+    assert.match(summary, /\[Failed\] fail1/);
+    assert.doesNotMatch(summary, /QUARANTINED/);
+  }
 });

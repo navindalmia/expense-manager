@@ -18,6 +18,14 @@ FLOW_TIMEOUT="${FLOW_TIMEOUT:-240}"
 SRC="${MAESTRO_FLOWS_DIR:-../maestro-flows/visual}"
 OUT="${GITHUB_WORKSPACE:-..}"
 MAX_ATTEMPTS=2
+# Quarantine list: lines of `<flow-name>  #<issue>  <reason>`. A quarantined flow
+# still RUNS, but its failure does not fail the job; it is reported loudly, and a
+# quarantined flow that passes prints a hint to remove it. Missing/empty = strict.
+QUARANTINE_FILE="${MAESTRO_QUARANTINE_FILE:-$SRC/../quarantine.txt}"
+quarantine_issue() {
+  [ -f "$QUARANTINE_FILE" ] || return 1
+  awk -v n="$1" '$1 !~ /^#/ && $1 == n { i = $2; sub(/^#/, "", i); print (i == "" ? "?" : i); found=1; exit } END { exit !found }' "$QUARANTINE_FILE"
+}
 
 failed=0
 : > "$OUT/visual-result.txt"
@@ -47,8 +55,15 @@ while IFS= read -r f; do
     fi
     echo "Flow $name failed on attempt $attempt (exit $status)"
   done
-  if [ "$ok" -eq 0 ]; then
+  qissue="$(quarantine_issue "$name" || true)"
+  if [ "$ok" -eq 0 ] && [ -n "$qissue" ]; then
     echo "- [Passed] $name" >> "$OUT/visual-result.txt"
+    echo "- QUARANTINED FLOW NOW PASSING - remove it from the list: $name (issue #$qissue)" >> "$OUT/visual-result.txt"
+  elif [ "$ok" -eq 0 ]; then
+    echo "- [Passed] $name" >> "$OUT/visual-result.txt"
+  elif [ -n "$qissue" ]; then
+    detail=$(grep -m1 -E 'Comparison error|Assertion is false' "$log" || true)
+    echo "- QUARANTINED (known failing, issue #$qissue): $name failed (exit $status) ($detail)" >> "$OUT/visual-result.txt"
   else
     failed=$((failed + 1))
     detail=$(grep -m1 -E 'Comparison error|Assertion is false' "$log" || true)
