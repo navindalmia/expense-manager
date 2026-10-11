@@ -306,13 +306,19 @@ jobs:
             if [ "$i" -eq 80 ]; then echo "::error::Timed out waiting for deploy"; exit 1; fi
             sleep 15
           done
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
       - name: Smoke test staging health
         run: |
           set -euo pipefail
-          # STAGING_API_URL includes the /api suffix (same shape as EXPO_PUBLIC_API_BASE_URL).
+          # STAGING_API_URL includes the /api suffix; /api/internal/* is not mounted
+          # in production, so poll the host root health route instead.
+          ROOT_URL="$(node scripts/staging-health-url.js "$STAGING_API_URL")"
           for i in $(seq 1 10); do
-            if curl -fsS --max-time 30 "$STAGING_API_URL/internal/health"; then
-              echo; echo "Staging healthy"; exit 0
+            BODY="$(curl -fsS --max-time 30 "$ROOT_URL" || true)"
+            if printf '%s' "$BODY" | grep -q "Expense Manager API running"; then
+              echo "Staging healthy"; exit 0
             fi
             echo "Attempt $i: not healthy yet"; sleep 15
           done

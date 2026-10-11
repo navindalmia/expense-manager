@@ -29,7 +29,7 @@ feature branch -> PR into `staging` -> auto-deploy staging backend + OTA to the 
 7. **GitHub secrets** (Settings > Secrets and variables > Actions): `RENDER_STAGING_API_KEY`, `RENDER_STAGING_SERVICE_ID`. Existing `EXPO_TOKEN` is reused.
 8. **GitHub variables**: `STAGING_API_URL` (e.g. `https://<staging-host>.onrender.com/api`, with `/api`), then `STAGING_ENABLED=true` **last**.
 9. **EAS**: edit `frontend/eas.json` profile `staging`, replacing the placeholder `EXPO_PUBLIC_API_BASE_URL` (`https://REPLACE-WITH-STAGING-RENDER-HOST.onrender.com/api`) with the staging URL (JSON has no comments; this placeholder is the only owner-supplied value). Let EAS generate a new keystore for the `.staging` package on the first build.
-10. **First enable**: merge a no-op into `staging`; confirm `deploy-staging` passes its health smoke (`<STAGING_API_URL>/internal/health`) and migrations applied on the empty DB. Run `EAS Staging (Android)` via *Run workflow* to build the first APK; install it beside the live app and verify login, create expense, and that a verification deep link opens the staging app only.
+10. **First enable**: merge a no-op into `staging`; confirm `deploy-staging` passes its health smoke (`GET /` on the host root, expecting 200 and `Expense Manager API running`) and migrations applied on the empty DB. Run `EAS Staging (Android)` via *Run workflow* to build the first APK; install it beside the live app and verify login, create expense, and that a verification deep link opens the staging app only.
 11. Add the `hotfix` label (Issues > Labels) for the exception path. Optionally make `staging` the default branch (open question 2).
 
 ## Migrations and backups
@@ -45,6 +45,6 @@ Staging runs `migrate:deploy && seed && start`, the same as production, to rehea
 
 ## Notes
 
-- `/internal/health` is served by `internalRoutes` under `/api`; the smoke job uses it.
+- The smoke job polls the host root (`STAGING_API_URL` minus `/api`, via `scripts/staging-health-url.js`). `/api/internal/*` is only mounted when `NODE_ENV !== 'production'`, so it is a 404 on staging.
 - The prerelease GitHub Release (`staging-YYYYMMDD-<sha7>`) and job summary use `node scripts/eas-release-notes.js --list <before> <head>`. Promotion PRs use `.github/PULL_REQUEST_TEMPLATE/promotion.md` (append `?template=promotion.md` to the compare URL).
 - The master-side release (`vYYYY.MM.DD-N` GitHub Release) from the plan's phase 4 is not implemented here.
