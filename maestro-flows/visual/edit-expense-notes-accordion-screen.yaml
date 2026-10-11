@@ -39,9 +39,9 @@ appId: com.navindalmia.expensemanager
 - scrollUntilVisible:
     element:
       text: "Add details..."
-# scrollUntilVisible stops at a slightly different offset each run, so crop to
-# the accordion header (position independent) instead of the whole screen.
-- assertScreenshot:
-    path: "edit-expense-notes-accordion-screen"
-    cropOn:
-      id: "accordion-section-header-toggle"
+# scrollUntilVisible stops at a slightly different offset each run, so scroll
+# to the very bottom (extra scrolls are no-ops there) for a stable frame.
+- scroll
+- scroll
+- scroll
+- assertScreenshot: "edit-expense-notes-accordion-screen"
