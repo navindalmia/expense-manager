@@ -1,0 +1,35 @@
+name: Promotion source
+
+# Only `staging` may be promoted into master (the `hotfix` label is the owner's
+# exception). Uses pull_request_target so the gate runs from the BASE branch:
+# a PR author cannot edit the script or workflow to pass their own PR. The
+# checkout is pinned to the base SHA and PR code is never checked out or run.
+# Separate from ci.yml so it can re-run on label events without re-running the
+# whole emulator-heavy CI. Starts non-required; see docs/staging-environment.md.
+on:
+  pull_request_target:
+    branches: [master]
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  promotion-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - name: Check PR head branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: node scripts/promotion-source.js "$BASE_REF" "$HEAD_REF" "$LABELS" "$HEAD_REPO" "$THIS_REPO"

@@ -2,7 +2,7 @@
 
 A multilingual, mobile-first expense splitting app for groups. Track shared costs across trips, households, or any group — with flexible split options and automatic settlement calculations.
 
-**Status:** v0.4.0-beta · Active development · Not yet production-deployed
+**Status:** v0.4.0-beta · Active development · Live on Render + Neon (see Deployment)
 
 ---
 
@@ -166,8 +166,8 @@ See [ROADMAP.md](ROADMAP.md) for the full feature roadmap including current stab
 
 ## Deployment (current: free-tier cloud stack)
 
-- **Backend:** [Render](https://render.com) free tier, service `expense-manager`, config in [`render.yaml`](render.yaml). Live at `https://expense-manager-udoo.onrender.com`. Sleeps after ~15min idle (30-50s cold start on next request). Deploys automatically on push to `master` (Render watches the repo).
-- **Database:** [Neon](https://neon.tech) Postgres free tier, project "expense-manager", 0.5GB cap. Auto-suspends compute when idle; data persists. Run migrations against it the same way as local (`npm run migrate` in `backend/`, pointed at the Neon `DATABASE_URL`).
+- **Backend:** [Render](https://render.com) free tier, service `expense-manager`, config in [`render.yaml`](render.yaml). Live at `https://expense-manager-udoo.onrender.com`. Sleeps after ~15min idle (30-50s cold start on next request). Deployed by the `deploy-backend` CI job on push to `master` after tests pass (Render autoDeploy is off). The start command runs `prisma migrate deploy` and the seed on every start, so migrations apply automatically. A staging environment is documented in [`docs/staging-environment.md`](docs/staging-environment.md).
+- **Database:** [Neon](https://neon.tech) Postgres free tier, project "expense-manager", 0.5GB cap. Auto-suspends compute when idle; data persists. Migrations are applied automatically on each deploy (`npm run migrate:deploy` in the Render start command).
 - **Mobile builds:** [EAS Build](https://docs.expo.dev/build/introduction/) (Android internal distribution, not Play Store). Config in [`frontend/eas.json`](frontend/eas.json). To build and test:
   ```
   cd frontend

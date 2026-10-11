@@ -34,3 +34,14 @@ test('buildReleaseNotes truncates very long summaries', () => {
   assert.ok(notes.length <= 200);
   assert.ok(notes.endsWith('...'));
 });
+
+test('buildReleaseNotesList renders markdown bullets and skips terse subjects', () => {
+  const { buildReleaseNotesList } = require('../eas-release-notes');
+  const out = buildReleaseNotesList(['feat(x): add staging banner (#1)', 'wip', 'Merge branch a']);
+  assert.equal(out, '- Add staging banner');
+});
+
+test('buildReleaseNotesList falls back when nothing is meaningful', () => {
+  const { buildReleaseNotesList } = require('../eas-release-notes');
+  assert.equal(buildReleaseNotesList(['wip']), '- Bug fixes and improvements');
+});

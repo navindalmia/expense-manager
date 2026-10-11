@@ -10,7 +10,7 @@ A multilingual, mobile-first expense splitting and settlement app. Built for gro
 
 ## Current State: v0.4.0-beta
 
-Core expense/group flows are complete and functional end-to-end on mobile (Expo Go). Email verification is implemented but the web verify link is broken (see Phase 4). Not yet production-deployed.
+Core expense/group flows are complete and functional end-to-end on mobile (Expo Go). Email verification is implemented but the web verify link is broken (see Phase 4). Deployed (Render + Neon + EAS, live since 2026-08-01).
 
 ---
 
@@ -155,8 +155,8 @@ The app works but has known gaps that must close before production.
 - [x] On PR: TypeScript check + full test suite (`backend-test`/`frontend-test`, required checks since 2026-08-22)
 - [x] On merge to `master`: deploy backend (`deploy-backend` job → Render, gated on tests passing, since 2026-08-22)
 - [ ] On merge to `master`: build + deploy Expo web frontend (not done — no web deployment target exists yet)
-- [ ] Separate staging and production environments
-- [ ] Database migration step in deploy pipeline (currently manual against Neon)
+- [ ] Separate staging and production environments (code/config prepared, inert until owner setup: see `docs/staging-environment.md`)
+- [x] Database migration step in deploy pipeline (Render start command runs `npm run migrate:deploy` before seed and start)
 
 ### Mobile App Distribution
 - [ ] Expo EAS Build for iOS and Android

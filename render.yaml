@@ -29,3 +29,47 @@ services:
         value: 4000
       - key: REQUIRE_EMAIL_VERIFICATION
         value: "false"
+
+  # ---------------------------------------------------------------------------
+  # STAGING service - OWNER-CREATED / BLUEPRINT-DEPENDENT.
+  # WARNING: if a Blueprint is connected to this repo with auto-sync, merging
+  # this block WILL make Render try to create this service. Leave the Blueprint
+  # unsynced, or create the service by hand first (docs/staging-environment.md).
+  # Without a connected Blueprint this block is documentation only; the Render
+  # dashboard remains the source of truth.
+  # Deploys are triggered by the deploy-staging CI job, never by Render
+  # autoDeploy (off), so a broken build cannot ship before tests pass.
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: expense-manager-staging
+    runtime: node
+    plan: free
+    branch: staging
+    autoDeploy: false
+    rootDir: backend
+    buildCommand: npm install --include=dev && npm run build
+    # Same as production on purpose: staging rehearses migrations exactly as prod will run them.
+    startCommand: npm run migrate:deploy && npm run seed && npm start
+    envVars:
+      # Neon STAGING database only - never the production URL.
+      - key: DATABASE_URL
+        sync: false
+      # Must differ from production's JWT_SECRET.
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      # Email is log-only on staging: SendGrid vars deliberately NOT declared,
+      # so nothing can email real users.
+      - key: APP_FRONTEND_URL
+        sync: false
+      - key: APP_SCHEME
+        value: expensemanagerstaging://
+      - key: APP_NAME
+        value: Expense Manager (Staging)
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"

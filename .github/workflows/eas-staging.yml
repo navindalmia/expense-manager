@@ -1,0 +1,156 @@
+name: EAS Staging (Android)
+
+# Staging mobile pipeline. INERT unless repo variable STAGING_ENABLED == 'true'.
+#  - OTA update to the EAS branch "staging" on every frontend change pushed to staging.
+#  - Full APK build (profile "staging") ONLY when native/config files changed or
+#    when started manually (workflow_dispatch) - saves the free EAS build budget.
+# Production workflow (eas-build.yml) is untouched and stays master-only.
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/eas-staging.yml'
+      - 'scripts/eas-release-notes.js'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    if: vars.STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+      - name: TypeScript check
+        working-directory: frontend
+        run: npx tsc --noEmit
+      - name: Run tests
+        working-directory: frontend
+        run: npm test -- --run
+      - name: Generate release notes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if ! NOTES="$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA")"; then
+            echo "::warning::release-notes script failed"
+            NOTES=""
+          fi
+          if [ -z "$NOTES" ]; then
+            echo "::warning::release-notes script produced no output; using generic message"
+            NOTES="Bug fixes and improvements"
+          fi
+          DELIM="EOF_$(openssl rand -hex 8)"
+          { echo "RELEASE_NOTES<<$DELIM"; echo "$NOTES"; echo "$DELIM"; } >> "$GITHUB_ENV"
+          {
+            echo "## What to test on staging"
+            node scripts/eas-release-notes.js --list "$BEFORE_SHA" "$HEAD_SHA" || { echo "::warning::--list failed" >&2; echo "- $NOTES"; }
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Refuse to publish against a placeholder or production URL
+        env:
+          STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+        run: node scripts/check-staging-config.js frontend/eas.json "$STAGING_API_URL"
+      - name: Publish EAS Update (staging branch)
+        working-directory: frontend
+        env:
+          APP_VARIANT: staging
+          EXPO_PUBLIC_API_BASE_URL: ${{ vars.STAGING_API_URL }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli update --branch staging --message "$RELEASE_NOTES" --non-interactive
+
+  detect-native-changes:
+    if: vars.STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      native: ${{ steps.diff.outputs.native }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "native=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if echo "$BEFORE_SHA" | grep -Eq '^0+$'; then
+            echo "native=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --name-only "$BEFORE_SHA" "$HEAD_SHA" | grep -Eq '^frontend/(app\.config\.js|eas\.json|package(-lock)?\.json)$'; then
+            echo "native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: detect-native-changes
+    if: vars.STAGING_ENABLED == 'true' && needs.detect-native-changes.outputs.native == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+      - name: Fail if the staging profile still has a placeholder URL
+        run: node scripts/check-staging-config.js frontend/eas.json
+      - name: Build Android (staging profile)
+        working-directory: frontend
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile staging --non-interactive --no-wait --message "Staging build ${HEAD_SHA::7}"
+
+  # Prerelease GitHub Release "staging-YYYYMMDD-<sha7>" with the same notes.
+  prerelease:
+    if: vars.STAGING_ENABLED == 'true' && github.event_name == 'push'
+    needs: update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          TAG="staging-$(date -u +%Y%m%d)-${HEAD_SHA::7}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping"
+            exit 0
+          fi
+          node scripts/eas-release-notes.js --list "$BEFORE_SHA" "$HEAD_SHA" > notes.md || echo "- Bug fixes and improvements" > notes.md
+          gh release create "$TAG" --target "$HEAD_SHA" --prerelease --title "$TAG" --notes-file notes.md
