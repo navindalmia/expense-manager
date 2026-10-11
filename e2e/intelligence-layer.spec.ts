@@ -120,7 +120,7 @@ test.describe('Intelligence layer: Theme, Category, Label, autocomplete (U1-U10)
     await expect(page.getByText(expenseTitle)).toBeVisible({ timeout: 10000 });
 
     // --- Manage Labels screen (U10, R4/R6): the new label appears with a
-    // real spend total, then disabling it removes it from the list ---
+    // real spend total; disabling keeps the row listed as Disabled and Enable restores it ---
     await page.goto('/');
     await expect(page.getByTestId('home-screen')).toBeVisible({ timeout: 10000 });
     await page.getByTestId('home-manage-labels-button').click();
@@ -128,8 +128,15 @@ test.describe('Intelligence layer: Theme, Category, Label, autocomplete (U1-U10)
     const labelRow = page.locator('[data-testid^="manage-labels-row-"]').filter({ hasText: labelName });
     await expect(labelRow.getByText('42.00')).toBeVisible();
 
-    page.once('dialog', (dialog) => dialog.accept());
+    // Disable has no confirmation; the row stays listed, tagged Disabled, with an Enable button.
     await labelRow.locator('[data-testid^="manage-labels-disable-"]').click();
-    await expect(page.getByText(labelName)).not.toBeVisible({ timeout: 10000 });
+    await expect(labelRow.locator('[data-testid^="manage-labels-disabled-tag-"]')).toBeVisible({ timeout: 10000 });
+    await expect(labelRow.locator('[data-testid^="manage-labels-disable-"]')).toHaveCount(0);
+    await expect(labelRow.locator('[data-testid^="manage-labels-enable-"]')).toBeVisible();
+
+    // Enable restores it to the active state.
+    await labelRow.locator('[data-testid^="manage-labels-enable-"]').click();
+    await expect(labelRow.locator('[data-testid^="manage-labels-disabled-tag-"]')).toHaveCount(0, { timeout: 10000 });
+    await expect(labelRow.locator('[data-testid^="manage-labels-disable-"]')).toBeVisible();
   });
 });

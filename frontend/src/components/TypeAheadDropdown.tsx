@@ -21,6 +21,8 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -45,6 +47,7 @@ interface TypeAheadDropdownProps {
 
 const styles = StyleSheet.create({
   pickerModal: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
+  keyboardAvoider: { flex: 1, justifyContent: 'flex-end' },
   pickerContent: { backgroundColor: '#fff', borderTopLeftRadius: 12, borderTopRightRadius: 12, paddingTop: 12, paddingBottom: 20, maxHeight: '80%' },
   pickerHeader: { paddingHorizontal: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerTitle: { fontSize: 16, fontWeight: '700', color: '#000' },
@@ -136,84 +139,90 @@ export default function TypeAheadDropdown({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
       <SafeAreaView style={styles.pickerModal}>
-        <View style={styles.pickerContent}>
-          <View style={styles.pickerHeader}>
-            <Text style={styles.pickerTitle}>{title}</Text>
-            <TouchableOpacity onPress={resetAndClose} testID={`${testIDPrefix}-modal-close-button`}>
-              <Text style={styles.doneText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-
-          {creating ? (
-            <View style={styles.createRow}>
-              <View style={styles.createHeader}>
-                <TouchableOpacity onPress={cancelCreate} testID={`${testIDPrefix}-create-back-button`}>
-                  <Text style={styles.backText}>‹ Back</Text>
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={styles.createInput}
-                value={newName}
-                onChangeText={(text) => {
-                  setNewName(text);
-                  setCreateError(null);
-                }}
-                placeholder="Enter a name..."
-                editable={!submitting}
-                autoFocus
-                testID={`${testIDPrefix}-create-input`}
-              />
-              {createError && <Text style={styles.errorText}>{createError}</Text>}
-              <TouchableOpacity
-                style={[styles.createButton, (submitting || !newName.trim()) && styles.createButtonDisabled]}
-                onPress={submitCreate}
-                disabled={submitting || !newName.trim()}
-                testID={`${testIDPrefix}-create-submit-button`}
-              >
-                {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.createButtonText}>Create</Text>}
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoider}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          testID={`${testIDPrefix}-keyboard-avoiding-view`}
+        >
+          <View style={styles.pickerContent}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>{title}</Text>
+              <TouchableOpacity onPress={resetAndClose} testID={`${testIDPrefix}-modal-close-button`}>
+                <Text style={styles.doneText}>Done</Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <>
-              <TextInput
-                style={styles.filterInput}
-                value={filterText}
-                onChangeText={setFilterText}
-                placeholder={placeholder}
-                testID={`${testIDPrefix}-filter-input`}
-              />
-              <ScrollView>
+
+            {creating ? (
+              <View style={styles.createRow}>
+                <View style={styles.createHeader}>
+                  <TouchableOpacity onPress={cancelCreate} testID={`${testIDPrefix}-create-back-button`}>
+                    <Text style={styles.backText}>‹ Back</Text>
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.createInput}
+                  value={newName}
+                  onChangeText={(text) => {
+                    setNewName(text);
+                    setCreateError(null);
+                  }}
+                  placeholder="Enter a name..."
+                  editable={!submitting}
+                  autoFocus
+                  testID={`${testIDPrefix}-create-input`}
+                />
+                {createError && <Text style={styles.errorText}>{createError}</Text>}
                 <TouchableOpacity
-                  style={[styles.pickerItem, styles.addNewItem]}
-                  onPress={() => setCreating(true)}
-                  testID={`${testIDPrefix}-add-new-button`}
+                  style={[styles.createButton, (submitting || !newName.trim()) && styles.createButtonDisabled]}
+                  onPress={submitCreate}
+                  disabled={submitting || !newName.trim()}
+                  testID={`${testIDPrefix}-create-submit-button`}
                 >
-                  <Text style={styles.addNewText}>+ Add new</Text>
+                  {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.createButtonText}>Create</Text>}
                 </TouchableOpacity>
-                {filteredItems.map((item) => {
-                  const isSelected = item.id === selectedId;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
-                      onPress={() => {
-                        onSelect(item);
-                        resetAndClose();
-                      }}
-                      accessibilityState={{ selected: isSelected }}
-                      testID={`${testIDPrefix}-option-${item.id}`}
-                    >
-                      <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
-                        {isSelected && <Text testID={`${testIDPrefix}-option-${item.id}-selected-mark`}>✓ </Text>}
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </>
-          )}
-        </View>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.filterInput}
+                  value={filterText}
+                  onChangeText={setFilterText}
+                  placeholder={placeholder}
+                  testID={`${testIDPrefix}-filter-input`}
+                />
+                <ScrollView>
+                  <TouchableOpacity
+                    style={[styles.pickerItem, styles.addNewItem]}
+                    onPress={() => setCreating(true)}
+                    testID={`${testIDPrefix}-add-new-button`}
+                  >
+                    <Text style={styles.addNewText}>+ Add new</Text>
+                  </TouchableOpacity>
+                  {filteredItems.map((item) => {
+                    const isSelected = item.id === selectedId;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                        onPress={() => {
+                          onSelect(item);
+                          resetAndClose();
+                        }}
+                        accessibilityState={{ selected: isSelected }}
+                        testID={`${testIDPrefix}-option-${item.id}`}
+                      >
+                        <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                          {isSelected && <Text testID={`${testIDPrefix}-option-${item.id}-selected-mark`}>✓ </Text>}
+                          {item.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

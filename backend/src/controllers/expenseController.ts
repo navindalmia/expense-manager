@@ -6,6 +6,9 @@ import { SplitType } from "@prisma/client";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError";
 
+// Titles shorter than this are too ambiguous to infer a category from
+const MIN_CATEGORY_SUGGEST_TITLE_LENGTH = 2;
+
 export async function getExpenses(req: Request, res: Response) {
   const expenses = await expenseService.getAllExpenses();
   res.json(expenses);
@@ -89,15 +92,13 @@ export async function suggestExpenses(req: Request, res: Response, next?: NextFu
 
     const matches = await expenseService.findSimilarExpenses(userId, title);
 
-    // Dictionary category suggestion only fires when autocomplete found
-    // nothing (R8's trigger condition -- see U6's Approach). It's a
-    // non-critical enhancement on top of the (already-succeeded) title
-    // match lookup, so its own failure must not fail the whole request --
-    // fall back to no suggestion instead of a 500.
+    // Category suggestion (history majority, then keyword dictionary) is a
+    // non-critical enhancement on top of the already-succeeded match lookup,
+    // so its own failure must not fail the request.
     let categorySuggestion = null;
-    if (matches.length === 0) {
+    if (title.trim().length >= MIN_CATEGORY_SUGGEST_TITLE_LENGTH) {
       try {
-        categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title);
+        categorySuggestion = await expenseService.suggestCategoryForTitle(userId, title, matches);
       } catch (suggestionError) {
         console.error('Failed to compute category suggestion (non-fatal):', suggestionError);
       }

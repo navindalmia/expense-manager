@@ -1,0 +1,34 @@
+appId: com.navindalmia.expensemanager
+---
+# PR #90: Manage Themes screen lists the user's themes with usage counts (fixture: "QA Theme").
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "home-manage-themes-button"
+- assertVisible:
+    id: "manage-themes-list"
+- assertVisible:
+    text: "QA Theme"
+- assertScreenshot: "manage-themes-screen"

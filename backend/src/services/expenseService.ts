@@ -11,10 +11,13 @@ import { cleanData } from "../utils/cleanData";
 import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
+import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 
 const SUGGESTION_LIMIT = 5;
+// Most recent expenses scanned for autocomplete, to bound memory per keystroke
+const SUGGESTION_CANDIDATE_CAP = 500;
 
 /**
  * Prefill payload returned alongside each suggested match -- deliberately
@@ -113,6 +116,7 @@ export async function createExpense(data: {
   requesterId?: number;
   categoryId: number;
   labelId?: number;
+  themeId?: number;
   splitWithIds?: number[];
   splitType?: SplitType;
   splitAmount?: number[];
@@ -130,6 +134,7 @@ export async function createExpense(data: {
     requesterId = paidById,
     categoryId,
     labelId,
+    themeId,
     splitWithIds = [],
     splitType = SplitType.EQUAL,
     splitAmount = [],
@@ -255,8 +260,12 @@ export async function createExpense(data: {
     }
 
     if (labelId !== undefined) {
-      // Label visibility is checked against the requesting user (JWT), not the payer
-      await assertLabelVisible(requesterId, labelId);
+      // Label/theme visibility is checked against the requesting user (JWT), not the payer
+      await assertLabelVisible(requesterId, labelId, { requireActive: true });
+    }
+
+    if (themeId !== undefined) {
+      await assertThemeVisible(requesterId, themeId, { requireActive: true });
     }
 
     // Build the expense data object
@@ -268,6 +277,7 @@ export async function createExpense(data: {
       paidBy: { connect: { id: paidById } },
       category: { connect: { id: categoryId } },
       ...(labelId !== undefined ? { label: { connect: { id: labelId } } } : {}),
+      ...(themeId !== undefined ? { theme: { connect: { id: themeId } } } : {}),
       splitType,
       notes: notes || null,
       expenseDate: new Date(expenseDate),
@@ -458,6 +468,7 @@ export async function updateExpense(
     amount?: number;
     categoryId?: number;
     labelId?: number;
+    themeId?: number | null;
     paidById?: number;
     splitWithIds?: number[];
     splitType?: SplitType;
@@ -501,6 +512,7 @@ export async function updateExpense(
       amount,
       categoryId,
       labelId,
+      themeId,
       paidById,
       splitWithIds,
       splitType = expense.splitType,
@@ -601,8 +613,22 @@ export async function updateExpense(
     if (amount !== undefined) updateData.amount = amount;
     if (categoryId !== undefined) updateData.category = { connect: { id: categoryId } };
     if (labelId !== undefined) {
-      await assertLabelVisible(userId, labelId);
+      // Labels are per-user: the edit form resubmits the expense's existing
+      // label on every save (possibly by a different group member or after it
+      // was disabled), so only validate when the label actually changes.
+      if (labelId !== expense.labelId) {
+        await assertLabelVisible(userId, labelId, { requireActive: true });
+      }
       updateData.label = { connect: { id: labelId } };
+    }
+    if (themeId === null) {
+      updateData.theme = { disconnect: true };
+    } else if (themeId !== undefined) {
+      // Only validate when the theme changes (see label above).
+      if (themeId !== expense.themeId) {
+        await assertThemeVisible(userId, themeId, { requireActive: true });
+      }
+      updateData.theme = { connect: { id: themeId } };
     }
     if (paidById !== undefined) updateData.paidBy = { connect: { id: paidById } };
     if (notes !== undefined) updateData.notes = notes || null;
@@ -668,6 +694,30 @@ export async function updateExpense(
 }
 
 /**
+ * Collapse expenses sharing the same title (case-insensitive, trimmed) to
+ * the most recent one (latest expenseDate, ties broken by highest id), so
+ * the suggestion list shows each distinct past title once (R8).
+ */
+function latestPerTitle<T extends { id: number; title: string; expenseDate: Date }>(expenses: T[]): T[] {
+  const latest = new Map<string, T>();
+
+  for (const expense of expenses) {
+    const key = expense.title.trim().toLowerCase();
+    const current = latest.get(key);
+    const isNewer =
+      !current ||
+      expense.expenseDate.getTime() > current.expenseDate.getTime() ||
+      (expense.expenseDate.getTime() === current.expenseDate.getTime() && expense.id > current.id);
+
+    if (isNewer) {
+      latest.set(key, expense);
+    }
+  }
+
+  return Array.from(latest.values());
+}
+
+/**
  * Fuzzy-match a typed expense title against the user's own past expenses,
  * globally across all of that user's groups (R5, KTD4 -- not scoped to the
  * group/theme currently being edited).
@@ -686,7 +736,7 @@ export async function findSimilarExpenses(
 ): Promise<SimilarExpenseMatch[]> {
   try {
     const accessibleGroups = await prisma.group.findMany({
-      where: { OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
+      where: { isActive: true, OR: [{ createdById: userId }, { members: { some: { id: userId } } }] },
       select: { id: true },
     });
     const accessibleGroupIds = accessibleGroups.map((g) => g.id);
@@ -697,10 +747,24 @@ export async function findSimilarExpenses(
 
     const candidates = await prisma.expense.findMany({
       where: { groupId: { in: accessibleGroupIds } },
-      include: { splitWith: { select: { id: true } } },
+      select: {
+        id: true,
+        title: true,
+        amount: true,
+        categoryId: true,
+        expenseDate: true,
+        splitWith: { select: { id: true } },
+      },
+      orderBy: [{ expenseDate: 'desc' }, { id: 'desc' }],
+      take: SUGGESTION_CANDIDATE_CAP,
     });
 
-    const ranked = rankMatches(titleQuery, candidates, (expense) => expense.title, SUGGESTION_LIMIT);
+    const ranked = rankMatches(
+      titleQuery,
+      latestPerTitle(candidates),
+      (expense) => expense.title,
+      SUGGESTION_LIMIT
+    );
 
     return ranked.map(({ item }) => ({
       expenseId: item.id,
@@ -722,32 +786,87 @@ export async function findSimilarExpenses(
   }
 }
 
+export interface CategorySuggestion {
+  categoryId: number;
+  code: string;
+  source?: 'history' | 'keyword';
+}
+
 /**
- * Resolve a keyword-dictionary category suggestion (R8) into a category id
+ * Pick the category the user used most often among similar past expenses
+ * (ties go to the best-ranked match, i.e. the earliest in `matches`), limited
+ * to categories the user can currently select.
+ */
+async function suggestCategoryFromHistory(
+  userId: number,
+  matches: SimilarExpenseMatch[]
+): Promise<CategorySuggestion | null> {
+  if (matches.length === 0) {
+    return null;
+  }
+
+  const selectable = await prisma.category.findMany({
+    where: {
+      id: { in: matches.map((m) => m.categoryId) },
+      isActive: true,
+      OR: [{ userId: null }, { userId }],
+    },
+  });
+  const selectableById = new Map(selectable.map((c) => [c.id, c]));
+
+  const counts = new Map<number, number>();
+  for (const match of matches) {
+    if (selectableById.has(match.categoryId)) {
+      counts.set(match.categoryId, (counts.get(match.categoryId) ?? 0) + 1);
+    }
+  }
+
+  let bestId: number | null = null;
+  let bestCount = 0;
+  for (const match of matches) {
+    const count = counts.get(match.categoryId) ?? 0;
+    if (count > bestCount) {
+      bestId = match.categoryId;
+      bestCount = count;
+    }
+  }
+
+  const best = bestId === null ? undefined : selectableById.get(bestId);
+  return best ? { categoryId: best.id, code: best.code, source: 'history' } : null;
+}
+
+/**
+ * Resolve a category suggestion (history majority first, then keyword dictionary R8) into a category id
  * the given user can actually see (KTD7's userId-null-or-own visibility
  * model), falling back to null (caller then falls back to "Other" per
  * KTD8) when the dictionary has no match or the matched category code
  * isn't visible to this user.
  *
  * @param userId - The current user ID
+ * @param matches - Similar past expenses already found for the title
  * @param titleQuery - The expense title text to run through the dictionary
  */
 export async function suggestCategoryForTitle(
   userId: number,
-  titleQuery: string
-): Promise<{ categoryId: number; code: string } | null> {
-  const code = suggestCategoryCode(titleQuery);
-
-  if (!code) {
-    return null;
-  }
-
+  titleQuery: string,
+  matches: SimilarExpenseMatch[] = []
+): Promise<CategorySuggestion | null> {
   try {
+    const fromHistory = await suggestCategoryFromHistory(userId, matches);
+    if (fromHistory) {
+      return fromHistory;
+    }
+
+    const code = suggestCategoryCode(titleQuery);
+    if (!code) {
+      return null;
+    }
+
     const category = await prisma.category.findFirst({
       where: { code, isActive: true, OR: [{ userId: null }, { userId }] },
     });
 
-    return category ? { categoryId: category.id, code: category.code } : null;
+    return category ? { categoryId: category.id, code: category.code, source: 'keyword' } : null;
   } catch (error) {
     if (error instanceof AppError) {
       throw error;

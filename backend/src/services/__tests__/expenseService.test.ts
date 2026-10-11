@@ -59,6 +59,12 @@ describe('ExpenseService', () => {
       ({ where }: { where: { id: number } }) =>
         Promise.resolve({ id: where.id, name: 'Liverpool', userId: 1 })
     );
+
+    // themeId validation resolves to a visible theme by default.
+    (prisma.theme.findUnique as jest.Mock).mockImplementation(
+      ({ where }: { where: { id: number } }) =>
+        Promise.resolve({ id: where.id, name: 'Holiday', userId: 1 })
+    );
   });
 
   // TODO: Update all createExpense tests to include groupId parameter
@@ -440,6 +446,7 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible labelId', async () => {
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1, isActive: true });
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
 
       await expenseService.createExpense({
@@ -470,6 +477,57 @@ describe('ExpenseService', () => {
           expenseDate: new Date().toISOString(),
         })
       ).rejects.toThrow('LABEL.NOT_FOUND');
+      expect(prisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('persists a valid, visible themeId', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 1, isActive: true });
+      (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await expenseService.createExpense({
+        title: 'Fuel',
+        amount: 50,
+        paidById: 1,
+        categoryId: 1,
+        groupId: 1,
+        themeId: 4,
+        expenseDate: new Date().toISOString(),
+      });
+
+      const callArgs = (prisma.expense.create as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.theme).toEqual({ connect: { id: 4 } });
+    });
+
+    it('leaves theme unset when no themeId is given', async () => {
+      (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await expenseService.createExpense({
+        title: 'Fuel',
+        amount: 50,
+        paidById: 1,
+        categoryId: 1,
+        groupId: 1,
+        expenseDate: new Date().toISOString(),
+      });
+
+      const callArgs = (prisma.expense.create as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.theme).toBeUndefined();
+    });
+
+    it('throws AppError when themeId is not visible to the caller', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 99 });
+
+      await expect(
+        expenseService.createExpense({
+          title: 'Fuel',
+          amount: 50,
+          paidById: 1,
+          categoryId: 1,
+          groupId: 1,
+          themeId: 4,
+          expenseDate: new Date().toISOString(),
+        })
+      ).rejects.toThrow('THEME.NOT_FOUND');
       expect(prisma.expense.create).not.toHaveBeenCalled();
     });
 
@@ -671,12 +729,27 @@ describe('ExpenseService', () => {
     });
 
     it('persists a valid, visible labelId', async () => {
-      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1 });
+      (prisma.label.findUnique as jest.Mock).mockResolvedValue({ id: 7, userId: 1, isActive: true });
 
       await expenseService.updateExpense(1, 1, { labelId: 7 });
 
       const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];
       expect(callArgs.data.label).toEqual({ connect: { id: 7 } });
+    });
+
+    it('persists a valid, visible themeId', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue({ id: 4, userId: 1, isActive: true });
+      await expenseService.updateExpense(1, 1, { themeId: 4 });
+
+      const callArgs = (prisma.expense.update as jest.Mock).mock.calls[0][0];
+      expect(callArgs.data.theme).toEqual({ connect: { id: 4 } });
+    });
+
+    it('throws AppError when themeId is not visible to the requestor', async () => {
+      (prisma.theme.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(expenseService.updateExpense(1, 1, { themeId: 999 })).rejects.toThrow('THEME.NOT_FOUND');
+      expect(prisma.expense.update).not.toHaveBeenCalled();
     });
 
     it('throws AppError when labelId is invalid or not visible to the requestor', async () => {
@@ -797,9 +870,49 @@ describe('ExpenseService', () => {
 
       const suggestion = await expenseService.suggestCategoryForTitle(1, 'Gas station fill-up');
 
-      expect(suggestion).toEqual({ categoryId: 3, code: 'TRAVEL' });
+      expect(suggestion).toEqual({ categoryId: 3, code: 'TRAVEL', source: 'keyword' });
       expect(prisma.category.findFirst).toHaveBeenCalledWith({
         where: { code: 'TRAVEL', isActive: true, OR: [{ userId: null }, { userId: 1 }] },
+      });
+    });
+
+    describe('history-based suggestion', () => {
+      const match = (expenseId: number, categoryId: number) => ({
+        expenseId, title: 'Dinner out', amount: 10, categoryId, splitWithIds: [],
+      });
+
+      it('suggests the most-used category among matches, beating the dictionary', async () => {
+        (prisma.category.findMany as jest.Mock).mockResolvedValue([
+          { id: 7, code: 'OTHER' },
+          { id: 8, code: 'ENTERTAINMENT' },
+        ]);
+
+        const suggestion = await expenseService.suggestCategoryForTitle(1, 'dinner', [
+          match(1, 8), match(2, 7), match(3, 7),
+        ]);
+
+        expect(suggestion).toEqual({ categoryId: 7, code: 'OTHER', source: 'history' });
+        expect(prisma.category.findFirst).not.toHaveBeenCalled();
+      });
+
+      it('breaks ties in favour of the best-ranked (first) match', async () => {
+        (prisma.category.findMany as jest.Mock).mockResolvedValue([
+          { id: 7, code: 'OTHER' },
+          { id: 8, code: 'ENTERTAINMENT' },
+        ]);
+
+        const suggestion = await expenseService.suggestCategoryForTitle(1, 'dinner', [match(1, 8), match(2, 7)]);
+
+        expect(suggestion?.categoryId).toBe(8);
+      });
+
+      it('ignores history categories the user cannot select and falls back to the dictionary', async () => {
+        (prisma.category.findMany as jest.Mock).mockResolvedValue([]);
+        (prisma.category.findFirst as jest.Mock).mockResolvedValue({ id: 2, code: 'FOOD' });
+
+        const suggestion = await expenseService.suggestCategoryForTitle(1, 'dinners', [match(1, 9)]);
+
+        expect(suggestion).toEqual({ categoryId: 2, code: 'FOOD', source: 'keyword' });
       });
     });
 

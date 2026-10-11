@@ -35,6 +35,7 @@ jest.mock('../lib/prisma', () => ({
     group: {
       create: jest.fn(),
       findMany: jest.fn(),
+      groupBy: jest.fn(),
       findUnique: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
@@ -62,12 +63,14 @@ jest.mock('../lib/prisma', () => ({
     theme: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
     label: {
       create: jest.fn(),
       findMany: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
     },

@@ -1,0 +1,38 @@
+appId: com.navindalmia.expensemanager
+---
+# PR #90: Manage Labels screen with a disabled row (dimmed, Disabled tag, Enable button). Fixtures: "QA Label" active, "QA Retired Label" disabled.
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "home-manage-labels-button"
+- assertVisible:
+    id: "manage-labels-list"
+- assertVisible:
+    text: "QA Retired Label"
+- assertVisible:
+    text: "Disabled"
+- assertVisible:
+    text: "Enable"
+- assertScreenshot: "manage-labels-screen"

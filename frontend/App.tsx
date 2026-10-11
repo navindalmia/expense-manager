@@ -13,6 +13,7 @@ import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 import EditExpenseScreen from './src/screens/EditExpenseScreen';
 import { SettlementScreen } from './src/screens/SettlementScreen';
 import ManageLabelsScreen from './src/screens/ManageLabelsScreen';
+import ManageThemesScreen from './src/screens/ManageThemesScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { setOnUnauthorized } from './src/api/http/interceptors';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
@@ -127,6 +128,11 @@ function AppNavigator() {
               name="ManageLabels"
               component={ManageLabelsScreen}
               options={{ title: 'Manage Labels' }}
+            />
+            <Stack.Screen
+              name="ManageThemes"
+              component={ManageThemesScreen}
+              options={{ title: 'Manage Themes' }}
             />
             {/* TODO: Add ExpenseDetailScreen component */}
             {/* <Stack.Screen 
