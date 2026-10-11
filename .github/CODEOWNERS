@@ -7,3 +7,5 @@
 /backend/src/__tests__/regression/ @navindalmia
 /frontend/src/__tests__/regression/ @navindalmia
 /e2e/regression/ @navindalmia
+/.github/ @navindalmia
+/scripts/promotion-source.js @navindalmia

@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [master, staging]
 
 # Least privilege: no job here needs to write to the repo, PRs or packages (deploy uses a Render secret via curl).
 permissions:
@@ -269,6 +269,54 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"clearCache":"do_not_clear"}' \
             https://api.render.com/v1/services/srv-d9n52drl550s739au83g/deploys
+
+  # Staging CD. INERT until the owner sets repo variable STAGING_ENABLED=true
+  # (and creates the Render staging service + secrets) - merging this job
+  # changes nothing for production. See docs/staging-environment.md.
+  deploy-staging:
+    needs: [backend-test, frontend-test]
+    if: vars.STAGING_ENABLED == 'true' && github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      RENDER_STAGING_API_KEY: ${{ secrets.RENDER_STAGING_API_KEY }}
+      RENDER_STAGING_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
+      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+    steps:
+      - name: Trigger Render staging deploy and wait until it is live
+        run: |
+          set -euo pipefail
+          API="https://api.render.com/v1/services/${RENDER_STAGING_SERVICE_ID}/deploys"
+          DEPLOY_ID="$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${RENDER_STAGING_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":"do_not_clear"}' "$API" | jq -r '.id')"
+          if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
+            echo "::error::Render did not return a deploy id"; exit 1
+          fi
+          echo "Deploy id: $DEPLOY_ID"
+          # Wait for THIS deploy (not the previous one) to finish: up to ~20 min.
+          for i in $(seq 1 80); do
+            STATUS="$(curl -fsS -H "Authorization: Bearer ${RENDER_STAGING_API_KEY}" "$API/$DEPLOY_ID" | jq -r '.status')"
+            echo "Attempt $i: $STATUS"
+            case "$STATUS" in
+              live) break ;;
+              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+                echo "::error::Staging deploy ended with status $STATUS"; exit 1 ;;
+            esac
+            if [ "$i" -eq 80 ]; then echo "::error::Timed out waiting for deploy"; exit 1; fi
+            sleep 15
+          done
+      - name: Smoke test staging health
+        run: |
+          set -euo pipefail
+          # STAGING_API_URL includes the /api suffix (same shape as EXPO_PUBLIC_API_BASE_URL).
+          for i in $(seq 1 10); do
+            if curl -fsS --max-time 30 "$STAGING_API_URL/internal/health"; then
+              echo; echo "Staging healthy"; exit 0
+            fi
+            echo "Attempt $i: not healthy yet"; sleep 15
+          done
+          echo "::error::Staging health check failed after deploy went live"; exit 1
 
   # Maestro sharding: the number of parallel e2e-mobile shards is configured HERE
   # and only here. Wall-clock shrinks roughly by the shard count, but total

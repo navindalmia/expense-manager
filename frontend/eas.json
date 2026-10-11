@@ -31,6 +31,17 @@
     "production": {
       "autoIncrement": true,
       "channel": "production"
+    },
+    "staging": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_VARIANT": "staging",
+        "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE-WITH-STAGING-RENDER-HOST.onrender.com/api"
+      },
+      "channel": "staging"
     }
   },
   "submit": {

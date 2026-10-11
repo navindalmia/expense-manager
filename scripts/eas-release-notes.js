@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Builds a short, human-readable "what changed" summary for an EAS build/update.
-//   node scripts/eas-release-notes.js <before-sha> <head-sha>
+//   node scripts/eas-release-notes.js [--list] <before-sha> <head-sha>
+// --list prints a markdown bullet list instead of one line.
 // Prints one line to stdout. Source is the commit subjects in before..head;
 // squash-merged commits carry the PR title as their subject, so those are
 // already written for a reader. Terse or empty subjects are dropped, and when
@@ -43,6 +44,17 @@ function buildReleaseNotes(subjects) {
   return joined.length > MAX_LENGTH ? `${joined.slice(0, MAX_LENGTH - 3).trimEnd()}...` : joined;
 }
 
+// Markdown bullet list of the same cleaned subjects (for job summaries, GitHub
+// Releases and promotion PR bodies). Same filtering as buildReleaseNotes.
+function buildReleaseNotesList(subjects) {
+  const notes = subjects
+    .filter((subject) => !/^merge\b/i.test(subject.trim()))
+    .map(cleanSubject)
+    .filter(isMeaningful)
+    .map((text) => `- ${text.charAt(0).toUpperCase() + text.slice(1)}`);
+  return notes.length === 0 ? `- ${FALLBACK}` : notes.join('\n');
+}
+
 function readSubjects(before, head) {
   const range = !before || NULL_SHA.test(before) ? `${head}~1..${head}` : `${before}..${head}`;
   try {
@@ -54,8 +66,11 @@ function readSubjects(before, head) {
 }
 
 if (require.main === module) {
-  const [before, head = 'HEAD'] = process.argv.slice(2);
-  process.stdout.write(`${buildReleaseNotes(readSubjects(before, head))}\n`);
+  const args = process.argv.slice(2);
+  const asList = args[0] === '--list';
+  const [before, head = 'HEAD'] = asList ? args.slice(1) : args;
+  const subjects = readSubjects(before, head);
+  process.stdout.write(`${asList ? buildReleaseNotesList(subjects) : buildReleaseNotes(subjects)}\n`);
 }
 
-module.exports = { buildReleaseNotes, cleanSubject };
+module.exports = { buildReleaseNotes, buildReleaseNotesList, cleanSubject };

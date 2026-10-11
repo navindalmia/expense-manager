@@ -1,6 +1,6 @@
 /**
  * Issue #90: setLayoutAnimationEnabledExperimental is a no-op under the New
- * Architecture (app.json newArchEnabled: true) and logs a LogBox warning at
+ * Architecture (app.config.js newArchEnabled: true) and logs a LogBox warning at
  * app open. Source-level scan (the warning is native-only, not reproducible
  * in jsdom) across non-test sources.
  */
