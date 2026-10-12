@@ -1,0 +1,52 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #100 (category picker): the Category/Label/Theme picker's search input must stay visible
+# above the on-screen keyboard (TypeAheadDropdown's own KeyboardAvoidingView).
+# Uses the standing QA fixtures (test@test.com, "QA Test Group", "Diberr Repro").
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    text: "Diberr Repro"
+- assertVisible:
+    id: "edit-expense-label-picker-button"
+- tapOn:
+    id: "edit-expense-category-picker-button"
+- tapOn:
+    id: "edit-expense-category-filter-input"
+- assertVisible:
+    id: "edit-expense-category-filter-input"
+- assertVisible:
+    id: "edit-expense-category-add-new-button"
+- assertVisible:
+    id: "edit-expense-category-modal-close-button"
+# 'Add new' create form: Create button must be fully above the keyboard.
+- tapOn:
+    id: "edit-expense-category-add-new-button"
+- inputText: "Kbd"
+- assertVisible:
+    id: "edit-expense-category-create-submit-button"
