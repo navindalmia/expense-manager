@@ -278,7 +278,7 @@ jobs:
     if: vars.STAGING_ENABLED == 'true' && github.ref == 'refs/heads/staging' && github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
-      RENDER_STAGING_API_KEY: ${{ secrets.RENDER_STAGING_API_KEY }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_STAGING_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
       STAGING_API_URL: ${{ vars.STAGING_API_URL }}
     steps:
@@ -287,7 +287,7 @@ jobs:
           set -euo pipefail
           API="https://api.render.com/v1/services/${RENDER_STAGING_SERVICE_ID}/deploys"
           DEPLOY_ID="$(curl -fsS -X POST \
-            -H "Authorization: Bearer ${RENDER_STAGING_API_KEY}" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Content-Type: application/json" \
             -d '{"clearCache":"do_not_clear"}' "$API" | jq -r '.id')"
           if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
@@ -296,7 +296,7 @@ jobs:
           echo "Deploy id: $DEPLOY_ID"
           # Wait for THIS deploy (not the previous one) to finish: up to ~20 min.
           for i in $(seq 1 80); do
-            STATUS="$(curl -fsS -H "Authorization: Bearer ${RENDER_STAGING_API_KEY}" "$API/$DEPLOY_ID" | jq -r '.status')"
+            STATUS="$(curl -fsS -H "Authorization: Bearer ${RENDER_API_KEY}" "$API/$DEPLOY_ID" | jq -r '.status')"
             echo "Attempt $i: $STATUS"
             case "$STATUS" in
               live) break ;;
@@ -306,13 +306,19 @@ jobs:
             if [ "$i" -eq 80 ]; then echo "::error::Timed out waiting for deploy"; exit 1; fi
             sleep 15
           done
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
       - name: Smoke test staging health
         run: |
           set -euo pipefail
-          # STAGING_API_URL includes the /api suffix (same shape as EXPO_PUBLIC_API_BASE_URL).
+          # STAGING_API_URL includes the /api suffix; /api/internal/* is not mounted
+          # in production, so poll the host root health route instead.
+          ROOT_URL="$(node scripts/staging-health-url.js "$STAGING_API_URL")"
           for i in $(seq 1 10); do
-            if curl -fsS --max-time 30 "$STAGING_API_URL/internal/health"; then
-              echo; echo "Staging healthy"; exit 0
+            BODY="$(curl -fsS --max-time 30 "$ROOT_URL" || true)"
+            if printf '%s' "$BODY" | grep -q "Expense Manager API running"; then
+              echo "Staging healthy"; exit 0
             fi
             echo "Attempt $i: not healthy yet"; sleep 15
           done
