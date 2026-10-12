@@ -27,9 +27,9 @@ APP_ID="${MAESTRO_APP_ID:-com.navindalmia.expensemanager}"
 SETTLE_SECS="${SETTLE_SECS:-4}"
 RETRY_SETTLE_SECS="${RETRY_SETTLE_SECS:-10}"
 reset_app() {
-  "$ADB_BIN" shell am force-stop "$APP_ID" || true
-  "$ADB_BIN" shell pm clear "$APP_ID" || true
-  "$ADB_BIN" shell input keyevent KEYCODE_HOME || true
+  "$ADB_BIN" shell am force-stop "$APP_ID" || :
+  "$ADB_BIN" shell pm clear "$APP_ID" || :
+  "$ADB_BIN" shell input keyevent KEYCODE_HOME || :
   "$SLEEP_BIN" "$SETTLE_SECS"
 }
 # Retry only infrastructure/app-launch failures; never screenshot or other assertion failures.
