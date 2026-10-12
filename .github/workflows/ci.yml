@@ -278,7 +278,7 @@ jobs:
     if: vars.STAGING_ENABLED == 'true' && github.ref == 'refs/heads/staging' && github.event_name == 'push'
     runs-on: ubuntu-latest
     env:
-      RENDER_STAGING_API_KEY: ${{ secrets.RENDER_STAGING_API_KEY }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       RENDER_STAGING_SERVICE_ID: ${{ secrets.RENDER_STAGING_SERVICE_ID }}
       STAGING_API_URL: ${{ vars.STAGING_API_URL }}
     steps:
@@ -287,7 +287,7 @@ jobs:
           set -euo pipefail
           API="https://api.render.com/v1/services/${RENDER_STAGING_SERVICE_ID}/deploys"
           DEPLOY_ID="$(curl -fsS -X POST \
-            -H "Authorization: Bearer ${RENDER_STAGING_API_KEY}" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
             -H "Content-Type: application/json" \
             -d '{"clearCache":"do_not_clear"}' "$API" | jq -r '.id')"
           if [ -z "$DEPLOY_ID" ] || [ "$DEPLOY_ID" = "null" ]; then
@@ -296,7 +296,7 @@ jobs:
           echo "Deploy id: $DEPLOY_ID"
           # Wait for THIS deploy (not the previous one) to finish: up to ~20 min.
           for i in $(seq 1 80); do
-            STATUS="$(curl -fsS -H "Authorization: Bearer ${RENDER_STAGING_API_KEY}" "$API/$DEPLOY_ID" | jq -r '.status')"
+            STATUS="$(curl -fsS -H "Authorization: Bearer ${RENDER_API_KEY}" "$API/$DEPLOY_ID" | jq -r '.status')"
             echo "Attempt $i: $STATUS"
             case "$STATUS" in
               live) break ;;
