@@ -45,9 +45,6 @@ appId: com.navindalmia.expensemanager
     id: "about-screen"
 - assertVisible:
     text: "Version 1.0.0"
-# Crop to the summary block (name, version, environment) only: the rows below
-# hold build number, update id/date and server host, which vary per build.
-- assertScreenshot:
-    path: "about-screen"
-    cropOn:
-      id: "about-summary"
+# Full-screen baseline: in CI the build is embedded with no build number and a
+# fixed emulator host, so the rows below the summary are deterministic.
+- assertScreenshot: "about-screen"
