@@ -24,6 +24,8 @@ import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 
+import { KeyboardInsetView } from '../hooks/useKeyboardInset';
+
 interface AddMemberModalProps {
   visible: boolean;
   group: Group | null;
@@ -300,10 +302,12 @@ export default function AddMemberModal({
     <Modal
       animationType="fade"
       transparent
+      statusBarTranslucent
+      navigationBarTranslucent
       visible={visible}
       onRequestClose={handleClose}
     >
-      <View style={styles.centeredView}>
+      <KeyboardInsetView style={styles.centeredView}>
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Add Members</Text>
           <Text style={styles.subtitle}>Invite people to join "{group?.name}"</Text>
@@ -418,7 +422,7 @@ export default function AddMemberModal({
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardInsetView>
     </Modal>
   );
 }
