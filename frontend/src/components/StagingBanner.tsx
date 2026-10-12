@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isStaging } from '../utils/appVariant';
+import { getUpdateLabel } from '../utils/updateInfo';
 
 // Static string: the app has no i18n layer for static UI text yet (screen titles are literals too).
 export const STAGING_BANNER_TEXT = 'STAGING - test data only';
@@ -15,10 +16,11 @@ export default function StagingBanner(): React.ReactElement | null {
 
 function StagingStrip(): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const update = getUpdateLabel();
   return (
     <View style={[styles.strip, { paddingTop: insets.top }]} testID="staging-banner">
       <Text accessibilityRole="text" style={styles.text}>
-        {STAGING_BANNER_TEXT}
+        {update ? `${STAGING_BANNER_TEXT} | ${update}` : STAGING_BANNER_TEXT}
       </Text>
     </View>
   );
