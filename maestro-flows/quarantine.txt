@@ -1,1 +1,0 @@
-picker-keyboard-search-visible  #100  picker search hidden by keyboard on edge-to-edge API 34 emulator; works in Expo Go

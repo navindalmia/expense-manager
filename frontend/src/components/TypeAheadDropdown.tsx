@@ -25,6 +25,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 import { getErrorMessage } from '../utils/errorHandler';
 
 export interface TypeAheadItem {
@@ -48,6 +49,7 @@ interface TypeAheadDropdownProps {
 const styles = StyleSheet.create({
   pickerModal: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   keyboardAvoider: { flex: 1, justifyContent: 'flex-end' },
+  insetFill: { flex: 1, justifyContent: 'flex-end' },
   pickerContent: { backgroundColor: '#fff', borderTopLeftRadius: 12, borderTopRightRadius: 12, paddingTop: 12, paddingBottom: 20, maxHeight: '80%' },
   pickerHeader: { paddingHorizontal: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerTitle: { fontSize: 16, fontWeight: '700', color: '#000' },
@@ -137,13 +139,14 @@ export default function TypeAheadDropdown({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
+    <Modal visible={visible} transparent statusBarTranslucent navigationBarTranslucent animationType="slide" onRequestClose={resetAndClose}>
       <SafeAreaView style={styles.pickerModal}>
         <KeyboardAvoidingView
           style={styles.keyboardAvoider}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           testID={`${testIDPrefix}-keyboard-avoiding-view`}
         >
+          <KeyboardInsetView style={styles.insetFill}>
           <View style={styles.pickerContent}>
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>{title}</Text>
@@ -222,6 +225,7 @@ export default function TypeAheadDropdown({
               </>
             )}
           </View>
+          </KeyboardInsetView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>

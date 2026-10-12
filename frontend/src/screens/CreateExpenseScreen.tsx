@@ -27,6 +27,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
 import { useAuth } from '../context/AuthContext';
 import { getCategories, type Category } from '../services/categoryService';
+import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 import { useSplitCalculator, SplitMembersInput, DatePickerModal } from './EditExpenseScreen/index';
 
 const styles = StyleSheet.create({
@@ -342,9 +343,10 @@ export default function CreateExpenseScreen({
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
+      <KeyboardInsetView style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -708,6 +710,7 @@ export default function CreateExpenseScreen({
           </SafeAreaView>
         </Modal>
       </ScrollView>
+      </KeyboardInsetView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

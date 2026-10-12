@@ -21,6 +21,7 @@ import { updateGroup, Group } from '../services/groupService';
 import CurrencyPicker from './CurrencyPicker';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import FieldHelp from './FieldHelp';
+import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
 import { logger } from '../utils/logger';
@@ -261,10 +262,12 @@ export default function EditGroupModal({
     <Modal
       animationType="fade"
       transparent
+      statusBarTranslucent
+      navigationBarTranslucent
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.centeredView}>
+      <KeyboardInsetView style={styles.centeredView}>
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Edit Group</Text>
 
@@ -398,7 +401,7 @@ export default function EditGroupModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardInsetView>
 
       {/* Add Member Modal */}
       <AddMemberModal

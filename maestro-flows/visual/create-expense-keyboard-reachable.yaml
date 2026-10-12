@@ -1,0 +1,50 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #100: with the Amount field focused and the keyboard open, the form's
+# lower fields (Label, Theme) must remain reachable by scrolling, even when
+# the window does not resize for the IME (edge-to-edge Android).
+# No screenshot step: baselines may only come from CI emulator artifacts.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    id: "add-expense-button"
+- assertVisible:
+    text: "Create Expense"
+- tapOn:
+    id: "edit-expense-amount-input"
+- inputText: "12.50"
+- scrollUntilVisible:
+    element:
+      id: "edit-expense-label-picker-button"
+- assertVisible:
+    id: "edit-expense-label-picker-button"
+- scrollUntilVisible:
+    element:
+      id: "edit-expense-theme-picker-button"
+- assertVisible:
+    id: "edit-expense-theme-picker-button"

@@ -8,6 +8,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 import { View, Modal, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getErrorMessage } from '../utils/errorHandler';
@@ -76,8 +77,9 @@ export default function RenameModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent statusBarTranslucent navigationBarTranslucent animationType="fade" onRequestClose={onCancel}>
       <SafeAreaView style={styles.backdrop}>
+        <KeyboardInsetView style={{ flex: 1, justifyContent: 'center' }}>
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
           <TextInput
@@ -116,6 +118,7 @@ export default function RenameModal({
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardInsetView>
       </SafeAreaView>
     </Modal>
   );
