@@ -28,6 +28,10 @@ export function useKeyboardInset(): {
   const [inset, setInset] = useState(0);
 
   const remeasure = useCallback((): void => {
+    // Keyboard.metrics()/isVisible() are the source of truth: when focus moves
+    // between inputs Android can emit hide without a following show event.
+    const m = Keyboard.isVisible() ? Keyboard.metrics() : undefined;
+    keyboardTop.current = m ? m.screenY : keyboardTop.current;
     if (keyboardTop.current === null) {
       setInset(0);
       return;
@@ -40,6 +44,13 @@ export function useKeyboardInset(): {
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
+    const recheck = (): void => {
+      if (!Keyboard.isVisible()) {
+        keyboardTop.current = null;
+      }
+      remeasure();
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const show = Keyboard.addListener('keyboardDidShow', (e) => {
       keyboardTop.current = e.endCoordinates.screenY;
       remeasure();
@@ -47,10 +58,13 @@ export function useKeyboardInset(): {
     const hide = Keyboard.addListener('keyboardDidHide', () => {
       keyboardTop.current = null;
       setInset(0);
+      // If the keyboard re-opens for the next input without a show event, recover.
+      timer = setTimeout(recheck, 250);
     });
     return () => {
       show.remove();
       hide.remove();
+      if (timer) clearTimeout(timer);
     };
   }, [remeasure]);
 

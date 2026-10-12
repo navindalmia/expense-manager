@@ -10,6 +10,7 @@ import { render, act } from '@testing-library/react';
 
 type Listener = (e?: { endCoordinates: { screenY: number } }) => void;
 const listeners: Record<string, Listener> = {};
+let kbVisible = false;
 let measured = { y: 0, height: 800 };
 
 vi.mock('react-native', async () => {
@@ -17,6 +18,8 @@ vi.mock('react-native', async () => {
   return {
     Platform: { OS: 'android' },
     Keyboard: {
+      isVisible: () => kbVisible,
+      metrics: () => ({ screenY: 500 }),
       addListener: (name: string, cb: Listener) => {
         listeners[name] = cb;
         return { remove: vi.fn() };
@@ -36,6 +39,7 @@ vi.mock('react-native', async () => {
 import { computeKeyboardOverlap, KeyboardInsetView } from '../../hooks/useKeyboardInset';
 
 beforeEach(() => {
+  kbVisible = false;
   measured = { y: 0, height: 800 };
 });
 
@@ -53,8 +57,10 @@ describe('issue #100: keyboard overlap inset', () => {
   it('should pad by the overlap on keyboardDidShow and reset on hide', () => {
     const { getByTestId } = render(<KeyboardInsetView>x</KeyboardInsetView>);
     expect(getByTestId('v').getAttribute('data-pb')).toBe('0');
+    kbVisible = true;
     act(() => listeners.keyboardDidShow({ endCoordinates: { screenY: 500 } }));
     expect(getByTestId('v').getAttribute('data-pb')).toBe('300');
+    kbVisible = false;
     act(() => listeners.keyboardDidHide());
     expect(getByTestId('v').getAttribute('data-pb')).toBe('0');
   });
@@ -62,7 +68,20 @@ describe('issue #100: keyboard overlap inset', () => {
   it('should add no padding when the container already ends above the keyboard', () => {
     measured = { y: 0, height: 500 };
     const { getByTestId } = render(<KeyboardInsetView>x</KeyboardInsetView>);
+    kbVisible = true;
     act(() => listeners.keyboardDidShow({ endCoordinates: { screenY: 500 } }));
     expect(getByTestId('v').getAttribute('data-pb')).toBe('0');
+  });
+
+  it('should recover the inset when the keyboard re-opens after a hide with no show event', () => {
+    vi.useFakeTimers();
+    const { getByTestId } = render(<KeyboardInsetView>x</KeyboardInsetView>);
+    kbVisible = true;
+    act(() => listeners.keyboardDidShow({ endCoordinates: { screenY: 500 } }));
+    act(() => listeners.keyboardDidHide());
+    expect(getByTestId('v').getAttribute('data-pb')).toBe('0');
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(getByTestId('v').getAttribute('data-pb')).toBe('300');
+    vi.useRealTimers();
   });
 });
