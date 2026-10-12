@@ -39,7 +39,7 @@
       },
       "env": {
         "APP_VARIANT": "staging",
-        "EXPO_PUBLIC_API_BASE_URL": "https://REPLACE-WITH-STAGING-RENDER-HOST.onrender.com/api"
+        "EXPO_PUBLIC_API_BASE_URL": "https://expense-manager-staging.onrender.com/api"
       },
       "channel": "staging"
     }
