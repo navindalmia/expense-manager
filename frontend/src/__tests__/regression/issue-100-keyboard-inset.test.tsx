@@ -85,3 +85,14 @@ describe('issue #100: keyboard overlap inset', () => {
     vi.useRealTimers();
   });
 });
+
+describe('issue #100: scroll focused input above the keyboard', () => {
+  it('should compute a positive delta when the field bottom is under the keyboard', async () => {
+    const { computeScrollDelta } = await import('../../hooks/useKeyboardInset');
+    expect(computeScrollDelta(1600, 1517)).toBe(107);
+  });
+  it('should compute zero when the field already clears the keyboard', async () => {
+    const { computeScrollDelta } = await import('../../hooks/useKeyboardInset');
+    expect(computeScrollDelta(1000, 1517)).toBe(0);
+  });
+});

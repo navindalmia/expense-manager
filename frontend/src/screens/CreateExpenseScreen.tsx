@@ -27,7 +27,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { http } from '../api/http';
 import { useAuth } from '../context/AuthContext';
 import { getCategories, type Category } from '../services/categoryService';
-import { KeyboardInsetView } from '../hooks/useKeyboardInset';
+import { KeyboardInsetView, useScrollFocusedInputIntoView } from '../hooks/useKeyboardInset';
 import { useSplitCalculator, SplitMembersInput, DatePickerModal } from './EditExpenseScreen/index';
 
 const styles = StyleSheet.create({
@@ -186,6 +186,7 @@ export default function CreateExpenseScreen({
   navigation, 
   route,
 }: CreateExpenseScreenProps) {
+  const { scrollRef, scrollProps } = useScrollFocusedInputIntoView();
   const { groupId, groupName, groupCurrencyCode = 'GBP' } = route.params || { 
     groupId: 0, 
     groupName: '', 
@@ -348,6 +349,8 @@ export default function CreateExpenseScreen({
       >
       <KeyboardInsetView style={{ flex: 1 }}>
       <ScrollView
+        ref={scrollRef}
+        {...scrollProps}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >

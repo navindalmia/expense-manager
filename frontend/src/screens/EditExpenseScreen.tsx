@@ -23,7 +23,7 @@ import { AccordionSection } from '../components/AccordionSection';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import FieldHelp from '../components/FieldHelp';
-import { KeyboardInsetView } from '../hooks/useKeyboardInset';
+import { KeyboardInsetView, useScrollFocusedInputIntoView } from '../hooks/useKeyboardInset';
 
 // Sentinel picker row id (real theme ids are positive) meaning "clear the theme".
 const NO_THEME_ID = 0;
@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
 });
 
 export default function EditExpenseScreen({ navigation, route }: EditExpenseScreenProps) {
+  const { scrollRef, scrollProps } = useScrollFocusedInputIntoView();
   const { expenseId, groupId, groupName, groupCurrencyCode = 'GBP' } = route.params || {};
   const { user } = useAuth();
   
@@ -405,7 +406,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <KeyboardInsetView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scrollRef} {...scrollProps} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><SafeAreaView style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)} testID="edit-expense-paid-by-modal-close-button"><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }} testID={`edit-expense-paid-by-option-${member.id}`}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></SafeAreaView></Modal>
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
         <View style={[styles.formSection, suggestedMatches.length > 0 && styles.formSectionRaised]}>
@@ -572,7 +573,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
 
         <View style={styles.formSection}><Text style={styles.label}>Split (Optional)</Text><SplitMembersInput members={groupMembers} paidById={formState.paidById} splitWithIds={splitState.splitWithIds} splitAmount={splitState.splitAmount} splitPercentage={splitState.splitPercentage} splitType={splitState.splitType} totalAmount={formState.amount} currency={currency} onAddMember={addMember} onRemoveMember={removeMember} onUpdateAmount={updateAmount} onUpdatePercentage={updatePercentage} errors={formState.errors} /></View>
 
-        <AccordionSection title="Additional Notes" isOptional={true} defaultExpanded={formState.notes.length > 0}><TextInput style={[styles.input, styles.notesInput]} placeholder="Add details..." value={formState.notes} onChangeText={val => updateField('notes', val)} multiline editable={!submitting} /></AccordionSection>
+        <AccordionSection title="Additional Notes" isOptional={true} defaultExpanded={formState.notes.length > 0}><TextInput style={[styles.input, styles.notesInput]} testID="edit-expense-notes-input" placeholder="Add details..." value={formState.notes} onChangeText={val => updateField('notes', val)} multiline editable={!submitting} /></AccordionSection>
 
         <View style={styles.stickyFooter}>
           {!isCreateMode && (

@@ -11,7 +11,7 @@
  * iOS keeps KeyboardAvoidingView and always gets 0 here.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, View, ViewProps } from 'react-native';
+import { Keyboard, Platform, ScrollView, TextInput, View, ViewProps } from 'react-native';
 
 export function computeKeyboardOverlap(containerBottom: number | null, keyboardTop: number | null): number {
   if (containerBottom === null || keyboardTop === null) return 0;
@@ -79,4 +79,64 @@ export function KeyboardInsetView({ style, children, ...rest }: ViewProps): Reac
       {children}
     </View>
   );
+}
+
+/** How far (px) to scroll so a field's bottom clears the visible bottom by `margin`; 0 if already clear. */
+export function computeScrollDelta(fieldBottom: number, visibleBottom: number, margin = 24): number {
+  return Math.max(0, Math.round(fieldBottom + margin - visibleBottom));
+}
+
+/**
+ * Keeps the focused TextInput visible above the keyboard inside a ScrollView.
+ * Spread `scrollProps` on the ScrollView and attach `scrollRef`. Fires on
+ * keyboard show and after any touch (covers moving focus between inputs while
+ * the keyboard stays up, where Android emits no show event).
+ */
+export function useScrollFocusedInputIntoView(): {
+  scrollRef: React.RefObject<ScrollView | null>;
+  scrollProps: { onScroll: (e: { nativeEvent: { contentOffset: { y: number } } }) => void; onTouchEnd: () => void; scrollEventThrottle: number };
+} {
+  const scrollRef = useRef<ScrollView>(null);
+  const offsetY = useRef(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const reveal = useCallback((): void => {
+    if (Platform.OS !== 'android' || !Keyboard.isVisible()) return;
+    const keyboardTop = Keyboard.metrics()?.screenY;
+    const field = TextInput.State.currentlyFocusedInput?.();
+    const sv = scrollRef.current;
+    if (keyboardTop === undefined || !field || !sv) return;
+    (sv as unknown as View).measureInWindow((_x: number, svY: number, _w: number, svH: number) => {
+      const visibleBottom = Math.min(svY + svH, keyboardTop);
+      field.measureInWindow((_fx: number, fy: number, _fw: number, fh: number) => {
+        const delta = computeScrollDelta(fy + fh, visibleBottom);
+        if (delta > 0) sv.scrollTo({ y: offsetY.current + delta, animated: true });
+      });
+    });
+  }, []);
+
+  const schedule = useCallback((): void => {
+    // Wait for the inset padding to apply, then re-check once more.
+    timers.current.push(setTimeout(reveal, 120), setTimeout(reveal, 400));
+  }, [reveal]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+    const sub = Keyboard.addListener('keyboardDidShow', schedule);
+    return () => {
+      sub.remove();
+      timers.current.forEach(clearTimeout);
+    };
+  }, [schedule]);
+
+  return {
+    scrollRef,
+    scrollProps: {
+      onScroll: (e) => {
+        offsetY.current = e.nativeEvent.contentOffset.y;
+      },
+      onTouchEnd: schedule,
+      scrollEventThrottle: 16,
+    },
+  };
 }

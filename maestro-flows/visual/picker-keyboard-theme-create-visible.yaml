@@ -40,6 +40,8 @@ appId: com.navindalmia.expensemanager
     id: "edit-expense-theme-filter-input"
 - assertVisible:
     id: "edit-expense-theme-filter-input"
+    above:
+      id: "com.google.android.inputmethod.latin:id/keyboard_holder"
 - assertVisible:
     id: "edit-expense-theme-add-new-button"
 - assertVisible:
@@ -50,3 +52,11 @@ appId: com.navindalmia.expensemanager
 - inputText: "Kbd"
 - assertVisible:
     id: "edit-expense-theme-create-submit-button"
+    above:
+      id: "com.google.android.inputmethod.latin:id/keyboard_holder"
+- assertVisible:
+    id: "edit-expense-theme-create-input"
+    above:
+      id: "com.google.android.inputmethod.latin:id/keyboard_holder"
+- assertVisible:
+    text: "Kbd"

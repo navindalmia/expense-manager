@@ -1,0 +1,72 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #100 (focused input): with the Amount field focused and the keyboard open, the form's
+# lower fields (Label, Theme) must remain reachable by scrolling, even when
+# the window does not resize for the IME (edge-to-edge Android).
+# No screenshot step: baselines may only come from CI emulator artifacts.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    id: "add-expense-button"
+- assertVisible:
+    text: "Create Expense"
+- tapOn:
+    id: "edit-expense-title-input"
+- inputText: "KbdTitle"
+- assertVisible:
+    text: "KbdTitle"
+# The focused field must sit fully ABOVE the keyboard (hierarchy bounds), not just exist.
+- assertVisible:
+    id: "edit-expense-title-input"
+    above:
+      id: "com.google.android.inputmethod.latin:id/keyboard_holder"
+- tapOn:
+    id: "edit-expense-amount-input"
+- inputText: "12.50"
+- assertVisible:
+    text: "12.50"
+# The focused field must sit fully ABOVE the keyboard (hierarchy bounds), not just exist.
+- assertVisible:
+    id: "edit-expense-amount-input"
+    above:
+      id: "com.google.android.inputmethod.latin:id/keyboard_holder"
+- scrollUntilVisible:
+    element:
+      text: "Additional Notes"
+- tapOn:
+    text: "Additional Notes"
+- tapOn:
+    id: "edit-expense-notes-input"
+- inputText: "KbdNotes"
+- assertVisible:
+    text: "KbdNotes"
+# The focused field must sit fully ABOVE the keyboard (hierarchy bounds), not just exist.
+- assertVisible:
+    id: "edit-expense-notes-input"
+    above:
+      id: "com.google.android.inputmethod.latin:id/keyboard_holder"
