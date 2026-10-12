@@ -48,3 +48,16 @@ Staging runs `migrate:deploy && seed && start`, the same as production, to rehea
 - The smoke job polls the host root (`STAGING_API_URL` minus `/api`, via `scripts/staging-health-url.js`). `/api/internal/*` is only mounted when `NODE_ENV !== 'production'`, so it is a 404 on staging.
 - The prerelease GitHub Release (`staging-YYYYMMDD-<sha7>`) and job summary use `node scripts/eas-release-notes.js --list <before> <head>`. Promotion PRs use `.github/PULL_REQUEST_TEMPLATE/promotion.md` (append `?template=promotion.md` to the compare URL).
 - The master-side release (`vYYYY.MM.DD-N` GitHub Release) from the plan's phase 4 is not implemented here.
+
+## Production deploy verification (`PROD_API_URL`)
+
+The `deploy-backend` job (push to `master`) now uses the same logic as staging
+(`scripts/render-deploy-verify.sh`): it triggers the Render deploy, polls it until
+`live` (fails on `build_failed`, `update_failed`, `pre_deploy_failed`, `canceled`,
+`deactivated`, or after ~20 min), then smoke-tests the host root for
+`Expense Manager API running` (10 tries, 15 s apart).
+
+Set repository variable `PROD_API_URL` (Settings > Secrets and variables > Actions >
+Variables) to `https://expense-manager-udoo.onrender.com/api`. If it is unset, the
+health check is skipped with a `::warning::` and the job still passes; the wait-for-live
+step always runs.
