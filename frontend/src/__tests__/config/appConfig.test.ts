@@ -74,4 +74,34 @@ describe('eas.json profiles', () => {
     expect(eas.build.preview.channel).toBe('preview');
     expect(eas.build.preview.env.APP_VARIANT).toBeUndefined();
   });
+
+  describe('staging icons', () => {
+    const assets = path.join(__dirname, '..', '..', '..', 'assets');
+    const png = (f: string): Buffer => fs.readFileSync(path.join(assets, f));
+
+    it('should point the staging variant at the staging icon files', () => {
+      const { expo } = buildConfig({ APP_VARIANT: 'staging' });
+      expect(expo.icon).toBe('./assets/icon-staging.png');
+      expect(expo.web.favicon).toBe('./assets/favicon-staging.png');
+      expect(expo.android.adaptiveIcon.foregroundImage).toBe('./assets/adaptive-icon-staging.png');
+      expect(expo.android.adaptiveIcon.backgroundColor).toBe('#F57C00');
+    });
+
+    it('should keep the production icons unchanged', () => {
+      const { expo } = buildConfig({});
+      expect(expo.icon).toBe('./assets/icon.png');
+      expect(expo.android.adaptiveIcon.backgroundColor).toBe('#ffffff');
+    });
+
+    it.each([
+      ['icon-staging.png', 1024],
+      ['adaptive-icon-staging.png', 1024],
+      ['favicon-staging.png', 48],
+    ])('should ship %s as a %i px PNG', (file, size) => {
+      const b = png(file);
+      expect(b.subarray(1, 4).toString()).toBe('PNG');
+      expect(b.readUInt32BE(16)).toBe(size);
+      expect(b.readUInt32BE(20)).toBe(size);
+    });
+  });
 });

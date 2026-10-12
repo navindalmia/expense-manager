@@ -81,8 +81,14 @@ function buildConfig(env = process.env, now = Date.now()) {
       ...baseConfig,
       name: STAGING_OVERRIDES.name,
       scheme: STAGING_OVERRIDES.scheme,
+      icon: './assets/icon-staging.png',
+      web: { ...baseConfig.web, favicon: './assets/favicon-staging.png' },
       android: {
         ...baseConfig.android,
+        adaptiveIcon: {
+          foregroundImage: './assets/adaptive-icon-staging.png',
+          backgroundColor: '#F57C00',
+        },
         package: STAGING_OVERRIDES.androidPackage,
         versionCode: stagingVersionCode(env, now),
       },
