@@ -220,6 +220,17 @@ function HomeScreen({ navigation }: Props) {
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
+            onPress={() => navigation.navigate('About')}
+            style={{ marginRight: 16 }}
+            testID="home-about-button"
+            accessibilityRole="button"
+            accessibilityLabel="About"
+          >
+            <Text style={{ color: '#0066cc', fontSize: 18, fontWeight: '600' }}>
+              {'\u24D8'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => navigation.navigate('ManageThemes')}
             style={{ marginRight: 16 }}
             testID="home-manage-themes-button"
