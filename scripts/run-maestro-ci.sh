@@ -27,9 +27,9 @@ APP_ID="${MAESTRO_APP_ID:-com.navindalmia.expensemanager}"
 SETTLE_SECS="${SETTLE_SECS:-4}"
 RETRY_SETTLE_SECS="${RETRY_SETTLE_SECS:-10}"
 reset_app() {
-  "$ADB_BIN" shell am force-stop "$APP_ID" || :
-  "$ADB_BIN" shell pm clear "$APP_ID" || :
-  "$ADB_BIN" shell input keyevent KEYCODE_HOME || :
+  "$ADB_BIN" shell am force-stop "$APP_ID" < /dev/null || :
+  "$ADB_BIN" shell pm clear "$APP_ID" < /dev/null || :
+  "$ADB_BIN" shell input keyevent KEYCODE_HOME < /dev/null || :
   "$SLEEP_BIN" "$SETTLE_SECS"
 }
 # Retry only infrastructure/app-launch failures; never screenshot or other assertion failures.
@@ -49,6 +49,8 @@ quarantine_issue() {
 
 failed=0
 flaky=0
+planned=0
+executed=0
 : > "$OUT/visual-result.txt"
 echo "### Maestro visual flows (BLOCKING - assertScreenshot at 95% threshold)" >> "$OUT/visual-result.txt"
 
@@ -63,6 +65,10 @@ fi
 
 while IFS= read -r f; do
   [ -n "$f" ] || continue
+  planned=$((planned + 1))
+  # Test hook: simulate a loop that stops early (guards the planned==executed check).
+  if [ -n "${MAESTRO_TEST_SKIP_AFTER:-}" ] && [ "$executed" -ge "$MAESTRO_TEST_SKIP_AFTER" ]; then continue; fi
+  executed=$((executed + 1))
   name="$(basename "$f" .yaml)"
   ok=1
   status=0
@@ -109,6 +115,11 @@ while IFS= read -r f; do
 done <<< "$FLOW_FILES"
 
 echo "Flaky flows: $flaky" >> "$OUT/visual-result.txt"
+echo "Flows planned: $planned, executed: $executed" >> "$OUT/visual-result.txt"
+if [ "$executed" -lt "$planned" ] || [ "$planned" -eq 0 ]; then
+  failed=$((failed + 1))
+  echo "- [Failed] runner executed fewer flows than planned ($executed/$planned)" >> "$OUT/visual-result.txt"
+fi
 cat "$OUT/visual-result.txt"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$OUT/visual-result.txt" >> "$GITHUB_STEP_SUMMARY"; fi
 

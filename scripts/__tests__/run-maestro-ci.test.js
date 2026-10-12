@@ -27,7 +27,7 @@ function run(flows, quarantine, extraEnv) {
     `#!/usr/bin/env bash\nn=$(basename "$2" .yaml)\ncase "$n" in\n  flaky*) c=\"$(dirname \"$0\")/$n.count\"; k=$(cat \"$c\" 2>/dev/null || echo 0); echo $((k+1)) > \"$c\"; if [ \"$k\" -lt \"\${FLAKY_FAILS:-1}\" ]; then echo \"Assertion is false: id: email-input is visible\"; exit 1; fi; exit 0;;\n  unable*) echo \"Unable to launch app\"; exit 1;;\n  shot*) echo \"Assertion is false: screenshot Comparison error\"; exit 1;;\n  other*) echo \"Assertion is false: id: save-button is visible\"; exit 1;;\n  fail*) echo "Comparison error: x"; exit 1;;\n  hang*) exec sleep 30;;\n  *) exit 0;;\nesac\n`,
     { mode: 0o755 }
   );
-  fs.writeFileSync(path.join(bin, 'adb'), `#!/usr/bin/env bash\necho "adb $*" >> "${dir}/calls.log"\n`, { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'adb'), `#!/usr/bin/env bash\necho "adb $*" >> "${dir}/calls.log"\ncat >/dev/null\n`, { mode: 0o755 });
   fs.writeFileSync(path.join(bin, 'fakesleep'), `#!/usr/bin/env bash\necho "sleep $*" >> "${dir}/calls.log"\n`, { mode: 0o755 });
   if (!hasRealTimeout) {
     fs.writeFileSync(
@@ -140,4 +140,23 @@ test('other assertion failures are never retried', () => {
 test('a flow timeout is retried', () => {
   const { calls } = run({ hang1: 1 });
   assert.equal((calls.match(/pm clear/g) || []).length, 3);
+});
+
+test('adb reading stdin does not swallow the flow list: all flows execute', () => {
+  const { res, summary } = run({ a: 1, b: 1, c: 1 });
+  assert.equal(res.status, 0);
+  for (const n of ['a', 'b', 'c']) assert.match(summary, new RegExp(`\\[Passed\\] ${n}`));
+  assert.match(summary, /Flows planned: 3, executed: 3/);
+});
+
+test('executed < planned fails the job', () => {
+  const { res, summary } = run({ a: 1, b: 1, c: 1 }, undefined, { MAESTRO_TEST_SKIP_AFTER: '1' });
+  assert.notEqual(res.status, 0);
+  assert.match(summary, /Flows planned: 3, executed: 1/);
+});
+
+test('quarantined flows count as executed', () => {
+  const { res, summary } = run({ a: 1, fail1: 1 }, 'fail1  #1  r\n');
+  assert.equal(res.status, 0);
+  assert.match(summary, /Flows planned: 2, executed: 2/);
 });
