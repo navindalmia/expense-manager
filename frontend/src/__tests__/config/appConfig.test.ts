@@ -105,3 +105,11 @@ describe('eas.json profiles', () => {
     });
   });
 });
+
+describe('appVariant exposure', () => {
+  it('should set extra.appVariant to staging only for the staging variant', () => {
+    expect(buildConfig({ APP_VARIANT: 'staging' }).expo.extra.appVariant).toBe('staging');
+    expect(buildConfig({}).expo.extra.appVariant).toBeUndefined();
+    expect(buildConfig({ APP_VARIANT: 'staging' }).expo.extra.eas).toBeDefined();
+  });
+});
