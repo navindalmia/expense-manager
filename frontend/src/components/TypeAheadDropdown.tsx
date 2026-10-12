@@ -193,7 +193,7 @@ export default function TypeAheadDropdown({
                   placeholder={placeholder}
                   testID={`${testIDPrefix}-filter-input`}
                 />
-                <ScrollView>
+                <ScrollView keyboardShouldPersistTaps="handled">
                   <TouchableOpacity
                     style={[styles.pickerItem, styles.addNewItem]}
                     onPress={() => setCreating(true)}

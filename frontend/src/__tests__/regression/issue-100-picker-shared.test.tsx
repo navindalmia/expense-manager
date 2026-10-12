@@ -17,3 +17,13 @@ describe('issue #100: shared picker covers category, label and theme', () => {
     }
   );
 });
+
+describe('issue #100: tapping "+ Add new" while the keyboard is up', () => {
+  it('should keep taps working with the keyboard open (list ScrollView persists taps)', () => {
+    const { container } = render(
+      <TypeAheadDropdown visible title="t" items={[]} onSelect={vi.fn()} onCreateNew={vi.fn()} onClose={vi.fn()} testIDPrefix="p" />
+    );
+    const add = container.querySelector('[testid="p-add-new-button"]');
+    expect(add?.closest('[keyboardshouldpersisttaps]')?.getAttribute('keyboardshouldpersisttaps')).toBe('handled');
+  });
+});
