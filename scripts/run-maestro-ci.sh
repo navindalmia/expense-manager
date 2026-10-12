@@ -17,7 +17,27 @@ set -u -o pipefail
 FLOW_TIMEOUT="${FLOW_TIMEOUT:-240}"
 SRC="${MAESTRO_FLOWS_DIR:-../maestro-flows/visual}"
 OUT="${GITHUB_WORKSPACE:-..}"
-MAX_ATTEMPTS=2
+MAX_ATTEMPTS=3
+# Emulator race (run 38151243425): `launchApp clearState` can have its NEW process
+# killed by a late remove-task timeout. Before every attempt we reset the app
+# ourselves and let the emulator settle. Binaries/delays are env-configurable for tests.
+ADB_BIN="${ADB_BIN:-adb}"
+SLEEP_BIN="${SLEEP_BIN:-sleep}"
+APP_ID="${MAESTRO_APP_ID:-com.navindalmia.expensemanager}"
+SETTLE_SECS="${SETTLE_SECS:-4}"
+RETRY_SETTLE_SECS="${RETRY_SETTLE_SECS:-10}"
+reset_app() {
+  "$ADB_BIN" shell am force-stop "$APP_ID" || true
+  "$ADB_BIN" shell pm clear "$APP_ID" || true
+  "$ADB_BIN" shell input keyevent KEYCODE_HOME || true
+  "$SLEEP_BIN" "$SETTLE_SECS"
+}
+# Retry only infrastructure/app-launch failures; never screenshot or other assertion failures.
+is_retryable() { # $1=exit status $2=log
+  if grep -qE 'Comparison error|assertScreenshot|screenshot' "$2"; then return 1; fi
+  [ "$1" -eq 124 ] && return 0
+  grep -qE 'Unable to launch app|email-input is visible' "$2"
+}
 # Quarantine list: lines of `<flow-name>  #<issue>  <reason>`. A quarantined flow
 # still RUNS, but its failure does not fail the job; it is reported loudly, and a
 # quarantined flow that passes prints a hint to remove it. Missing/empty = strict.
@@ -28,6 +48,7 @@ quarantine_issue() {
 }
 
 failed=0
+flaky=0
 : > "$OUT/visual-result.txt"
 echo "### Maestro visual flows (BLOCKING - assertScreenshot at 95% threshold)" >> "$OUT/visual-result.txt"
 
@@ -46,19 +67,30 @@ while IFS= read -r f; do
   ok=1
   status=0
   log="$OUT/${name}.log"
+  passed_attempt=0
   for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+    reset_app
     timeout "$FLOW_TIMEOUT" maestro test "$f" < /dev/null 2>&1 | tee "$log"
     status=${PIPESTATUS[0]}
     if [ "$status" -eq 0 ]; then
       ok=0
+      passed_attempt=$attempt
       break
     fi
     echo "Flow $name failed on attempt $attempt (exit $status)"
+    if ! is_retryable "$status" "$log"; then
+      echo "Flow $name failure is not a launch/infrastructure failure; not retrying"
+      break
+    fi
+    [ "$attempt" -lt "$MAX_ATTEMPTS" ] && "$SLEEP_BIN" "$RETRY_SETTLE_SECS"
   done
   qissue="$(quarantine_issue "$name" || true)"
   if [ "$ok" -eq 0 ] && [ -n "$qissue" ]; then
     echo "- [Passed] $name" >> "$OUT/visual-result.txt"
     echo "- QUARANTINED FLOW NOW PASSING - remove it from the list: $name (issue #$qissue)" >> "$OUT/visual-result.txt"
+  elif [ "$ok" -eq 0 ] && [ "$passed_attempt" -gt 1 ]; then
+    flaky=$((flaky + 1))
+    echo "- FLAKY (passed on attempt $passed_attempt) $name" >> "$OUT/visual-result.txt"
   elif [ "$ok" -eq 0 ]; then
     echo "- [Passed] $name" >> "$OUT/visual-result.txt"
   elif [ -n "$qissue" ]; then
@@ -76,6 +108,7 @@ while IFS= read -r f; do
   fi
 done <<< "$FLOW_FILES"
 
+echo "Flaky flows: $flaky" >> "$OUT/visual-result.txt"
 cat "$OUT/visual-result.txt"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$OUT/visual-result.txt" >> "$GITHUB_STEP_SUMMARY"; fi
 
