@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { resendVerificationEmail } from '../services/emailVerificationService';
+import StagingBanner from '../components/StagingBanner';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -323,6 +324,7 @@ export default function LoginScreen({ navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <StagingBanner padTop />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>

@@ -29,6 +29,7 @@ import { alertThenContinue } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import FieldHelp from '../components/FieldHelp';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -206,6 +207,7 @@ function CreateGroupScreen({ navigation }: Props) {
   }, [navigation]);
 
   return (
+    <ScreenContainer style={styles.container}>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
@@ -335,6 +337,7 @@ function CreateGroupScreen({ navigation }: Props) {
         onMemberAdded={handleMemberAdded}
       />
     </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 
