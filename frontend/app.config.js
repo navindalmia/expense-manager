@@ -82,6 +82,7 @@ function buildConfig(env = process.env, now = Date.now()) {
       name: STAGING_OVERRIDES.name,
       scheme: STAGING_OVERRIDES.scheme,
       icon: './assets/icon-staging.png',
+      extra: { ...baseConfig.extra, appVariant: 'staging' },
       web: { ...baseConfig.web, favicon: './assets/favicon-staging.png' },
       android: {
         ...baseConfig.android,
