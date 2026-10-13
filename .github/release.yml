@@ -1,0 +1,22 @@
+# Used by GitHub's "Generate release notes" button for manual releases.
+# Staging pre-releases are created by .github/workflows/eas-staging.yml.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+    authors:
+      - dependabot
+  categories:
+    - title: New features
+      labels:
+        - enhancement
+        - feature
+    - title: Fixes
+      labels:
+        - bug
+    - title: Known issues
+      labels:
+        - known-issue
+    - title: Other changes
+      labels:
+        - "*"
