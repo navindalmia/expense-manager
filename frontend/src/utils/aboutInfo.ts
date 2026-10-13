@@ -4,13 +4,10 @@
  * Collects non-secret facts about the running build (version, environment,
  * JS update id, backend host) for the About screen. Every native-module read is
  * wrapped in try/catch so jest/vitest and web never crash.
- *
- * NOTE: the environment lookup is intentionally tiny and local. If a shared
- * `utils/appVariant.ts` lands (staging banner PR), replace `resolveEnvironment`
- * with it to avoid two sources of truth.
  */
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import { isStaging } from './appVariant';
 
 export type AppEnvironment = 'production' | 'staging';
 
@@ -25,15 +22,9 @@ export interface AboutInfo {
   backendHost: string;
 }
 
-const STAGING_SCHEME = 'expensemanagerstaging';
-
 function resolveEnvironment(): AppEnvironment {
   try {
-    const cfg = Constants.expoConfig;
-    const variant = (cfg?.extra as { appVariant?: string } | undefined)?.appVariant;
-    if (variant === 'staging') return 'staging';
-    if (variant === 'production') return 'production';
-    return cfg?.scheme === STAGING_SCHEME ? 'staging' : 'production';
+    return isStaging() ? 'staging' : 'production';
   } catch {
     return 'production';
   }

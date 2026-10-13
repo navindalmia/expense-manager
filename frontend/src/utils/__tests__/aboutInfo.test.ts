@@ -31,8 +31,8 @@ describe('aboutInfo', () => {
     expect(info.buildNumber).toBeNull();
   });
 
-  it('should report staging when the staging scheme is configured', () => {
-    mockConstants.expoConfig = { version: '1.0.0', scheme: 'expensemanagerstaging', android: { versionCode: 29123456 } };
+  it('should report staging when extra.appVariant is staging', () => {
+    mockConstants.expoConfig = { version: '1.0.0', extra: { appVariant: 'staging' }, android: { versionCode: 29123456 } };
     const info = getAboutInfo();
     expect(info.environment).toBe('staging');
     expect(info.buildNumber).toBe('29123456');
