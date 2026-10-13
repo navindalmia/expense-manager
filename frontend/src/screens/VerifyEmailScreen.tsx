@@ -23,6 +23,7 @@ import type { VerifyEmailScreenProps } from '../types/navigation';
 import { verifyEmailToken, resendVerificationEmail } from '../services/emailVerificationService';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import StagingBanner from '../components/StagingBanner';
 
 type Props = VerifyEmailScreenProps;
 
@@ -311,6 +312,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      <StagingBanner padTop />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.card}>
           {/* Header */}

@@ -15,7 +15,7 @@ import { SettlementScreen } from './src/screens/SettlementScreen';
 import ManageLabelsScreen from './src/screens/ManageLabelsScreen';
 import ManageThemesScreen from './src/screens/ManageThemesScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { StagingFrame } from './src/components/StagingBanner';
+import { getStagingScreenOptions } from './src/utils/stagingHeader';
 import { setOnUnauthorized } from './src/api/http/interceptors';
 // import ExpenseDetailScreen from './src/screens/ExpenseDetailScreen';
 
@@ -75,6 +75,8 @@ function AppNavigator() {
         screenOptions={{
           headerShown: true,
           headerBackTitle: 'Back',
+          // Staging marker lives in the header (empty in production); see utils/stagingHeader.
+          ...getStagingScreenOptions(),
         }}
         initialRouteName={isAuthenticated ? 'Home' : 'Login'}
       >
@@ -156,9 +158,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StagingFrame>
-          <AppNavigator />
-        </StagingFrame>
+        <AppNavigator />
       </AuthProvider>
     </SafeAreaProvider>
   );
