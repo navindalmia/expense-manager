@@ -69,4 +69,9 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "edit-expense-save-button"
     enabled: true
+# Settle at the very bottom of the form (extra scrolls are no-ops there) so the
+# frame does not depend on where scrollUntilVisible happened to stop.
+- scroll
+- scroll
+- scroll
 - assertScreenshot: "add-expense-screen"

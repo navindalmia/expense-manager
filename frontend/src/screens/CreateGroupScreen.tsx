@@ -28,6 +28,7 @@ import type { Group } from '../services/groupService';
 import { alertThenContinue } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
+import FieldHelp from '../components/FieldHelp';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -264,7 +265,10 @@ function CreateGroupScreen({ navigation }: Props) {
 
         {/* Theme Selection */}
         <View style={styles.formSection}>
-          <Text style={styles.label}>Theme (optional)</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.label}>Theme (optional)</Text>
+            <FieldHelp topic="Theme" testIDPrefix="group-theme" />
+          </View>
           <TouchableOpacity
             style={styles.input}
             onPress={() => setShowThemePicker(true)}

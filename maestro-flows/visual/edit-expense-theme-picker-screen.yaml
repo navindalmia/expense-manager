@@ -1,0 +1,45 @@
+appId: com.navindalmia.expensemanager
+---
+# PR #90: theme picker offers "No theme" plus the user's themes; then the edit screen with a theme chosen (not saved).
+# Uses the standing QA fixtures seeded by the e2e-mobile CI job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    text: "Diberr Repro"
+- tapOn:
+    id: "edit-expense-theme-picker-button"
+- assertVisible:
+    text: "Select Theme"
+- assertVisible:
+    text: "No theme"
+- assertScreenshot: "edit-expense-theme-picker-screen"
+- tapOn:
+    text: "QA Theme"
+- assertVisible:
+    id: "edit-expense-theme-picker-button"
+- assertScreenshot: "edit-expense-with-theme-screen"

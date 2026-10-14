@@ -220,6 +220,15 @@ function HomeScreen({ navigation }: Props) {
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
+            onPress={() => navigation.navigate('ManageThemes')}
+            style={{ marginRight: 16 }}
+            testID="home-manage-themes-button"
+          >
+            <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
+              Themes
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => navigation.navigate('ManageLabels')}
             style={{ marginRight: 16 }}
             testID="home-manage-labels-button"
