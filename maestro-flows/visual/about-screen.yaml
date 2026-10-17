@@ -37,14 +37,19 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "home-screen"
 - assertVisible:
-    id: "home-logout-button"
+    id: "home-menu-button"
     enabled: true
 - tapOn:
-    id: "home-about-button"
+    id: "home-menu-button"
+- tapOn:
+    id: "home-menu-about"
 - assertVisible:
     id: "about-screen"
 - assertVisible:
-    text: "Version 1.0.0"
-# Full-screen baseline: in CI the build is embedded with no build number and a
-# fixed emulator host, so the rows below the summary are deterministic.
+    id: "about-version"
+- assertVisible:
+    id: "about-environment"
+# Full-screen baseline, taken from the CI emulator. The Build and Server rows are
+# stable there (fixed versionCode, fixed emulator backend host), so they are part
+# of the pixels; a wrong environment label shows up as a pixel diff.
 - assertScreenshot: "about-screen"
