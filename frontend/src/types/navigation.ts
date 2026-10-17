@@ -19,6 +19,7 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   Settlement: { groupId: number; groupName?: string; currency?: { id: number; code: string; label: string }; expenses: Expense[] };
   ManageLabels: undefined;
   ManageThemes: undefined;
+  About: undefined;
 }
 
 /**
