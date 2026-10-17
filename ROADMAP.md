@@ -92,9 +92,10 @@ The app works but has known gaps that must close before production.
 - [ ] Resend verification email screen
 - [ ] Auto-focus amount field after category/date selection
 - [ ] Group detail view doesn't show the current user's total personal split/debt for that group
-- [ ] **Logged 2026-08-16 (mobile screenshot review):** expense cards on the Group Expenses screen don't show who paid — with several members, it's not clear at a glance whose expense is whose. Add a "paid by <name>" label to each card.
+- [ ] **Logged 2026-08-16 (mobile screenshot review), re-prioritised 2026-10-10 as a separate feature:** expense cards on the Group Expenses screen don't show who paid — with several members, it's not clear at a glance whose expense is whose. Add a clearly visible "paid by <name>" label to each card (now that creating an expense with another member as payer actually saves that payer, this matters more). Needs a UI change, so ship it with a Maestro visual baseline.
 
 ### 5d. Known Bugs
+- [x] **Fixed 2026-10-10** (commit `f006956`, pushed to master): creating an expense with another member selected as "Paid by" saved the creator as payer (the create controller overwrote `paidById` with the JWT user; edit worked). The fix honours the selected payer and adds a requester-is-a-group-member check, since the payer can now differ from the requester. Expenses created before this fix may carry the wrong payer; the original choice was never stored, so they must be confirmed with the users. Regression test `issue-99-create-expense-paid-by.test.ts` uses 99 as a placeholder issue number.
 - [ ] Fix web `/verify-email` route (see Phase 4)
 - [ ] Settlement screen: rent expense missing from calculation (data flow bug) — **investigated 2026-07-24**: not reproducible in `SettlementScreen.tsx`'s calculation logic itself (see `src/screens/__tests__/SettlementScreen.test.tsx`); a rent-category expense present in `route.params.expenses` is included correctly. If still real, the bug is upstream — in whatever populates `expenses` before navigating to this screen — not yet traced.
 - [ ] Cannot modify/remove members after adding them to split
