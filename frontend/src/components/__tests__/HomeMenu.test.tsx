@@ -16,6 +16,10 @@ function makeItems(): { items: HomeMenuItem[]; fns: Record<string, ReturnType<ty
   return { items, fns };
 }
 
+// Note: the shared test setup mocks Modal and TouchableOpacity as plain DOM elements, so these
+// tests cover item order, close-then-act and backdrop dismissal only. Real Modal behaviour
+// (Android back button, fade timing, popover position under the button) is covered by the
+// Maestro flows and the on-device check.
 describe('HomeMenu', () => {
   it('should show only the menu button until it is pressed', () => {
     const { container } = render(<HomeMenu items={makeItems().items} />);
