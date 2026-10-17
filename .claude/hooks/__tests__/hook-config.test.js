@@ -111,3 +111,106 @@ test('the same staged state does not block a non-commit command', () => {
   const repo = makeRepoWithStagedFile();
   assert.equal(runGate('pre-commit-quality-gate.js', 'git status', repo).status, 0);
 });
+
+// --- P0-A / P0-B regressions: target-repo resolution and commit-segment scanning ---
+
+function makeEmptyOtherRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-other-'));
+  spawnSync('git', ['init', '-q'], { cwd: dir });
+  fs.writeFileSync(path.join(dir, 'CLAUDE.md'), 'x');
+  return dir;
+}
+
+test('leading `cd <repo> &&` selects the target repo, not the hook cwd', () => {
+  const staged = makeRepoWithStagedFile(); // fix( with no test staged -> blocked if judged here
+  const elsewhere = makeEmptyOtherRepo(); // hook cwd: empty staged list
+  const viaCd = runGate('pre-commit-quality-gate.js', `cd ${staged} && git commit -m "fix(x): y"`, elsewhere);
+  assert.equal(viaCd.status, 2, viaCd.stderr);
+  const viaPushd = runGate('pre-commit-quality-gate.js', `pushd "${staged}" && git commit -m "fix(x): y"`, elsewhere);
+  assert.equal(viaPushd.status, 2, viaPushd.stderr);
+});
+
+test('`cd <other repo> &&` commit is judged against that repo, not the hook cwd', () => {
+  const staged = makeRepoWithStagedFile();
+  const other = makeEmptyOtherRepo();
+  fs.writeFileSync(path.join(other, 'a.test.ts'), 't');
+  spawnSync('git', ['add', '-A'], { cwd: other });
+  // hook cwd repo has only a non-test file staged (would block); target repo stages a test -> allowed
+  const res = runGate('pre-commit-quality-gate.js', `cd ${other} && git commit -m "fix(x): y"`, staged);
+  assert.equal(res.status, 0, res.stderr);
+});
+
+test('quoted `-C "path with spaces"` resolves the full path', () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'hook sp ace-'));
+  const repo = makeRepoWithStagedFile();
+  const spaced = path.join(parent, 'my repo');
+  fs.renameSync(repo, spaced);
+  const res = runGate('pre-commit-quality-gate.js', `git -C "${spaced}" commit -m "fix(x): y"`, os.tmpdir());
+  assert.equal(res.status, 2, res.stderr);
+});
+
+test('-m text mentioned in an earlier heredoc/script segment is not the commit message', () => {
+  const repo = makeRepoWithStagedFile();
+  const cmd = `python3 - <<'PY'\nprint('git commit -m "fix(x): probe"')\nPY\ngit -C ${repo} commit -m "docs: y"`;
+  assert.equal(runGate('pre-commit-quality-gate.js', cmd, repo).status, 0);
+  const echoed = `echo 'run: git commit -m "fix(x): y"' && git -C ${repo} commit -m "docs: y"`;
+  assert.equal(runGate('pre-commit-quality-gate.js', echoed, repo).status, 0);
+});
+
+test('a real fix( commit in a later segment is still blocked', () => {
+  const repo = makeRepoWithStagedFile();
+  const res = runGate('pre-commit-quality-gate.js', `echo hi; git -C ${repo} commit -m "fix(x): y"`, repo);
+  assert.equal(res.status, 2, res.stderr);
+});
+
+test('commit-context helpers split on unquoted separators only', () => {
+  const { splitSegments, extractCommitMessage, resolveTargetDir } = require('../lib/commit-context');
+  assert.deepEqual(splitSegments('a && b; c | d || e\nf'), ['a', 'b', 'c', 'd', 'e', 'f']);
+  assert.deepEqual(splitSegments('echo "a && b" && git commit'), ['echo "a && b"', 'git commit']);
+  assert.equal(extractCommitMessage('echo "-m x" && git commit -m "docs: a" -m \'b\''), 'docs: a\n\nb');
+  assert.equal(resolveTargetDir({ tool_input: { command: 'cd /x/y && git commit -m a' }, cwd: '/z' }), '/x/y');
+  assert.equal(resolveTargetDir({ tool_input: { command: 'git commit -m a' }, cwd: '/z' }), '/z');
+});
+
+// --- review follow-ups: message forms, prefixes, -C placement, subshell cd ---
+
+test('extractCommitMessage handles heredoc $(cat), --message and combined short flags', () => {
+  const { extractCommitMessage } = require('../lib/commit-context');
+  const heredoc = 'git commit -m "$(cat <<\'EOF\'\nfix(x): y\n\nbody\nEOF\n)"';
+  assert.equal(extractCommitMessage(heredoc), 'fix(x): y\n\nbody');
+  assert.equal(extractCommitMessage('git commit --message="fix(x): y"'), 'fix(x): y');
+  assert.equal(extractCommitMessage('git commit --message "fix(x): y"'), 'fix(x): y');
+  for (const flag of ['-am', '-qm', '-sm', '-nm']) {
+    assert.equal(extractCommitMessage(`git commit ${flag} "fix(x): y"`), 'fix(x): y', flag);
+  }
+});
+
+test('commit segment is found behind sudo, env and quoted env assignments', () => {
+  const { extractCommitMessage } = require('../lib/commit-context');
+  for (const prefix of ['sudo ', 'env ', 'env -i FOO=1 ', 'FOO="a b" ', "FOO='a b' BAR=1 "]) {
+    assert.equal(extractCommitMessage(`${prefix}git commit -m "fix(x): y"`), 'fix(x): y', prefix);
+  }
+});
+
+test('-C is honoured only between git and commit', () => {
+  const { resolveTargetDir } = require('../lib/commit-context');
+  const at = (command) => resolveTargetDir({ tool_input: { command }, cwd: '/z' });
+  assert.equal(at('git -C "/a b" commit -m x'), '/a b');
+  assert.equal(at('git -C /a -c user.name=n commit -m x'), '/a');
+  assert.equal(at('git commit -m "see git -C /evil here"'), '/z');
+  assert.equal(at('git commit -C /evil'), '/z');
+});
+
+test('subshell and brace-group cd are honoured', () => {
+  const { resolveTargetDir } = require('../lib/commit-context');
+  const at = (command) => resolveTargetDir({ tool_input: { command }, cwd: '/z' });
+  assert.equal(at('(cd /b; git commit -m x)'), '/b');
+  assert.equal(at('{ cd /b; git commit -m x; }'), '/b');
+  assert.equal(at('(cd /b && git commit -m x)'), '/b');
+});
+
+test('gate blocks a heredoc-message fix( commit', () => {
+  const repo = makeRepoWithStagedFile();
+  const cmd = `git -C ${repo} commit -m "$(cat <<'EOF'\nfix(x): y\nEOF\n)"`;
+  assert.equal(runGate('pre-commit-quality-gate.js', cmd, repo).status, 2);
+});
