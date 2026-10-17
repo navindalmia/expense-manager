@@ -38,4 +38,10 @@ describe('AboutScreen', () => {
     const { container } = render(<AboutScreen />);
     expect(text(container, 'about-update')).toBe('abcdef1 (2026-10-01)');
   });
+
+  it('should render inside a safe-area view so content clears the system nav bar', () => {
+    mockInfo.value = base;
+    const { container } = render(<AboutScreen />);
+    expect(container.querySelector('[data-rn-safe-area-view="true"] [testid="about-screen"]')).not.toBeNull();
+  });
 });

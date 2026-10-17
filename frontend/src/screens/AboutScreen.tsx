@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import ScreenContainer from '../components/ScreenContainer';
 import { getAboutInfo } from '../utils/aboutInfo';
 
 const styles = StyleSheet.create({
@@ -39,6 +40,7 @@ export default function AboutScreen(): React.JSX.Element {
     : `${info.updateId}${info.updateCreatedAt ? ` (${info.updateCreatedAt})` : ''}`;
 
   return (
+    <ScreenContainer>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} testID="about-screen">
       <View style={styles.hero} testID="about-summary">
         <Text style={styles.appName} testID="about-app-name">{info.appName}</Text>
@@ -51,5 +53,6 @@ export default function AboutScreen(): React.JSX.Element {
         <Row id="about-backend" label="Server" value={info.backendHost} />
       </View>
     </ScrollView>
+    </ScreenContainer>
   );
 }
