@@ -16,6 +16,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import StagingBanner from '../components/StagingBanner';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
@@ -458,6 +459,7 @@ function HomeScreen({ navigation }: Props) {
       style={styles.container}
       testID="home-screen"
     >
+      <StagingBanner />
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text 

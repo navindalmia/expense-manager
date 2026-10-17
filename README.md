@@ -17,6 +17,12 @@ A multilingual, mobile-first expense splitting app for groups. Track shared cost
 
 ---
 
+## Testing a build (testers start here)
+
+New builds go to a **staging** app and server first. Read the **[tester guide](docs/testing/tester-guide.md)**, then pick the newest **Pre-release** on the **[Releases page](https://github.com/navindalmia/expense-manager/releases)** for the install link and what to test. Known problems are tracked under the [`known-issue` label](https://github.com/navindalmia/expense-manager/issues?q=is%3Aissue+label%3Aknown-issue).
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

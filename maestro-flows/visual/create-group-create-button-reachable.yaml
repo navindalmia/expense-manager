@@ -1,0 +1,49 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #118 regression: on Create Group the Cancel/Create buttons were hidden under the
+# system navigation bar (staging wrapper + no bottom safe-area handling), so a group could not
+# be created. This flow proves the Create button can be reached and TAPPED: it creates a group.
+# Functional only (no screenshot): the point is reachability, not pixels.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "add-group-button"
+- assertVisible:
+    id: "group-name-input"
+- tapOn:
+    id: "group-name-input"
+- inputText: "Reach Create 118"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "create-button"
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    id: "create-button"
+- tapOn:
+    id: "create-button"
+- extendedWaitUntil:
+    visible: "Group created!"
+    timeout: 20000

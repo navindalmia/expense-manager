@@ -37,6 +37,7 @@
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const { isGitCommit } = require('./lib/is-git-commit');
+const { resolveTargetDir, extractCommitMessage } = require('./lib/commit-context');
 
 function readStdinJson() {
   try {
@@ -45,15 +46,6 @@ function readStdinJson() {
   } catch {
     return {};
   }
-}
-
-function resolveTargetDir(hookInput) {
-  const command = hookInput && hookInput.tool_input && hookInput.tool_input.command;
-  if (typeof command === 'string') {
-    const match = command.match(/git\s+-C\s+"?([^"\s]+)"?/);
-    if (match) return match[1];
-  }
-  return (hookInput && hookInput.cwd) || process.env.CLAUDE_PROJECT_DIR || process.cwd();
 }
 
 function resolveRepoRoot(dir) {
@@ -66,22 +58,6 @@ function getStagedFiles(repoRoot) {
   const result = spawnSync('git', ['diff', '--cached', '--name-only'], { cwd: repoRoot, encoding: 'utf8' });
   if (result.status !== 0 || typeof result.stdout !== 'string') return null;
   return result.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
-}
-
-// Extract the commit message the same way pre-commit-gate.js reads tool_input:
-// from the `git commit` command's -m flags (handles single or repeated -m, and
-// -F files is intentionally not resolved — falls back to empty, which fails open
-// on rule enforcement since neither rule can then match).
-function extractCommitMessage(command) {
-  if (typeof command !== 'string') return null;
-  const messages = [];
-  const re = /-m\s+("([^"]*)"|'([^']*)')/g;
-  let match;
-  while ((match = re.exec(command)) !== null) {
-    messages.push(match[2] !== undefined ? match[2] : match[3]);
-  }
-  if (messages.length === 0) return null;
-  return messages.join('\n\n');
 }
 
 function isScreenOrComponentTsx(file) {
