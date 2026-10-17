@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StagingBanner from '../components/StagingBanner';
+import HomeMenu from '../components/HomeMenu';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types/navigation';
@@ -214,40 +215,19 @@ function HomeScreen({ navigation }: Props) {
   const { logout } = useAuth();
 
   /**
-   * Set up header with logout button
+   * Set up the header's overflow menu (About, Themes, Labels, Logout)
    */
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ManageThemes')}
-            style={{ marginRight: 16 }}
-            testID="home-manage-themes-button"
-          >
-            <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
-              Themes
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ManageLabels')}
-            style={{ marginRight: 16 }}
-            testID="home-manage-labels-button"
-          >
-            <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
-              Labels
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={logout}
-            style={{ marginRight: 16 }}
-            testID="home-logout-button"
-          >
-            <Text style={{ color: '#0066cc', fontSize: 14, fontWeight: '600' }}>
-              Logout
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <HomeMenu
+          items={[
+            { key: 'about', label: 'About', testID: 'home-menu-about', onPress: () => navigation.navigate('About') },
+            { key: 'themes', label: 'Themes', testID: 'home-menu-themes', onPress: () => navigation.navigate('ManageThemes') },
+            { key: 'labels', label: 'Labels', testID: 'home-menu-labels', onPress: () => navigation.navigate('ManageLabels') },
+            { key: 'logout', label: 'Logout', testID: 'home-menu-logout', onPress: logout },
+          ]}
+        />
       ),
     });
   }, [navigation, logout]);

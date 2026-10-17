@@ -37,6 +37,6 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "home-screen"
 - assertVisible:
-    id: "home-logout-button"
+    id: "home-menu-button"
     enabled: true
 - assertScreenshot: "group-list-screen"

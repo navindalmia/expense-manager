@@ -123,7 +123,8 @@ test.describe('Intelligence layer: Theme, Category, Label, autocomplete (U1-U10)
     // real spend total; disabling keeps the row listed as Disabled and Enable restores it ---
     await page.goto('/');
     await expect(page.getByTestId('home-screen')).toBeVisible({ timeout: 10000 });
-    await page.getByTestId('home-manage-labels-button').click();
+    await page.getByTestId('home-menu-button').click();
+    await page.getByTestId('home-menu-labels').click();
     await expect(page.getByText(labelName)).toBeVisible({ timeout: 10000 });
     const labelRow = page.locator('[data-testid^="manage-labels-row-"]').filter({ hasText: labelName });
     await expect(labelRow.getByText('42.00')).toBeVisible();

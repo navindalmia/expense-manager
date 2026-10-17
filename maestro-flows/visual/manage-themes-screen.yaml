@@ -26,7 +26,9 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "home-screen"
 - tapOn:
-    id: "home-manage-themes-button"
+    id: "home-menu-button"
+- tapOn:
+    id: "home-menu-themes"
 - assertVisible:
     id: "manage-themes-list"
 - assertVisible:
