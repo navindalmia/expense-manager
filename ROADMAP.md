@@ -93,6 +93,9 @@ The app works but has known gaps that must close before production.
 - [ ] Auto-focus amount field after category/date selection
 - [ ] Group detail view doesn't show the current user's total personal split/debt for that group
 - [ ] **Logged 2026-08-16 (mobile screenshot review):** expense cards on the Group Expenses screen don't show who paid — with several members, it's not clear at a glance whose expense is whose. Add a "paid by <name>" label to each card.
+- [ ] **PRIORITY (logged 2026-10-18): expense search.** A search box at the top, both inside a group (searches that group's expenses) and outside it on Home (searches across all of the user's groups). Searchable by amount, expense title/description, category, label and theme. Results should say which group each expense belongs to.
+  - **Open design questions (decide before building; not yet decided):** (1) search on the backend (one endpoint, authorized to the groups the user belongs to, pagination) versus filtering what is already loaded on the client; (2) matching rules: amount as exact value or range, text as partial or fuzzy (`backend/src/lib/fuzzyMatch.ts` already uses fuse.js for title autocomplete); (3) one box for everything versus field filters/chips; (4) where the box sits now that the Home header holds the overflow menu (see #114); (5) how results open (jump to the expense or its group) and how they are ordered; (6) whether archived or disabled themes/labels are searchable.
+  - **Needs when built:** backend tests incl. cross-group authorization (a user must never see another group's expenses), frontend tests, a Maestro flow plus visual baseline for the search UI, and `/ce-plan` first (real scope and architectural weight).
 
 ### 5d. Known Bugs
 - [ ] Fix web `/verify-email` route (see Phase 4)
