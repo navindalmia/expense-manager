@@ -44,6 +44,11 @@ appId: com.navindalmia.expensemanager
     id: "create-button"
 - tapOn:
     id: "create-button"
+# Creating a group opens the Add Members dialog straight away (the "Group created!"
+# confirmation only shows after that dialog is closed). The dialog appearing proves the
+# Create button was reachable and the tap registered, which is what this flow guards.
 - extendedWaitUntil:
-    visible: "Group created!"
+    visible: "Add Members"
     timeout: 20000
+- assertVisible:
+    id: "add-member-email-input"
