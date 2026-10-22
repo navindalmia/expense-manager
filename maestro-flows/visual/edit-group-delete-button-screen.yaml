@@ -1,0 +1,43 @@
+appId: com.navindalmia.expensemanager
+---
+# Visual-regression baseline for issue #47: the Edit Group modal's Danger Zone
+# with the Delete Group button, as the group creator sees it (enabled, no
+# "only the creator" hint). The functional coverage lives in
+# EditGroupModal.test.tsx (creator-only enable/disable) and
+# e2e/delete-group.spec.ts; this flow pins how the Danger Zone looks.
+# Uses the standing pre-verified QA test user (test@test.com), the creator of
+# "QA Test Group", same as edit-group-theme-picker-screen.yaml.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+# Tap by visible label, not testID (the testID embeds a DB autoincrement id).
+- tapOn:
+    text: ".*Edit Group.*"
+- assertVisible:
+    id: "edit-group-name-input"
+- scrollUntilVisible:
+    element:
+      id: "edit-group-delete-button"
+- assertVisible:
+    text: "Danger Zone"
+- assertScreenshot: "edit-group-delete-button-screen"

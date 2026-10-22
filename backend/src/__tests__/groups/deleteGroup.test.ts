@@ -58,6 +58,7 @@ describe('deleteGroup controller', () => {
     (prisma.group.findUnique as jest.Mock).mockResolvedValue({
       id: 1,
       createdById: 999,
+      isActive: true,
     });
 
     await deleteGroup(mockReq as Request, mockRes as Response, mockNext as NextFunction);
@@ -73,6 +74,7 @@ describe('deleteGroup controller', () => {
     (prisma.group.findUnique as jest.Mock).mockResolvedValue({
       id: 1,
       createdById: 1,
+      isActive: true,
     });
     (prisma.group.update as jest.Mock).mockResolvedValue({
       id: 1,

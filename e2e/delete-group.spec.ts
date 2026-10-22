@@ -53,6 +53,9 @@ test.describe('Delete group (issue #47)', () => {
     page.once('dialog', (dialog) => dialog.accept());
 
     await expect(page.getByTestId('edit-group-delete-button')).toBeVisible({ timeout: 10000 });
+    // The creator gets an enabled button and no "only the creator" hint.
+    await expect(page.getByTestId('edit-group-delete-button')).toBeEnabled();
+    await expect(page.getByTestId('edit-group-delete-hint')).toHaveCount(0);
     await page.getByTestId('edit-group-delete-button').click();
 
     // The group should be gone from the list once the deletion completes.

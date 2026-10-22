@@ -71,7 +71,7 @@ describe('expenseService.createExpense requester authorization (issue 99)', () =
     categoryId: 2,
     expenseDate: '2026-01-01',
   };
-  const group = { id: 5, createdById: 2, members: [{ id: 2 }, { id: 7 }] };
+  const group = { id: 5, isActive: true, createdById: 2, members: [{ id: 2 }, { id: 7 }] };
   const prismaMock = prisma as unknown as {
     group: { findUnique: jest.Mock };
     expense: { create: jest.Mock };

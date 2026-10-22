@@ -255,7 +255,10 @@ describe('GroupService', () => {
     it('throws when the group does not exist', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(groupService.getGroupById(999, CREATOR_ID)).rejects.toThrow('Group not found');
+      await expect(groupService.getGroupById(999, CREATOR_ID)).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'GROUP_NOT_FOUND',
+      });
     });
 
     it('throws when the group has been soft-deleted', async () => {
@@ -263,9 +266,10 @@ describe('GroupService', () => {
         buildGroup({ isActive: false })
       );
 
-      await expect(groupService.getGroupById(1, CREATOR_ID)).rejects.toThrow(
-        'Group has been deleted'
-      );
+      await expect(groupService.getGroupById(1, CREATOR_ID)).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'GROUP_NOT_FOUND',
+      });
     });
   });
 

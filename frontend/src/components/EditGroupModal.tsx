@@ -33,7 +33,9 @@ interface EditGroupModalProps {
   group: Group | null;
   onClose: () => void;
   onSuccess: (updatedGroup: Group) => void;
-  onDeleted: (deletedGroupId: number) => void;
+  onDeleted?: (deletedGroupId: number) => void;
+  /** Signed-in user's id; only the group creator may delete. Undefined disables Delete. */
+  currentUserId?: number;
 }
 
 const styles = StyleSheet.create({
@@ -171,12 +173,15 @@ const styles = StyleSheet.create({
   },
 });
 
+const DELETE_CREATOR_ONLY_HINT = 'Only the group creator can delete this group.';
+
 export default function EditGroupModal({
   visible,
   group,
   onClose,
   onSuccess,
   onDeleted,
+  currentUserId,
 }: EditGroupModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -186,6 +191,7 @@ export default function EditGroupModal({
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
 
@@ -271,32 +277,46 @@ export default function EditGroupModal({
     onSuccess(updatedGroup);
   };
 
+  // Fail closed: unknown user or missing creator info keeps Delete disabled.
+  const canDelete =
+    currentUserId !== undefined && group?.createdBy?.id === currentUserId;
+
   const handleDelete = () => {
-    if (!group) {
+    if (!group || !canDelete) {
       return;
     }
 
     const expenseCount = group._count?.expenses ?? 0;
+    const removalNotice =
+      'The group will be removed for all members. Contact support if this was a mistake.';
     const message =
       expenseCount > 0
-        ? `This group has ${expenseCount} expense${expenseCount === 1 ? '' : 's'}. Deleting the group will remove your access to them too. This cannot be undone. Are you sure you want to delete "${group.name}"?`
-        : `Are you sure you want to delete "${group.name}"? This cannot be undone.`;
+        ? `This group has ${expenseCount} expense${expenseCount === 1 ? '' : 's'}. Deleting the group will remove your access to them too. ${removalNotice} Are you sure you want to delete "${group.name}"?`
+        : `Are you sure you want to delete "${group.name}"? ${removalNotice}`;
 
-    confirmThenProceed('Delete Group', message, 'Delete', async () => {
-      setDeleting(true);
-      try {
-        await deleteGroup(group.id);
-        logger.info('Group deleted successfully', { groupId: group.id });
-        onDeleted(group.id);
-        onClose();
-      } catch (error) {
-        const errorMessage = getErrorMessage(error);
-        Alert.alert('Error', errorMessage);
-        logger.error('Failed to delete group', error, { groupId: group.id });
-      } finally {
-        setDeleting(false);
-      }
-    });
+    setConfirmingDelete(true);
+    confirmThenProceed(
+      'Delete Group',
+      message,
+      'Delete',
+      async () => {
+        setConfirmingDelete(false);
+        setDeleting(true);
+        try {
+          await deleteGroup(group.id);
+          logger.info('Group deleted successfully', { groupId: group.id });
+          onDeleted?.(group.id);
+          onClose();
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
+          Alert.alert('Error', errorMessage);
+          logger.error('Failed to delete group', error, { groupId: group.id });
+        } finally {
+          setDeleting(false);
+        }
+      },
+      () => setConfirmingDelete(false)
+    );
   };
 
   return (
@@ -418,7 +438,9 @@ export default function EditGroupModal({
             <TouchableOpacity
               style={[styles.button, styles.deleteButton]}
               onPress={handleDelete}
-              disabled={loading || deleting}
+              disabled={loading || deleting || confirmingDelete || !canDelete}
+              accessibilityState={{ disabled: loading || deleting || confirmingDelete || !canDelete }}
+              accessibilityHint={canDelete ? undefined : DELETE_CREATOR_ONLY_HINT}
               testID="edit-group-delete-button"
             >
               {deleting ? (
@@ -429,6 +451,11 @@ export default function EditGroupModal({
                 </Text>
               )}
             </TouchableOpacity>
+            {!canDelete && (
+              <Text style={styles.helpText} testID="edit-group-delete-hint">
+                {DELETE_CREATOR_ONLY_HINT}
+              </Text>
+            )}
           </ScrollView>
 
           {/* Buttons - Fixed at Bottom */}

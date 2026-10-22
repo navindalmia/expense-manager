@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Alert } from 'react-native';
 import EditGroupModal from '../EditGroupModal';
@@ -52,6 +52,7 @@ const baseGroup: Group = {
   name: 'Roommates',
   description: 'Shared flat expenses',
   currency: { id: 1, code: 'USD', label: 'US Dollar' },
+  createdBy: { id: 1, name: 'Alice', email: 'alice@test.com' },
   members: [
     { id: 1, name: 'Alice', email: 'alice@test.com' },
     { id: 2, name: 'Bob', email: 'bob@test.com' },
@@ -210,7 +211,7 @@ describe('EditGroupModal', () => {
         _count: { expenses: 1, members: 2 },
       } as Group;
       const { container } = render(
-        <EditGroupModal visible group={groupWithOneExpense} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+        <EditGroupModal visible group={groupWithOneExpense} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
       );
 
       fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
@@ -229,7 +230,7 @@ describe('EditGroupModal', () => {
         _count: { expenses: 3, members: 2 },
       } as Group;
       const { container } = render(
-        <EditGroupModal visible group={groupWithExpenses} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+        <EditGroupModal visible group={groupWithExpenses} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
       );
 
       fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
@@ -252,7 +253,7 @@ describe('EditGroupModal', () => {
       mockDeleteGroup.mockResolvedValue({ ...baseGroup, isActive: false });
       const emptyGroup: Group = { ...baseGroup, _count: { expenses: 0, members: 2 } } as Group;
       const { container } = render(
-        <EditGroupModal visible group={emptyGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+        <EditGroupModal visible group={emptyGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
       );
 
       fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
@@ -272,7 +273,7 @@ describe('EditGroupModal', () => {
 
     it('does not call deleteGroup when the confirmation is cancelled', () => {
       const { container } = render(
-        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
       );
 
       fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
@@ -280,6 +281,74 @@ describe('EditGroupModal', () => {
 
       expect(mockDeleteGroup).not.toHaveBeenCalled();
       expect(onDeleted).not.toHaveBeenCalled();
+    });
+    it('shows the removal-recovery notice instead of "cannot be undone"', () => {
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Delete Group',
+        expect.stringContaining('Contact support if this was a mistake.'),
+        expect.anything()
+      );
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Delete Group',
+        expect.not.stringContaining('cannot be undone'),
+        expect.anything()
+      );
+    });
+
+    it('disables Delete and explains why when the user is not the group creator', () => {
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={2} />
+      );
+
+      const button = getByTestId(container, 'edit-group-delete-button');
+      fireEvent.click(button);
+
+      expect(button.getAttribute('aria-disabled') ?? button.getAttribute('disabled')).not.toBeNull();
+      expect(getByTestId(container, 'edit-group-delete-hint').textContent).toBe(
+        'Only the group creator can delete this group.'
+      );
+      expect(Alert.alert).not.toHaveBeenCalled();
+      expect(mockDeleteGroup).not.toHaveBeenCalled();
+    });
+
+    it('keeps Delete disabled when the signed-in user is unknown', () => {
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} />
+      );
+
+      fireEvent.click(getByTestId(container, 'edit-group-delete-button'));
+
+      expect(getByTestId(container, 'edit-group-delete-hint')).toBeTruthy();
+      expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it('shows no creator-only hint to the group creator', () => {
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
+      );
+
+      expect(container.querySelector('[testid="edit-group-delete-hint"]')).toBeNull();
+    });
+
+    it('ignores a second tap while the confirmation is open and allows Delete again after cancel', () => {
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
+      );
+      const button = getByTestId(container, 'edit-group-delete-button');
+
+      fireEvent.click(button);
+      fireEvent.click(button);
+      expect(Alert.alert).toHaveBeenCalledTimes(1);
+
+      act(() => pressAlertButton('Cancel'));
+      fireEvent.click(button);
+      expect(Alert.alert).toHaveBeenCalledTimes(2);
     });
   });
 });

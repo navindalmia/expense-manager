@@ -70,6 +70,7 @@ describe('issue #90: soft-delete and attach guards', () => {
     beforeEach(() => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue({
         id: 1,
+        isActive: true,
         createdById: USER_ID,
         members: [{ id: USER_ID }],
       });
@@ -85,7 +86,7 @@ describe('issue #90: soft-delete and attach guards', () => {
         splitPercentage: [],
         themeId: 4,
         labelId: 7,
-        group: { id: 1, createdById: USER_ID, members: [{ id: USER_ID }] },
+        group: { id: 1, isActive: true, createdById: USER_ID, members: [{ id: USER_ID }] },
         splitWith: [{ id: USER_ID }],
       });
     });

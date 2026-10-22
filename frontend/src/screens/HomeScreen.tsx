@@ -212,7 +212,7 @@ function HomeScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<Group | null>(null);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   /**
    * Set up the header's overflow menu (About, Themes, Labels, Logout)
@@ -507,6 +507,7 @@ function HomeScreen({ navigation }: Props) {
         }}
         onSuccess={handleEditSuccess}
         onDeleted={handleGroupDeleted}
+        currentUserId={user?.id}
       />
     </SafeAreaView>
   );
