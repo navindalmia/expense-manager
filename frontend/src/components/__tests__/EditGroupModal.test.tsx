@@ -282,6 +282,28 @@ describe('EditGroupModal', () => {
       expect(mockDeleteGroup).not.toHaveBeenCalled();
       expect(onDeleted).not.toHaveBeenCalled();
     });
+    it('shows an error alert, keeps the modal open and re-enables Delete when deleting fails', async () => {
+      mockDeleteGroup.mockRejectedValue(new Error('boom'));
+      const { container } = render(
+        <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />
+      );
+      const button = getByTestId(container, 'edit-group-delete-button');
+
+      fireEvent.click(button);
+      pressAlertButton('Delete');
+
+      await waitFor(() => {
+        expect(Alert.alert).toHaveBeenCalledWith('Error', expect.any(String), expect.any(Array));
+      });
+      expect(onDeleted).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+
+      // Not stuck disabled: a second attempt reaches the confirmation again.
+      (Alert.alert as ReturnType<typeof vi.fn>).mockClear();
+      fireEvent.click(button);
+      expect(Alert.alert).toHaveBeenCalledWith('Delete Group', expect.any(String), expect.anything());
+    });
+
     it('shows the removal-recovery notice instead of "cannot be undone"', () => {
       const { container } = render(
         <EditGroupModal visible group={baseGroup} onClose={onClose} onSuccess={onSuccess} onDeleted={onDeleted} currentUserId={1} />

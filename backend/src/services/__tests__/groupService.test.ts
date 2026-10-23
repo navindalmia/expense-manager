@@ -458,6 +458,16 @@ describe('GroupService', () => {
       );
       expect(prisma.group.update).not.toHaveBeenCalled();
     });
+    it('wraps an unexpected database failure as a 500 GROUP.DELETE_FAILED AppError', async () => {
+      (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
+      (prisma.group.update as jest.Mock).mockRejectedValue(new Error('db down'));
+
+      await expect(groupService.deactivateGroup(1, CREATOR_ID)).rejects.toMatchObject({
+        statusCode: 500,
+        code: 'DELETE_GROUP_ERROR',
+        messageKey: 'GROUP.DELETE_FAILED',
+      });
+    });
   });
 
   describe('getGroupStats', () => {

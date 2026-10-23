@@ -37,7 +37,7 @@ describe('deleteGroup controller', () => {
 
     mockReq = {
       params: { id: '1' },
-      user: { id: 1 } as any,
+      user: { id: 1 } as unknown as Request['user'],
     };
     mockRes = { status: statusMock };
   });

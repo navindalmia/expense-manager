@@ -26,7 +26,7 @@ import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
-import { confirmThenProceed } from '../utils/crossPlatformAlert';
+import { alertThenContinue, confirmThenProceed } from '../utils/crossPlatformAlert';
 
 interface EditGroupModalProps {
   visible: boolean;
@@ -281,6 +281,8 @@ export default function EditGroupModal({
   const canDelete =
     currentUserId !== undefined && group?.createdBy?.id === currentUserId;
 
+  const isDeleteDisabled = loading || deleting || confirmingDelete || !canDelete;
+
   const handleDelete = () => {
     if (!group || !canDelete) {
       return;
@@ -309,7 +311,9 @@ export default function EditGroupModal({
           onClose();
         } catch (error) {
           const errorMessage = getErrorMessage(error);
-          Alert.alert('Error', errorMessage);
+          // Alert.alert is a silent no-op on web: use the cross-platform wrapper so a
+          // failed delete is visible there too.
+          alertThenContinue('Error', errorMessage, () => {});
           logger.error('Failed to delete group', error, { groupId: group.id });
         } finally {
           setDeleting(false);
@@ -438,8 +442,8 @@ export default function EditGroupModal({
             <TouchableOpacity
               style={[styles.button, styles.deleteButton]}
               onPress={handleDelete}
-              disabled={loading || deleting || confirmingDelete || !canDelete}
-              accessibilityState={{ disabled: loading || deleting || confirmingDelete || !canDelete }}
+              disabled={isDeleteDisabled}
+              accessibilityState={{ disabled: isDeleteDisabled }}
               accessibilityHint={canDelete ? undefined : DELETE_CREATOR_ONLY_HINT}
               testID="edit-group-delete-button"
             >
