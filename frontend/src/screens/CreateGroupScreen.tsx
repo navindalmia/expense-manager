@@ -30,8 +30,6 @@ import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdow
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import FieldHelp from '../components/FieldHelp';
 import ScreenContainer from '../components/ScreenContainer';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CREATE_GROUP_MIN_BOTTOM_CLEARANCE } from './createGroupLayout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -116,7 +114,6 @@ const styles = StyleSheet.create({
  * Create Group Form Screen
  */
 function CreateGroupScreen({ navigation }: Props) {
-  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
@@ -215,13 +212,7 @@ function CreateGroupScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView
-        style={styles.scrollContent}
-        // Some Samsung nav-bar modes report a bottom inset of 0 while still drawing system
-        // buttons over the app, which hid the Create button; keep a floor of scrollable space.
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 0) + CREATE_GROUP_MIN_BOTTOM_CLEARANCE }}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Group Name */}
         <View style={styles.formSection}>
           <Text style={styles.label}>
