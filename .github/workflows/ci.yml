@@ -318,6 +318,38 @@ jobs:
           echo "matrix=$(node scripts/maestro-shards.js matrix "$MAESTRO_SHARD_COUNT")" >> "$GITHUB_OUTPUT"
           echo "count=$MAESTRO_SHARD_COUNT" >> "$GITHUB_OUTPUT"
 
+  # Builds the debug APK ONCE (Gradle is ~8 min) and shares it with every shard
+  # via an artifact, so shards only boot an emulator, install and run Maestro.
+  # The debug APK loads JS from Metro at runtime (shards still start Metro),
+  # so no JS bundle / API URL is baked in. Built for x86_64 only (the shard
+  # emulator ABI) which also shortens the native build.
+  e2e-mobile-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+      - name: Generate native Android project
+        working-directory: frontend
+        run: npx expo prebuild --platform android --no-install
+      - name: Build debug APK
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-debug-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 1
+
   e2e-mobile-shard:
     # U6: runs maestro-flows/visual/ (U4 visual-regression + U5 accessibility,
     # verified locally 2026-08-31 - see docs/plans/2026-08-22-001-feat-ci-visual-regression-a11y-gates-plan.md)
@@ -351,7 +383,7 @@ jobs:
     # see that folder's README (REQUIRE_EMAIL_VERIFICATION=false makes its
     # target UI unreachable in the current app config).
     name: e2e-mobile-shard (${{ matrix.shard }}/${{ needs.e2e-mobile-plan.outputs.count }})
-    needs: e2e-mobile-plan
+    needs: [e2e-mobile-plan, e2e-mobile-build]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.e2e-mobile-plan.outputs.matrix) }}
@@ -502,6 +534,11 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install --legacy-peer-deps
+      - name: Download prebuilt debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-debug-apk
+          path: apk
       - name: Install Maestro CLI
         run: |
           curl -Ls "https://get.maestro.mobile.dev" | bash
@@ -511,7 +548,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Build debug APK and run Maestro suite on an Android emulator
+      - name: Install prebuilt APK and run Maestro suite on an Android emulator
         # Step-level cap tighter than the job's own timeout-minutes: 25.
         # Confirmed 2026-09-01 (runs 33502440934, 33506976320, 33510026360)
         # that reactivecircus/android-emulator-runner's own "Terminate
@@ -692,7 +729,7 @@ jobs:
             adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4;
             adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false;
             npx wait-on tcp:8081 --timeout 120000 &&
-            npx expo run:android --variant debug --no-bundler &&
+            adb install -r ../apk/app-debug.apk &&
             adb reverse tcp:8081 tcp:8081 &&
             bash ../scripts/run-maestro-ci.sh;
             code=$?;
