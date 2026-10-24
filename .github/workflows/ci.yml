@@ -609,7 +609,12 @@ jobs:
         # whole-suite attempt takes ~6min (measured: 12:42:07 -> 12:48:31),
         # so 3 attempts after the ~9min build need ~27min; 18 cut attempt 2
         # off mid-run.
-        timeout-minutes: 25
+        # 2026-10-24 (run 40102405392, #129): with the APK prebuilt the flows of a
+        # shard finish ~9min after this step starts, but the emulator-runner
+        # teardown hang above then holds the step until this cap, so the cap IS the
+        # wall-clock cost of every shard. 15 = ~9min of flows + retry headroom.
+        # Raise it only if a shard's flows genuinely need longer.
+        timeout-minutes: 15
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -729,6 +734,7 @@ jobs:
             adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4;
             adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false;
             npx wait-on tcp:8081 --timeout 120000 &&
+            bash ../scripts/warm-metro-android.sh &&
             adb install -r ../apk/app-debug.apk &&
             adb reverse tcp:8081 tcp:8081 &&
             bash ../scripts/run-maestro-ci.sh;
