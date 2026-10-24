@@ -8,46 +8,15 @@ appId: com.navindalmia.expensemanager
 # `currency-*` buttons - see create-group-currency-picker-screen.yaml for
 # that half. Also exercises #44 (group card after edit) by returning to
 # HomeScreen post-edit in the group-list-screen.yaml flow.
-# Uses the standing pre-verified QA test user (test@test.com) and
-# "QA Test Group".
-- launchApp:
-    clearState: true
-- tapOn:
-    text: "Wait"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      id: "email-input"
-    timeout: 30000
-- tapOn:
-    id: "email-input"
-- inputText: "test@test.com"
-- tapOn:
-    text: "Wait"
-    optional: true
-- tapOn:
-    id: "password-input"
-- inputText: "Test1234!"
-- hideKeyboard
-- tapOn:
-    id: "submit-button"
-- assertVisible:
-    id: "home-screen"
-- tapOn:
-    text: "QA Test Group"
-- assertVisible:
-    id: "expense-list-screen"
-- back
-- assertVisible:
-    id: "home-screen"
-# Tap by the button's visible label, not its testID - HomeScreen.tsx names
-# this `edit-group-button-${item.id}`, a raw Postgres autoincrement id that
-# a freshly seeded CI database won't reproduce (same lesson as
-# expense-list-screen.yaml's "QA Test Group" tap). The button's actual text
-# is "✏️ Edit Group" (leading emoji) - matched via a substring regex since
-# an exact "Edit Group" match doesn't include the emoji prefix.
+# Logs in as the pre-verified QA user (test@test.com) and acts on its own freshly created group ("Visual Currency 118"), not the first group in the
+# list, so the screenshot is the same on every run and shard.
+- runFlow:
+    file: ../shared/login-and-create-group.yaml
+    env:
+      GROUP_NAME: "Visual Currency 118"
 - tapOn:
     text: ".*Edit Group.*"
+    below: "Visual Currency 118"
 - assertVisible:
     id: "edit-group-name-input"
 - assertVisible:

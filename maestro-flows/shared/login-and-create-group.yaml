@@ -1,0 +1,58 @@
+appId: com.navindalmia.expensemanager
+---
+# Shared setup for Maestro flows that must act on a group they own, so the
+# screen (and any baseline screenshot) never depends on whichever group other
+# flows left first in the list. Not run on its own; lives outside
+# maestro-flows/visual/ so CI does not pick it up as a flow.
+# Usage: runFlow: { file: ../shared/login-and-create-group.yaml, env: { GROUP_NAME: "..." } }
+# Give every flow its own GROUP_NAME: the shards share one backend per job.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "add-group-button"
+- tapOn:
+    id: "group-name-input"
+- inputText: ${GROUP_NAME}
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "create-button"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "create-button"
+- extendedWaitUntil:
+    visible:
+      id: "add-member-close-button"
+    timeout: 20000
+- tapOn:
+    id: "add-member-close-button"
+# Closing Add Members raises a native "Group created!" alert over the list.
+- extendedWaitUntil:
+    visible: "Group created!"
+    timeout: 20000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: ${GROUP_NAME}
+    timeout: 20000
