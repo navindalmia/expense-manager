@@ -44,4 +44,11 @@ describe('AboutScreen', () => {
     const { container } = render(<AboutScreen />);
     expect(container.querySelector('[data-rn-safe-area-view="true"] [testid="about-screen"]')).not.toBeNull();
   });
+
+  it('should show the device diagnostics card on staging only', () => {
+    mockInfo.value = { ...base, environment: 'staging' };
+    expect(render(<AboutScreen />).container.querySelector('[testid="device-diagnostics"]')).not.toBeNull();
+    mockInfo.value = base;
+    expect(render(<AboutScreen />).container.querySelector('[testid="device-diagnostics"]')).toBeNull();
+  });
 });
