@@ -14,8 +14,16 @@
  * `header` renders above the scroll area inside the keyboard handling (e.g. the staging banner).
  */
 import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { KeyboardInsetView, useScrollFocusedInputIntoView } from '../hooks/useKeyboardInset';
+
+/**
+ * Minimum scrollable space (dp) kept below the last control. On edge-to-edge Android the system
+ * navigation buttons are drawn over the app, and the Create/Save row at the end of a form was left
+ * partly under them even with the keyboard closed (Samsung 3-button). Space the user can always
+ * scroll into view fixes that for every screen at once; a screen's own larger padding wins.
+ */
+export const FORM_BOTTOM_CLEARANCE = 64;
 
 interface KeyboardAwareScrollProps extends ScrollViewProps {
   children?: React.ReactNode;
@@ -31,11 +39,20 @@ export default function KeyboardAwareScroll({
   ...scrollViewProps
 }: KeyboardAwareScrollProps): React.ReactElement {
   const { scrollRef, scrollProps } = useScrollFocusedInputIntoView();
+  const own = StyleSheet.flatten(scrollViewProps.contentContainerStyle) as ViewStyle | undefined;
+  const ownBottom = Number(own?.paddingBottom ?? own?.paddingVertical ?? own?.padding ?? 0) || 0;
+  const contentContainerStyle: ViewStyle = { ...own, paddingBottom: Math.max(ownBottom, FORM_BOTTOM_CLEARANCE) };
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={avoiderStyle ?? { flex: 1 }}>
       <KeyboardInsetView style={{ flex: 1 }}>
         {header}
-        <ScrollView ref={scrollRef} {...scrollProps} keyboardShouldPersistTaps="handled" {...scrollViewProps}>
+        <ScrollView
+          ref={scrollRef}
+          {...scrollProps}
+          keyboardShouldPersistTaps="handled"
+          {...scrollViewProps}
+          contentContainerStyle={contentContainerStyle}
+        >
           {children}
         </ScrollView>
       </KeyboardInsetView>
