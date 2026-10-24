@@ -8,6 +8,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import ScreenContainer from '../components/ScreenContainer';
+import DeviceDiagnostics from '../components/DeviceDiagnostics';
 import { getAboutInfo } from '../utils/aboutInfo';
 
 const styles = StyleSheet.create({
@@ -51,6 +52,7 @@ export default function AboutScreen(): React.JSX.Element {
         {info.buildNumber ? <Row id="about-build" label="Build" value={info.buildNumber} /> : null}
         <Row id="about-update" label="Update" value={updateValue} />
       </View>
+      {info.environment === 'staging' ? <DeviceDiagnostics /> : null}
     </ScrollView>
     </ScreenContainer>
   );
