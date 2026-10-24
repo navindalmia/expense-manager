@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { updateGroup, Group } from '../services/groupService';
+import { updateGroup, deleteGroup, Group } from '../services/groupService';
 import CurrencyPicker from './CurrencyPicker';
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import FieldHelp from './FieldHelp';
@@ -26,12 +26,16 @@ import AddMemberModal from './AddMemberModal';
 import TypeAheadDropdown, { TypeAheadItem } from './TypeAheadDropdown';
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
+import { alertThenContinue, confirmThenProceed } from '../utils/crossPlatformAlert';
 
 interface EditGroupModalProps {
   visible: boolean;
   group: Group | null;
   onClose: () => void;
   onSuccess: (updatedGroup: Group) => void;
+  onDeleted?: (deletedGroupId: number) => void;
+  /** Signed-in user's id; only the group creator may delete. Undefined disables Delete. */
+  currentUserId?: number;
 }
 
 const styles = StyleSheet.create({
@@ -134,6 +138,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 14,
   },
+  deleteButton: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#cc0000',
+    paddingVertical: 14,
+  },
+  deleteButtonText: {
+    color: '#cc0000',
+  },
   membersList: {
     marginBottom: 12,
   },
@@ -160,11 +173,15 @@ const styles = StyleSheet.create({
   },
 });
 
+const DELETE_CREATOR_ONLY_HINT = 'Only the group creator can delete this group.';
+
 export default function EditGroupModal({
   visible,
   group,
   onClose,
   onSuccess,
+  onDeleted,
+  currentUserId,
 }: EditGroupModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -173,6 +190,8 @@ export default function EditGroupModal({
   const [themeId, setThemeId] = useState<number | null>(null);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
 
@@ -256,6 +275,52 @@ export default function EditGroupModal({
   const handleMemberAdded = (updatedGroup: Group) => {
     // Update parent with group containing new members
     onSuccess(updatedGroup);
+  };
+
+  // Fail closed: unknown user or missing creator info keeps Delete disabled.
+  const canDelete =
+    currentUserId !== undefined && group?.createdBy?.id === currentUserId;
+
+  const isDeleteDisabled = loading || deleting || confirmingDelete || !canDelete;
+
+  const handleDelete = () => {
+    if (!group || !canDelete) {
+      return;
+    }
+
+    const expenseCount = group._count?.expenses ?? 0;
+    const removalNotice =
+      'The group will be removed for all members. Contact support if this was a mistake.';
+    const message =
+      expenseCount > 0
+        ? `This group has ${expenseCount} expense${expenseCount === 1 ? '' : 's'}. Deleting the group will remove your access to them too. ${removalNotice} Are you sure you want to delete "${group.name}"?`
+        : `Are you sure you want to delete "${group.name}"? ${removalNotice}`;
+
+    setConfirmingDelete(true);
+    confirmThenProceed(
+      'Delete Group',
+      message,
+      'Delete',
+      async () => {
+        setConfirmingDelete(false);
+        setDeleting(true);
+        try {
+          await deleteGroup(group.id);
+          logger.info('Group deleted successfully', { groupId: group.id });
+          onDeleted?.(group.id);
+          onClose();
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
+          // Alert.alert is a silent no-op on web: use the cross-platform wrapper so a
+          // failed delete is visible there too.
+          alertThenContinue('Error', errorMessage, () => {});
+          logger.error('Failed to delete group', error, { groupId: group.id });
+        } finally {
+          setDeleting(false);
+        }
+      },
+      () => setConfirmingDelete(false)
+    );
   };
 
   return (
@@ -370,6 +435,31 @@ export default function EditGroupModal({
                 + Add or Invite Members
               </Text>
             </TouchableOpacity>
+
+            <View style={styles.sectionDivider} />
+
+            <Text style={styles.sectionLabel}>Danger Zone</Text>
+            <TouchableOpacity
+              style={[styles.button, styles.deleteButton]}
+              onPress={handleDelete}
+              disabled={isDeleteDisabled}
+              accessibilityState={{ disabled: isDeleteDisabled }}
+              accessibilityHint={canDelete ? undefined : DELETE_CREATOR_ONLY_HINT}
+              testID="edit-group-delete-button"
+            >
+              {deleting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[styles.buttonText, styles.deleteButtonText]}>
+                  Delete Group
+                </Text>
+              )}
+            </TouchableOpacity>
+            {!canDelete && (
+              <Text style={styles.helpText} testID="edit-group-delete-hint">
+                {DELETE_CREATOR_ONLY_HINT}
+              </Text>
+            )}
           </ScrollView>
 
           {/* Buttons - Fixed at Bottom */}

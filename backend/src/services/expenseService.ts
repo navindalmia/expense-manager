@@ -14,6 +14,7 @@ import { assertLabelVisible } from "./labelService";
 import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
+import { assertGroupActive } from './groupGuards';
 
 const SUGGESTION_LIMIT = 5;
 // Most recent expenses scanned for autocomplete, to bound memory per keystroke
@@ -48,9 +49,7 @@ export async function getGroupExpenses(groupId: number, userId: number) {
       include: { members: { select: { id: true } } },
     });
 
-    if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
-    }
+    assertGroupActive(group, groupId);
 
     // Check authorization: user must be member or creator
     const isMember = group.members.some((m: any) => m.id === userId);
@@ -190,9 +189,7 @@ export async function createExpense(data: {
       include: { members: { select: { id: true } } },
     });
 
-    if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
-    }
+    assertGroupActive(group, groupId);
 
     // Verify the requester (JWT user) belongs to the group; the payer may differ
     const isRequesterMember = group.members.some((m) => m.id === requesterId);
@@ -365,7 +362,7 @@ export async function deleteExpense(expenseId: number, userId: number) {
       where: { id: expenseId },
       include: {
         group: {
-          select: { id: true, members: { select: { id: true } }, createdById: true },
+          select: { id: true, isActive: true, members: { select: { id: true } }, createdById: true },
         },
       },
     });
@@ -373,6 +370,8 @@ export async function deleteExpense(expenseId: number, userId: number) {
     if (!expense) {
       throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
     }
+
+    assertGroupActive(expense.group, expense.group.id);
 
     // Check authorization: user must be member or creator of the group
     const isMember = expense.group.members.some((m) => m.id === userId);
@@ -416,7 +415,7 @@ export async function getExpenseById(expenseId: number, userId: number) {
       where: { id: expenseId },
       include: {
         group: {
-          select: { id: true, members: { select: { id: true } }, createdById: true },
+          select: { id: true, isActive: true, members: { select: { id: true } }, createdById: true },
         },
         currency: { select: { id: true, code: true, label: true } },
         paidBy: { select: { id: true, name: true, email: true } },
@@ -428,6 +427,8 @@ export async function getExpenseById(expenseId: number, userId: number) {
     if (!expense) {
       throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
     }
+
+    assertGroupActive(expense.group, expense.group.id);
 
     // Check authorization: user must be member or creator of the group
     const isMember = expense.group.members.some((m) => m.id === userId);
@@ -484,7 +485,7 @@ export async function updateExpense(
       where: { id: expenseId },
       include: {
         group: {
-          select: { id: true, members: { select: { id: true } }, createdById: true },
+          select: { id: true, isActive: true, members: { select: { id: true } }, createdById: true },
         },
         splitWith: { select: { id: true } },
       },
@@ -493,6 +494,8 @@ export async function updateExpense(
     if (!expense) {
       throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
     }
+
+    assertGroupActive(expense.group, expense.group.id);
 
     // Check authorization: user must be member or creator of the group
     const isMember = expense.group.members.some((m) => m.id === userId);

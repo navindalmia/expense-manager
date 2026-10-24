@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
 import { assertThemeVisible } from './themeService';
+import { assertGroupActive } from './groupGuards';
 
 /**
  * Shared catch-block policy: rethrow an AppError untouched, otherwise throw a
@@ -273,13 +274,7 @@ export async function getGroupById(groupId: number, userId: number) {
       },
     });
 
-    if (!group) {
-      throw new Error('Group not found');
-    }
-
-    if (!group.isActive) {
-      throw new Error('Group has been deleted');
-    }
+    assertGroupActive(group, groupId);
 
     // Check if user is a member or creator
     const isMember = group.members.some((m) => m.id === userId);
@@ -323,9 +318,7 @@ export async function addMemberByEmail(
       },
     });
 
-    if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
-    }
+    assertGroupActive(group, groupId);
 
     // Only creator can add members
     if (group.createdById !== requestorId) {
@@ -415,9 +408,7 @@ export async function addMemberToGroup(
       },
     });
 
-    if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
-    }
+    assertGroupActive(group, groupId);
 
     // Only creator can add members
     if (requestorId && group.createdById !== requestorId) {
@@ -537,14 +528,7 @@ export async function removeMemberFromGroup(
       include: { members: { select: { id: true } } },
     });
 
-    if (!group) {
-      throw new AppError(
-        'GROUP.NOT_FOUND',
-        404,
-        'GROUP_NOT_FOUND',
-        { groupId }
-      );
-    }
+    assertGroupActive(group, groupId);
 
     // Only creator can remove members
     if (group.createdById !== requestorId) {
@@ -661,9 +645,7 @@ export async function updateGroup(
   try {
     const group = await prisma.group.findUnique({ where: { id: groupId } });
 
-    if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
-    }
+    assertGroupActive(group, groupId);
 
     // Only creator can edit group
     if (group.createdById !== requestorId) {
@@ -788,13 +770,16 @@ export async function deactivateGroup(
   try {
     const group = await prisma.group.findUnique({ where: { id: groupId } });
 
-    if (!group) {
-      throw new Error('Group not found');
-    }
+    assertGroupActive(group, groupId);
 
     // Only creator can delete
     if (group.createdById !== requestorId) {
-      throw new Error('Unauthorized: Only group creator can delete group');
+      throw new AppError(
+        'GROUP.DELETE_UNAUTHORIZED',
+        403,
+        'GROUP_UNAUTHORIZED',
+        { groupId, requestorId }
+      );
     }
 
     const updated = await prisma.group.update({
@@ -804,7 +789,10 @@ export async function deactivateGroup(
 
     return updated;
   } catch (error) {
-    throw error;
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('GROUP.DELETE_FAILED', 500, 'DELETE_GROUP_ERROR');
   }
 }
 
@@ -822,9 +810,7 @@ export async function getGroupStats(groupId: number, userId: number) {
       include: { members: { select: { id: true } } },
     });
 
-    if (!group) {
-      throw new Error('Group not found');
-    }
+    assertGroupActive(group, groupId);
 
     const isMember = group.members.some((m: any) => m.id === userId);
     const isCreator = group.createdById === userId;
@@ -861,6 +847,9 @@ export async function getGroupStats(groupId: number, userId: number) {
       currency: expenses.length > 0 ? (expenses[0] as any).currency : 'GBP',
     };
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new Error('Failed to fetch group statistics');
   }
 }
@@ -879,9 +868,7 @@ export async function getGroupExpenses(groupId: number, userId: number) {
       include: { members: { select: { id: true } } },
     });
 
-    if (!group) {
-      throw new AppError('Group not found', 404, 'GROUP_NOT_FOUND', { groupId });
-    }
+    assertGroupActive(group, groupId);
 
     const isMember = group.members.some((m: any) => m.id === userId);
     const isCreator = group.createdById === userId;
