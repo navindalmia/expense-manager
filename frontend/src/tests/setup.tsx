@@ -72,7 +72,12 @@ vi.mock('react-native-safe-area-context', () => ({
 // Native Expo modules crash on import under jsdom (no ExpoGlobal). The staging marker imports
 // them (appVariant -> expo-constants, updateInfo -> expo-updates), so every screen test needs
 // inert defaults. Tests that care mock them explicitly.
-vi.mock('expo-updates', () => ({ isEmbeddedLaunch: true, updateId: null, createdAt: null }));
+vi.mock('expo-updates', () => ({
+  isEmbeddedLaunch: true, updateId: null, createdAt: null, isEnabled: true,
+  checkForUpdateAsync: vi.fn().mockResolvedValue({ isAvailable: false }),
+  fetchUpdateAsync: vi.fn().mockResolvedValue({ isNew: true }),
+  reloadAsync: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('expo-constants', () => ({ default: { expoConfig: { extra: {} } } }));
 
 // __DEV__ is injected by the Metro/RN bundler at build time; not present

@@ -113,3 +113,13 @@ describe('appVariant exposure', () => {
     expect(buildConfig({ APP_VARIANT: 'staging' }).expo.extra.eas).toBeDefined();
   });
 });
+
+describe('staging OTA update behaviour', () => {
+  it('should wait up to 5s for an update at launch in the staging variant only', () => {
+    const staging = buildConfig({ APP_VARIANT: 'staging' }).expo.updates;
+    expect(staging.checkAutomatically).toBe('ON_LOAD');
+    expect(staging.fallbackToCacheTimeout).toBe(5000);
+    expect(staging.url).toBe(buildConfig({}).expo.updates.url);
+    expect(buildConfig({}).expo.updates.fallbackToCacheTimeout).toBeUndefined();
+  });
+});
