@@ -438,7 +438,6 @@ export default function EditGroupModal({
 
             <View style={styles.sectionDivider} />
 
-            <Text style={styles.sectionLabel}>Danger Zone</Text>
             <TouchableOpacity
               style={[styles.button, styles.deleteButton]}
               onPress={handleDelete}

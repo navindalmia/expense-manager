@@ -8,7 +8,7 @@ import type { AboutInfo } from '../../utils/aboutInfo';
 // ScrollView root and its bottom rows could sit under the Android navigation bar.
 const info: AboutInfo = {
   appName: 'Expense Manager', version: '1.0.0', buildNumber: '1', environment: 'production',
-  updateId: null, updateCreatedAt: null, isEmbedded: true, backendHost: 'api.example.com',
+  updateId: null, updateCreatedAt: null, isEmbedded: true,
 };
 vi.mock('../../utils/aboutInfo', () => ({ getAboutInfo: () => info }));
 

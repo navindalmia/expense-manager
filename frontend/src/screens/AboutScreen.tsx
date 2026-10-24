@@ -50,7 +50,6 @@ export default function AboutScreen(): React.JSX.Element {
       <View style={styles.card}>
         {info.buildNumber ? <Row id="about-build" label="Build" value={info.buildNumber} /> : null}
         <Row id="about-update" label="Update" value={updateValue} />
-        <Row id="about-backend" label="Server" value={info.backendHost} />
       </View>
     </ScrollView>
     </ScreenContainer>

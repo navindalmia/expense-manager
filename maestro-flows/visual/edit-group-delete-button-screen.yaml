@@ -1,10 +1,10 @@
 appId: com.navindalmia.expensemanager
 ---
-# Visual-regression baseline for issue #47: the Edit Group modal's Danger Zone
-# with the Delete Group button, as the group creator sees it (enabled, no
+# Visual-regression baseline for issue #47: the Edit Group modal's Delete Group
+# button, as the group creator sees it (enabled, no
 # "only the creator" hint). The functional coverage lives in
 # EditGroupModal.test.tsx (creator-only enable/disable) and
-# e2e/regression/issue-47-delete-group-ui.spec.ts; this flow pins how the Danger Zone looks.
+# e2e/regression/issue-47-delete-group-ui.spec.ts; this flow pins how the Delete Group button looks.
 # Uses the standing pre-verified QA test user (test@test.com), the creator of
 # "QA Test Group", same as edit-group-theme-picker-screen.yaml.
 - launchApp:
@@ -40,5 +40,5 @@ appId: com.navindalmia.expensemanager
     element:
       id: "edit-group-delete-button"
 - assertVisible:
-    text: "Danger Zone"
+    id: "edit-group-delete-button"
 - assertScreenshot: "edit-group-delete-button-screen"
