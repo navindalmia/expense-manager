@@ -6,8 +6,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  KeyboardAvoidingView, Platform, Alert, Modal, ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { EditExpenseScreenProps } from '../types/navigation';
@@ -23,7 +22,7 @@ import { AccordionSection } from '../components/AccordionSection';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import FieldHelp from '../components/FieldHelp';
-import { KeyboardInsetView, useScrollFocusedInputIntoView } from '../hooks/useKeyboardInset';
+import KeyboardAwareScroll from '../components/KeyboardAwareScroll';
 
 // Sentinel picker row id (real theme ids are positive) meaning "clear the theme".
 const NO_THEME_ID = 0;
@@ -67,7 +66,6 @@ const styles = StyleSheet.create({
 });
 
 export default function EditExpenseScreen({ navigation, route }: EditExpenseScreenProps) {
-  const { scrollRef, scrollProps } = useScrollFocusedInputIntoView();
   const { expenseId, groupId, groupName, groupCurrencyCode = 'GBP' } = route.params || {};
   const { user } = useAuth();
   
@@ -404,9 +402,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <KeyboardInsetView style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} {...scrollProps} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScroll contentContainerStyle={styles.scrollContent}>
         <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><SafeAreaView style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)} testID="edit-expense-paid-by-modal-close-button"><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }} testID={`edit-expense-paid-by-option-${member.id}`}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></SafeAreaView></Modal>
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
         <View style={[styles.formSection, suggestedMatches.length > 0 && styles.formSectionRaised]}>
@@ -596,9 +592,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
-        </ScrollView>
-        </KeyboardInsetView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }

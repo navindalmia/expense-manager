@@ -14,8 +14,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
   StyleSheet,
   Alert,
@@ -27,6 +25,7 @@ import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { resendVerificationEmail } from '../services/emailVerificationService';
 import StagingBanner from '../components/StagingBanner';
+import KeyboardAwareScroll from '../components/KeyboardAwareScroll';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -320,12 +319,7 @@ export default function LoginScreen({ navigation }: Props) {
   }, [email, password]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StagingBanner padTop />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAwareScroll avoiderStyle={styles.container} header={<StagingBanner padTop />} style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Expense Manager</Text>
@@ -460,7 +454,6 @@ export default function LoginScreen({ navigation }: Props) {
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScroll>
   );
 }
