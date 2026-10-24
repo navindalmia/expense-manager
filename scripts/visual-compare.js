@@ -3,6 +3,9 @@
 //   node scripts/visual-compare.js <run-id> [out-dir]      (needs the gh CLI, logged in)
 //   node scripts/visual-compare.js --dir <artifacts-dir> [out-dir]   (already downloaded)
 // Writes <out-dir>/index.html (default /tmp/visual-compare-<run-id>) and opens it on macOS.
+// Flags: --inline  embed images as data URIs (one self-contained index.html, shareable as a single
+//                   file) and keep only flows that did not pass, unless --all is also given;
+//        --all     keep passing flows too;   --no-open  do not open the page.
 // Per flow: committed baseline (maestro-flows/visual/<flow>.png) on the left, the run's
 // last assertScreenshot image on the right, with Maestro's similarity % when it failed.
 'use strict';
@@ -53,6 +56,10 @@ function similarityFor(flowDir) {
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+function dataUri(file) {
+  return `data:image/png;base64,${fs.readFileSync(file).toString('base64')}`;
+}
+
 function render(rows, title) {
   const cards = rows.map((r) => `
   <section class="${r.status.includes('FAILED') ? 'bad' : ''}">
@@ -73,7 +80,8 @@ section.bad{border-color:#d33}h2{font-size:15px;margin:0 0 8px}small{color:#666;
 function main(argv) {
   let artifacts;
   let runId = 'local';
-  const args = [...argv];
+  const flags = new Set(argv.filter((a) => ['--inline', '--all', '--no-open'].includes(a)));
+  const args = argv.filter((a) => !flags.has(a));
   if (args[0] === '--dir') {
     artifacts = path.resolve(args[1] || '');
     args.splice(0, 2);
@@ -89,22 +97,30 @@ function main(argv) {
   const out = path.resolve(args[0] || `/tmp/visual-compare-${runId}`);
   fs.mkdirSync(path.join(out, 'img'), { recursive: true });
 
-  const rows = collectRuns(artifacts).map((r) => {
+  const inline = flags.has('--inline');
+  let runs = collectRuns(artifacts).map((r) => ({ ...r, status: similarityFor(r.flowDir) }));
+  if (inline && !flags.has('--all')) runs = runs.filter((r) => r.status !== 'passed');
+  const rows = runs.map((r) => {
+    const basePath = path.join(BASELINES, `${r.flow}.png`);
+    const hasBase = fs.existsSync(basePath);
+    if (inline) {
+      return { flow: r.flow, baseline: hasBase ? dataUri(basePath) : null, actual: dataUri(r.file), status: r.status };
+    }
     const actual = `img/${r.flow}.actual.png`;
     fs.copyFileSync(r.file, path.join(out, actual));
     let baseline = null;
-    const basePath = path.join(BASELINES, `${r.flow}.png`);
-    if (fs.existsSync(basePath)) {
+    if (hasBase) {
       baseline = `img/${r.flow}.baseline.png`;
       fs.copyFileSync(basePath, path.join(out, baseline));
     }
-    return { flow: r.flow, baseline, actual, status: similarityFor(r.flowDir) };
+    return { flow: r.flow, baseline, actual, status: r.status };
   });
   // Failures first, so the interesting ones are at the top.
   rows.sort((a, b) => Number(b.status.includes('FAILED')) - Number(a.status.includes('FAILED')));
   fs.writeFileSync(path.join(out, 'index.html'), render(rows, `Maestro screenshots, run ${runId}`));
-  console.log(`${rows.length} flows -> ${path.join(out, 'index.html')}`);
-  if (process.platform === 'darwin') execFileSync('open', [path.join(out, 'index.html')]);
+  const bad = rows.filter((r) => r.status.includes('FAILED')).length;
+  console.log(`${rows.length} flows (${bad} failed) -> ${path.join(out, 'index.html')}`);
+  if (process.platform === 'darwin' && !flags.has('--no-open')) execFileSync('open', [path.join(out, 'index.html')]);
   return 0;
 }
 
