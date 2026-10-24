@@ -171,5 +171,6 @@ EXPO_PUBLIC_API_BASE_URL  # Backend API base (must be EXPO_PUBLIC_ prefix to be 
 - `docs/solutions/` — Compound Engineering's institutional memory of past problems/fixes
 - `README.md` — onboarding, setup, and getting started
 - `ROADMAP.md` — project scope, phases, and known open work
+- `PROJECT_MEMORY/11-VERSIONING.md` — app version (semver) rules; bumped in each app-code PR into staging, enforced by `version-guard.yml`
 - `PROJECT_MEMORY/10-AI_COLLABORATION.md` — agreed AI agent patterns, autonomous vs approval boundaries, lessons learned
 - `PROJECT_MEMORY/MIGRATIONS.md` — log of major workflow/tooling changes and why they were made
