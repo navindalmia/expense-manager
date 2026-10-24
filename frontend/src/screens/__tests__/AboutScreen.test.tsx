@@ -47,8 +47,12 @@ describe('AboutScreen', () => {
 
   it('should show the device diagnostics card on staging only', () => {
     mockInfo.value = { ...base, environment: 'staging' };
-    expect(render(<AboutScreen />).container.querySelector('[testid="device-diagnostics"]')).not.toBeNull();
+    const staging = render(<AboutScreen />).container;
+    expect(staging.querySelector('[testid="device-diagnostics"]')).not.toBeNull();
+    expect(staging.querySelector('[testid="update-check-button"]')).not.toBeNull();
     mockInfo.value = base;
-    expect(render(<AboutScreen />).container.querySelector('[testid="device-diagnostics"]')).toBeNull();
+    const production = render(<AboutScreen />).container;
+    expect(production.querySelector('[testid="device-diagnostics"]')).toBeNull();
+    expect(production.querySelector('[testid="update-check-button"]')).toBeNull();
   });
 });

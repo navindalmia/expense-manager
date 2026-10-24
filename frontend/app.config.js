@@ -83,6 +83,10 @@ function buildConfig(env = process.env, now = Date.now()) {
       scheme: STAGING_OVERRIDES.scheme,
       icon: './assets/icon-staging.png',
       extra: { ...baseConfig.extra, appVariant: 'staging' },
+      // Staging testers install by link and want a new OTA update on the SAME launch: wait up to
+      // 5s for it at startup instead of the default (apply on the launch after next). Staging only;
+      // production keeps the default so a slow network never delays the live app's start.
+      updates: { ...baseConfig.updates, checkAutomatically: 'ON_LOAD', fallbackToCacheTimeout: 5000 },
       web: { ...baseConfig.web, favicon: './assets/favicon-staging.png' },
       android: {
         ...baseConfig.android,
