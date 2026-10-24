@@ -10,7 +10,7 @@ import AboutScreen from '../AboutScreen';
 
 const base: AboutInfo = {
   appName: 'expense-manager', version: '1.0.0', buildNumber: null, environment: 'production',
-  updateId: null, updateCreatedAt: null, isEmbedded: true, backendHost: 'api.example.com',
+  updateId: null, updateCreatedAt: null, isEmbedded: true,
 };
 const text = (c: HTMLElement, id: string): string | null =>
   c.querySelector(`[testid="${id}"]`)?.textContent ?? null;
@@ -22,7 +22,7 @@ describe('AboutScreen', () => {
     expect(text(container, 'about-version')).toBe('Version 1.0.0');
     expect(text(container, 'about-environment')).toBe('Environment: Production');
     expect(text(container, 'about-update')).toBe('Embedded build');
-    expect(text(container, 'about-backend')).toBe('api.example.com');
+    expect(text(container, 'about-backend')).toBeNull();
     expect(text(container, 'about-build')).toBeNull();
   });
 

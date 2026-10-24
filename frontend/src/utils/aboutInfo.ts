@@ -19,7 +19,6 @@ export interface AboutInfo {
   updateId: string | null;
   updateCreatedAt: string | null;
   isEmbedded: boolean;
-  backendHost: string;
 }
 
 function resolveEnvironment(): AppEnvironment {
@@ -38,17 +37,6 @@ function resolveBuildNumber(): string | null {
     return code ? String(code) : null;
   } catch {
     return null;
-  }
-}
-
-/** Hostname only - never the path, query, credentials or port-less secrets. */
-export function extractHost(rawUrl: string | undefined): string {
-  const value = (rawUrl ?? '').trim();
-  if (!value) return 'unknown';
-  try {
-    return new URL(value).hostname || 'unknown';
-  } catch {
-    return 'unknown';
   }
 }
 
@@ -71,6 +59,5 @@ export function getAboutInfo(): AboutInfo {
     buildNumber: resolveBuildNumber(),
     environment: resolveEnvironment(),
     ...resolveUpdate(),
-    backendHost: extractHost(process.env.EXPO_PUBLIC_API_BASE_URL),
   };
 }

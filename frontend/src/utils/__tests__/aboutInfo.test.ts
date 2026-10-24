@@ -11,7 +11,7 @@ const { mockConstants, mockUpdates } = vi.hoisted(() => ({
 vi.mock('expo-constants', () => ({ default: mockConstants }));
 vi.mock('expo-updates', () => mockUpdates);
 
-import { getAboutInfo, extractHost } from '../aboutInfo';
+import { getAboutInfo } from '../aboutInfo';
 
 describe('aboutInfo', () => {
   beforeEach(() => {
@@ -58,14 +58,6 @@ describe('aboutInfo', () => {
     expect(getAboutInfo().buildNumber).toBe('42');
   });
 
-  it('should expose the hostname only, never path, port or query', () => {
-    expect(getAboutInfo().backendHost).toBe('api.example.com');
-  });
-
-  it('should return unknown for a missing or invalid API URL', () => {
-    expect(extractHost(undefined)).toBe('unknown');
-    expect(extractHost('not a url')).toBe('unknown');
-  });
 
   it('should not throw when expo-updates throws', () => {
     Object.defineProperty(mockUpdates, 'isEmbeddedLaunch', { get() { throw new Error('native'); }, configurable: true });
