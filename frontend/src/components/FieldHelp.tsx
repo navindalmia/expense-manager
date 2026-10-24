@@ -20,14 +20,18 @@ export const HELP_TEXT: Record<HelpTopic, string> = {
     'A Theme links groups and expenses that belong together over time, such as "Monthly Expense" reused every month.',
 };
 
+const HIT_SLOP = { top: 16, bottom: 16, left: 16, right: 16 };
+
 interface FieldHelpProps {
   topic: HelpTopic;
   testIDPrefix: string;
 }
 
 const styles = StyleSheet.create({
-  trigger: { minWidth: 44, minHeight: 44, marginVertical: -14, alignItems: 'center', justifyContent: 'center' },
-  triggerText: { fontSize: 14, color: '#0066cc', fontWeight: '700' },
+  // Superscript: a small "i" hugging the end of the label, top-aligned so it sits above the text
+  // baseline. The 44pt touch target comes from HIT_SLOP, not from the glyph's own box.
+  trigger: { alignSelf: 'flex-start', marginLeft: 3, marginTop: -2 },
+  triggerText: { fontSize: 11, lineHeight: 12, color: '#0066cc', fontWeight: '700' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.3)', justifyContent: 'center', paddingHorizontal: 32 },
   card: { backgroundColor: '#fff', borderRadius: 10, padding: 16 },
   heading: { fontSize: 15, fontWeight: '700', color: '#000', marginBottom: 6 },
@@ -41,6 +45,7 @@ export default function FieldHelp({ topic, testIDPrefix }: FieldHelpProps) {
     <>
       <TouchableOpacity
         style={styles.trigger}
+        hitSlop={HIT_SLOP}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={`What is a ${topic}?`}
