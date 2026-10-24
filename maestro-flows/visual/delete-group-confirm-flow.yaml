@@ -1,0 +1,85 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #47 functional flow (no screenshot): on a real Android emulator the creator
+# opens Edit Group, taps Delete, CANCELS the native confirm (group stays, Delete works
+# again), then taps Delete and CONFIRMS (group disappears from the list).
+# Unit tests only mock Alert.alert; this proves the native dialog wiring end to end.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "add-group-button"
+- tapOn:
+    id: "group-name-input"
+- inputText: "Maestro Delete 47"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "create-button"
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: "create-button"
+- extendedWaitUntil:
+    visible:
+      id: "add-member-close-button"
+    timeout: 20000
+- tapOn:
+    id: "add-member-close-button"
+# Closing Add Members raises a native "Group created!" success alert that covers the
+# list; dismiss it before looking for the new group (found in the first CI run).
+- extendedWaitUntil:
+    visible: "Group created!"
+    timeout: 20000
+- tapOn: "OK"
+- extendedWaitUntil:
+    visible: "Maestro Delete 47"
+    timeout: 20000
+# Edit button of the group we just created (below its title, not the first card).
+- tapOn:
+    text: ".*Edit Group.*"
+    below: "Maestro Delete 47"
+- scrollUntilVisible:
+    element:
+      id: "edit-group-delete-button"
+- assertVisible:
+    id: "edit-group-delete-button"
+# Cancel: nothing deleted, Delete still usable.
+- tapOn:
+    id: "edit-group-delete-button"
+# The dialog message (not the modal's own "Delete Group" button) proves the native
+# confirm opened.
+- assertVisible: ".*removed for all members.*"
+- tapOn: "Cancel"
+- assertVisible:
+    id: "edit-group-delete-button"
+# Confirm: group is removed.
+- tapOn:
+    id: "edit-group-delete-button"
+# The dialog message (not the modal's own "Delete Group" button) proves the native
+# confirm opened.
+- assertVisible: ".*removed for all members.*"
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible: "Maestro Delete 47"
+    timeout: 20000

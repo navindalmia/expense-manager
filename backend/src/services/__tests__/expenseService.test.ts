@@ -24,6 +24,7 @@ describe('ExpenseService', () => {
       id: 1,
       name: 'Test Group',
       createdById: 1,
+      isActive: true,
       members: [
         { id: 1, name: 'Alice' },
         { id: 2, name: 'Bob' },
@@ -47,6 +48,7 @@ describe('ExpenseService', () => {
       id: 1,
       group: {
         id: 1,
+        isActive: true,
         createdById: 1,
         members: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 5 }],
       },
@@ -625,6 +627,7 @@ describe('ExpenseService', () => {
       splitPercentage: [],
       group: {
         id: 1,
+        isActive: true,
         createdById: 1,
         members: [{ id: 1 }, { id: 2 }, { id: 3 }],
       },

@@ -22,17 +22,20 @@ export function confirmThenProceed(
   title: string,
   message: string,
   confirmLabel: string,
-  onConfirm: () => void
+  onConfirm: () => void,
+  onCancel: () => void = () => {}
 ): void {
   if (Platform.OS === 'web') {
     if (window.confirm(`${title}\n\n${message}`)) {
       onConfirm();
+    } else {
+      onCancel();
     }
     return;
   }
 
   Alert.alert(title, message, [
-    { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+    { text: 'Cancel', onPress: onCancel, style: 'cancel' },
     { text: confirmLabel, onPress: onConfirm, style: 'destructive' },
   ]);
 }

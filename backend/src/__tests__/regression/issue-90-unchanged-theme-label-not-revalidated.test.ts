@@ -24,7 +24,7 @@ describe('issue #90: unchanged theme/label is not re-validated on update', () =>
       splitPercentage: [],
       themeId: 4,
       labelId: 7,
-      group: { id: 1, createdById: CREATOR_ID, members: [{ id: CREATOR_ID }, { id: EDITOR_ID }] },
+      group: { id: 1, isActive: true, createdById: CREATOR_ID, members: [{ id: CREATOR_ID }, { id: EDITOR_ID }] },
       splitWith: [{ id: CREATOR_ID }, { id: EDITOR_ID }],
     });
   });

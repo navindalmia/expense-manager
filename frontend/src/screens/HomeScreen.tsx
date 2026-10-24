@@ -212,7 +212,7 @@ function HomeScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<Group | null>(null);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   /**
    * Set up the header's overflow menu (About, Themes, Labels, Logout)
@@ -299,6 +299,20 @@ function HomeScreen({ navigation }: Props) {
     logger.info('Group updated in list', {
       groupId: updatedGroup.id,
       name: updatedGroup.name,
+    });
+  }, []);
+
+  /**
+   * Handle group deletion - remove from list and close modal
+   */
+  const handleGroupDeleted = useCallback((deletedGroupId: number) => {
+    setGroups((prevGroups) => prevGroups.filter((g) => g.id !== deletedGroupId));
+
+    setEditModalVisible(false);
+    setSelectedGroupForEdit(null);
+
+    logger.info('Group removed from list after deletion', {
+      groupId: deletedGroupId,
     });
   }, []);
 
@@ -492,6 +506,8 @@ function HomeScreen({ navigation }: Props) {
           setSelectedGroupForEdit(null);
         }}
         onSuccess={handleEditSuccess}
+        onDeleted={handleGroupDeleted}
+        currentUserId={user?.id}
       />
     </SafeAreaView>
   );

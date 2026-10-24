@@ -255,7 +255,10 @@ describe('GroupService', () => {
     it('throws when the group does not exist', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(null);
 
-      await expect(groupService.getGroupById(999, CREATOR_ID)).rejects.toThrow('Group not found');
+      await expect(groupService.getGroupById(999, CREATOR_ID)).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'GROUP_NOT_FOUND',
+      });
     });
 
     it('throws when the group has been soft-deleted', async () => {
@@ -263,9 +266,10 @@ describe('GroupService', () => {
         buildGroup({ isActive: false })
       );
 
-      await expect(groupService.getGroupById(1, CREATOR_ID)).rejects.toThrow(
-        'Group has been deleted'
-      );
+      await expect(groupService.getGroupById(1, CREATOR_ID)).rejects.toMatchObject({
+        statusCode: 404,
+        code: 'GROUP_NOT_FOUND',
+      });
     });
   });
 
@@ -445,10 +449,24 @@ describe('GroupService', () => {
     it('throws when called by a non-creator member', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
 
+      // messageKey is now a real i18n key (GROUP.DELETE_UNAUTHORIZED), not a
+      // literal English sentence -- see docs/solutions for the AppError/
+      // i18n-key fix this replaced a raw Error, then an untranslated
+      // literal string, with.
       await expect(groupService.deactivateGroup(1, MEMBER_ID)).rejects.toThrow(
-        'Unauthorized: Only group creator can delete group'
+        'GROUP.DELETE_UNAUTHORIZED'
       );
       expect(prisma.group.update).not.toHaveBeenCalled();
+    });
+    it('wraps an unexpected database failure as a 500 GROUP.DELETE_FAILED AppError', async () => {
+      (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
+      (prisma.group.update as jest.Mock).mockRejectedValue(new Error('db down'));
+
+      await expect(groupService.deactivateGroup(1, CREATOR_ID)).rejects.toMatchObject({
+        statusCode: 500,
+        code: 'DELETE_GROUP_ERROR',
+        messageKey: 'GROUP.DELETE_FAILED',
+      });
     });
   });
 

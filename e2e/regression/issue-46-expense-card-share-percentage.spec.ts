@@ -48,7 +48,7 @@ test.describe('Expense card share calculation, payer excluded from PERCENTAGE sp
     const groupName = `E2E Dinner Group ${runId}`;
 
     // Real signup for the guest via the API (matches this repo's existing
-    // e2e/ convention -- e.g. delete-group.spec.ts's login() pattern --
+    // e2e/ convention -- e.g. issue-47-delete-group-ui.spec.ts's login() pattern --
     // of going through the real API/UI rather than seeding the DB
     // directly).
     await request.post(`${API_BASE_URL}/auth/signup`, {

@@ -77,13 +77,13 @@ describe('group theme must be active when set', () => {
   });
 
   it('should reject switching an existing group to a disabled theme', async () => {
-    m('group').findUnique.mockResolvedValue({ id: 1, createdById: 1, themeId: 3 });
+    m('group').findUnique.mockResolvedValue({ id: 1, createdById: 1, themeId: 3, isActive: true });
     m('theme').findUnique.mockResolvedValue({ id: 9, userId: 1, isActive: false });
     await expect(groupService.updateGroup(1, 1, { themeId: 9 })).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('should allow keeping an unchanged theme that is already disabled', async () => {
-    m('group').findUnique.mockResolvedValue({ id: 1, createdById: 1, themeId: 3 });
+    m('group').findUnique.mockResolvedValue({ id: 1, createdById: 1, themeId: 3, isActive: true });
     m('theme').findUnique.mockResolvedValue({ id: 3, userId: 1, isActive: false });
     m('group').update.mockResolvedValue({ id: 1 });
     await expect(groupService.updateGroup(1, 1, { themeId: 3 })).resolves.toBeDefined();
