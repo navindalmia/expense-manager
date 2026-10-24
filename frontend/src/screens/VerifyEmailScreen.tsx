@@ -14,8 +14,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Alert,
 } from 'react-native';
@@ -24,6 +22,7 @@ import { verifyEmailToken, resendVerificationEmail } from '../services/emailVeri
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import StagingBanner from '../components/StagingBanner';
+import KeyboardAwareScroll from '../components/KeyboardAwareScroll';
 
 type Props = VerifyEmailScreenProps;
 
@@ -308,12 +307,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <StagingBanner padTop />
-      <ScrollView contentContainerStyle={styles.content}>
+    <KeyboardAwareScroll avoiderStyle={styles.container} header={<StagingBanner padTop />} contentContainerStyle={styles.content}>
         <View style={styles.card}>
           {/* Header */}
           <View style={styles.header}>
@@ -438,8 +432,7 @@ export default function VerifyEmailScreen({ navigation, route }: Props) {
             </>
           )}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScroll>
   );
 }
 

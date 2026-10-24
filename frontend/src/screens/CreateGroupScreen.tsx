@@ -13,8 +13,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,6 +28,7 @@ import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdow
 import { getThemes, createTheme, type Theme } from '../services/themeService';
 import FieldHelp from '../components/FieldHelp';
 import ScreenContainer from '../components/ScreenContainer';
+import KeyboardAwareScroll from '../components/KeyboardAwareScroll';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
@@ -208,11 +207,7 @@ function CreateGroupScreen({ navigation }: Props) {
 
   return (
     <ScreenContainer style={styles.container}>
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScroll avoiderStyle={styles.container} style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Group Name */}
         <View style={styles.formSection}>
           <Text style={styles.label}>
@@ -327,8 +322,6 @@ function CreateGroupScreen({ navigation }: Props) {
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-
       {/* Add Member Modal */}
       <AddMemberModal
         visible={showMemberModal}
@@ -336,7 +329,7 @@ function CreateGroupScreen({ navigation }: Props) {
         onClose={handleCloseMemberModal}
         onMemberAdded={handleMemberAdded}
       />
-    </KeyboardAvoidingView>
+      </KeyboardAwareScroll>
     </ScreenContainer>
   );
 }
