@@ -35,7 +35,10 @@ vi.mock('react-native', () => ({
     <div data-rn-safe-area-view="true" {...props}>{children}</div>
   ),
   Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-  ScrollView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  // contentContainerStyle is not a DOM attribute; expose its paddingBottom so tests can assert on it.
+  ScrollView: ({ children, contentContainerStyle, ...props }: any) => (
+    <div {...props} data-content-padding-bottom={contentContainerStyle?.paddingBottom}>{children}</div>
+  ),
   KeyboardAvoidingView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   Modal: ({ children, visible }: any) => (visible ? <div>{children}</div> : null),
   FlatList: ({ data, renderItem, ...props }: any) => (
@@ -54,7 +57,10 @@ vi.mock('react-native', () => ({
     <input {...props} onChange={(e: any) => onChangeText?.(e.target.value)} />
   ),
   ActivityIndicator: (props: any) => <div {...props}>loading</div>,
-  StyleSheet: { create: (styles: any) => styles },
+  StyleSheet: {
+    create: (styles: any) => styles,
+    flatten: (style: any) => (Array.isArray(style) ? Object.assign({}, ...style.flat(Infinity).filter(Boolean)) : style || {}),
+  },
   Platform: { OS: 'ios' },
   Dimensions: { get: () => ({ width: 360, height: 800 }) },
   Alert: { alert: vi.fn() },
