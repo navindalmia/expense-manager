@@ -298,7 +298,8 @@ jobs:
   # Maestro sharding: the number of parallel e2e-mobile shards is configured HERE
   # and only here. Wall-clock shrinks roughly by the shard count, but total
   # Actions minutes grow roughly by the same factor (each shard boots its own
-  # emulator + builds the debug APK, ~9 min fixed cost each), so raise it only
+  # emulator and installs the shared prebuilt APK; the Gradle build is paid once in
+  # e2e-mobile-build), so raise it only
   # while the queue time matters. Flows are split deterministically by sorted
   # filename (scripts/maestro-shards.js).
   e2e-mobile-plan:
@@ -348,7 +349,7 @@ jobs:
           name: e2e-debug-apk
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 3
 
   e2e-mobile-shard:
     # U6: runs maestro-flows/visual/ (U4 visual-regression + U5 accessibility,
@@ -357,8 +358,8 @@ jobs:
     # backend-test/frontend-test (runs in parallel).
     #
     # UPDATED 2026-09-22: this job's overall conclusion is now derived from
-    # the "Report Maestro test result" step below, not from the "Build debug
-    # APK and run Maestro suite" step's own conclusion - that step now runs
+    # the "Report Maestro test result" step below, not from the "Install prebuilt
+    # APK and run Maestro suite on an Android emulator" step's own conclusion - that step now runs
     # with continue-on-error: true precisely because its automatic teardown
     # can hang on the confirmed, unfixable upstream
     # reactivecircus/android-emulator-runner#385 bug (see that step's
@@ -607,14 +608,18 @@ jobs:
         # failure.
         # Raised 18 -> 30 (2026-09-26, run 36242232847): with 9 flows one
         # whole-suite attempt takes ~6min (measured: 12:42:07 -> 12:48:31),
-        # so 3 attempts after the ~9min build need ~27min; 18 cut attempt 2
-        # off mid-run.
+        # so 3 attempts of the whole suite need ~18min of flows alone; 18 total cut
+        # attempt 2 off mid-run (that run still built the APK in-step).
         # 2026-10-24 (run 40102405392, #129): with the APK prebuilt the flows of a
         # shard finish ~9min after this step starts, but the emulator-runner
         # teardown hang above then holds the step until this cap, so the cap IS the
         # wall-clock cost of every shard. 15 = ~9min of flows + retry headroom.
         # Raise it only if a shard's flows genuinely need longer.
-        timeout-minutes: 15
+        # 2026-10-25 (#129 review): 15 did not cover the whole step. Budget =
+        # emulator boot + wait-on (up to 120s) + Metro warm-up (curl -m 240) + APK
+        # install + flows with up to 3 attempts each. Raised to 20. UNMEASURED:
+        # re-tune after timing a few real runs.
+        timeout-minutes: 20
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -690,7 +695,7 @@ jobs:
           # while a transient system dialog won't. Reruns all 3 flows on any
           # single failure (Maestro doesn't retry per-flow), but each attempt
           # only takes ~1.5min so 3 attempts still comfortably fits the
-          # timeout-minutes: 18 budget alongside the ~9min build.
+          # step budget (the APK is prebuilt and shared).
           #
           # UPDATED 2026-09-22: the very last thing this script does is
           # write the real exit code of the build+test pipeline above to
