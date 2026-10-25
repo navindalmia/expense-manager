@@ -216,22 +216,21 @@ export default function AddMemberModal({
   // so onMemberAdded can't fire a second time after the user has navigated away
   useEffect(() => {
     return () => {
+      visibleRef.current = false;
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current);
       }
     };
   }, []);
 
-  // Settle any pending success: deliver the parent update now, drop the timer and
-  // reset the form so a reopen starts clean. Shared by hide and handleClose.
-  const settlePendingSuccess = () => {
+  // Reset the modal's own state (timer, success banner, form) so a reopen starts
+  // clean. Never notifies the parent: only the success timer does that.
+  const resetLocalState = () => {
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current);
       successTimeoutRef.current = null;
     }
-    const pending = pendingResultRef.current;
     pendingResultRef.current = null;
-    if (pending) onMemberAdded(pending);
     setSuccess(false);
     setEmail('');
     setError('');
@@ -244,12 +243,11 @@ export default function AddMemberModal({
     visibleRef.current = visible;
     if (visible) return;
     lastActionFinishedAtRef.current = 0;
-    settlePendingSuccess();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    resetLocalState();
   }, [visible]);
 
   const handleClose = () => {
-    settlePendingSuccess();
+    resetLocalState();
     onClose();
   };
 
@@ -277,8 +275,7 @@ export default function AddMemberModal({
       });
 
       if (!visibleRef.current) {
-        // Hidden while the add was in flight: no success UI or timer, just update the parent.
-        onMemberAdded(result.data);
+        // Hidden/unmounted while the add was in flight: no success UI, timer or parent call.
         return;
       }
 
@@ -289,10 +286,11 @@ export default function AddMemberModal({
 
       successTimeoutRef.current = setTimeout(() => {
         successTimeoutRef.current = null;
+        const pending = pendingResultRef.current;
         pendingResultRef.current = null;
         setEmail('');
         setSuccess(false);
-        onMemberAdded(result.data);
+        if (pending) onMemberAdded(pending);
       }, 1500);
     } catch (err) {
       const errorMessage = getErrorMessage(err);
@@ -315,6 +313,8 @@ export default function AddMemberModal({
         setLoading(true);
         try {
           const updatedGroup = await removeMemberFromGroup(group.id, memberId);
+          // A stale pre-removal group must not be delivered by a pending success timer
+          pendingResultRef.current = null;
           onMemberAdded(updatedGroup);
           logger.info('Member removed successfully', {
             groupId: group.id,

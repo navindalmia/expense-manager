@@ -196,30 +196,42 @@ describe('issue #144: hiding the modal mid-flow', () => {
     expect((q(container, 'add-member-add-button') as HTMLButtonElement).disabled).toBe(false);
   };
 
-  it('should reset success state and notify parent once when hidden during the success window', async () => {
-    const { container, rerender, ui, onMemberAdded } = setup();
+  it('should reset local state and never notify parent when hidden during the success window', async () => {
+    const { container, rerender, ui, onMemberAdded, onClose } = setup();
     await addAndFinish(container, true);
     rerender(ui(false));
-    expect(onMemberAdded).toHaveBeenCalledTimes(1);
-    expect(onMemberAdded).toHaveBeenCalledWith(addResult(2).data);
+    expect(onMemberAdded).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
     rerender(ui(true));
     expectReset(container);
     await act(async () => { vi.advanceTimersByTime(3000); });
-    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).not.toHaveBeenCalled();
   });
 
-  it('should behave the same when handleClose runs during the success window', async () => {
+  it('should call onClose once and never notify parent when closed during the success window', async () => {
     const { container, onMemberAdded, onClose } = setup();
     await addAndFinish(container, true);
     await act(async () => { fireEvent.click(q(container, 'add-member-close-button')); });
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).not.toHaveBeenCalled();
     expectReset(container);
     await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(onMemberAdded).not.toHaveBeenCalled();
+  });
+
+  it('should call onMemberAdded exactly once after 1500ms on the normal success path', async () => {
+    const { container, onMemberAdded } = setup();
+    await addAndFinish(container, true);
+    await act(async () => { vi.advanceTimersByTime(1499); });
+    expect(onMemberAdded).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1); });
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).toHaveBeenCalledWith(addResult(2).data);
+    await act(async () => { vi.advanceTimersByTime(5000); });
     expect(onMemberAdded).toHaveBeenCalledTimes(1);
   });
 
-  it('should notify parent but set no success state or timer when the add resolves after hide', async () => {
+  it('should not notify parent or schedule a timer when the add resolves after hide', async () => {
     let resolve: (v: AddResult) => void = () => {};
     vi.mocked(groupService.addMemberByEmail).mockReturnValue(new Promise((r) => { resolve = r; }));
     const { container, rerender, ui, onMemberAdded } = setup();
@@ -227,12 +239,39 @@ describe('issue #144: hiding the modal mid-flow', () => {
     await act(async () => { fireEvent.click(q(container, 'add-member-add-button')); });
     rerender(ui(false));
     await act(async () => { resolve(addResult(2)); });
-    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
     rerender(ui(true));
     expectReset(container);
     await act(async () => { vi.advanceTimersByTime(3000); });
-    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).not.toHaveBeenCalled();
+  });
+
+  it('should not notify parent or schedule a timer when the add resolves after unmount', async () => {
+    let resolve: (v: AddResult) => void = () => {};
+    vi.mocked(groupService.addMemberByEmail).mockReturnValue(new Promise((r) => { resolve = r; }));
+    const { container, unmount, onMemberAdded } = setup();
+    fireEvent.change(q(container, 'add-member-email-input'), { target: { value: 'a@b.com' } });
+    await act(async () => { fireEvent.click(q(container, 'add-member-add-button')); });
+    unmount();
+    await act(async () => { resolve(addResult(2)); });
+    expect(vi.getTimerCount()).toBe(0);
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(onMemberAdded).not.toHaveBeenCalled();
+  });
+
+  it('should not let the stale add result revert the parent after a remove during the success window', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(Alert.alert).mockImplementation((_t, _m, btns) => { btns?.find((b) => b.style === 'destructive')?.onPress?.(); });
+    const removed = makeGroup(0);
+    vi.mocked(groupService.removeMemberFromGroup).mockResolvedValue(removed);
+    const { container, onMemberAdded } = setup();
+    await addAndFinish(container, true);
+    await act(async () => { fireEvent.click(q(container, 'add-member-remove-button-1')); });
+    expect(onMemberAdded).toHaveBeenCalledWith(removed);
+    onMemberAdded.mockClear();
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(onMemberAdded).not.toHaveBeenCalled();
   });
 
   it('should not allow an overlapping share when hidden while a share is pending, and clear the flag after', async () => {
