@@ -241,4 +241,24 @@ describe('issue #153: expense access is scoped to the caller', () => {
     const root = layers.find((l) => l.route?.path === '/' && l.route.methods.get);
     expect(root?.route?.stack[0]?.handle).toBe(authMiddleware);
   });
+
+  it('should pin accessibleGroupWhere to its literal predicate shape', () => {
+    expect(accessibleGroupWhere(7)).toEqual({
+      AND: [{ isActive: true }, { OR: [{ createdById: 7 }, { members: { some: { id: 7 } } }] }],
+    });
+  });
+
+  it('should allow createExpense to split with a group creator who is not in members', async () => {
+    const g = { ...group, members: [{ id: 2 }] };
+    (prisma.group.findUnique as jest.Mock).mockResolvedValue(g);
+    (prisma.category.findUnique as jest.Mock).mockResolvedValue({ id: 5, userId: null, isActive: true });
+    (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 11 });
+    const status = await statusOf(
+      expenseService.createExpense({
+        title: 't', amount: 5, groupId: 1, paidById: 2, requesterId: 2, categoryId: 5, splitWithIds: [ALICE], expenseDate: '2026-01-01',
+      })
+    );
+    expect(status).toBe('resolved');
+    expect(prisma.expense.create).toHaveBeenCalled();
+  });
 });
