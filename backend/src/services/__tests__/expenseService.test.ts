@@ -36,7 +36,7 @@ describe('ExpenseService', () => {
     // createExpense verifies category and currency exist before writing
     (prisma.category.findUnique as jest.Mock).mockImplementation(
       ({ where }: { where: { id: number } }) =>
-        Promise.resolve({ id: where.id, code: 'FOOD', label: 'Food' })
+        Promise.resolve({ id: where.id, code: 'FOOD', label: 'Food', userId: null })
     );
     (prisma.currency.findUnique as jest.Mock).mockImplementation(
       ({ where }: { where: { code: string } }) =>
@@ -79,25 +79,21 @@ describe('ExpenseService', () => {
 
       (prisma.expense.findMany as jest.Mock).mockResolvedValue(mockExpenses);
 
-      const result = await expenseService.getAllExpenses();
+      const result = await expenseService.getAllExpenses(1);
 
       // ✅ TEST: Service returns data from database
       expect(result).toEqual(mockExpenses);
       
       // ✅ TEST: Service called findMany with correct include structure
-      expect(prisma.expense.findMany).toHaveBeenCalledWith({
-        include: {
-          paidBy: true,
-          category: true,
-          splitWith: true,
-        },
-      });
+      expect(prisma.expense.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ group: expect.anything() }) })
+      );
     });
 
     it('should handle empty expense list', async () => {
       (prisma.expense.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await expenseService.getAllExpenses();
+      const result = await expenseService.getAllExpenses(1);
 
       expect(result).toEqual([]);
       expect(prisma.expense.findMany).toHaveBeenCalled();

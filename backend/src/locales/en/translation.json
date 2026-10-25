@@ -44,6 +44,7 @@
     "CREATION_FAILED": "Failed to create group.",
     "NOT_FOUND": "Group not found.",
     "DELETE_UNAUTHORIZED": "Only the group creator can delete this group.",
+    "NOT_MEMBER": "You are not a member of this group.",
     "DELETE_FAILED": "Failed to delete group."
   }
 }

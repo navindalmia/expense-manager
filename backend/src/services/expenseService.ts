@@ -15,7 +15,8 @@ import { assertLabelVisible } from "./labelService";
 import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
-import { assertGroupActive } from './groupGuards';
+import { assertGroupActive, assertGroupMember, assertExpenseAccess, isGroupMember, accessibleGroupWhere } from './groupGuards';
+import { assertCategoryUsable } from './categoryService';
 
 const SUGGESTION_LIMIT = 5;
 // Most recent expenses scanned for autocomplete, to bound memory per keystroke
@@ -52,18 +53,7 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 
     assertGroupActive(group, groupId);
 
-    // Check authorization: user must be member or creator
-    const isMember = group.members.some((m: any) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { groupId, userId }
-      );
-    }
+    assertGroupMember(group, userId, groupId);
 
     // Fetch expenses for this group only
     const expenses = await prisma.expense.findMany({
@@ -95,10 +85,13 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 }
 
 /**
- * Get all expenses (DEPRECATED - kept for backward compatibility)
+ * Get all expenses the caller can access (DEPRECATED - kept for backward
+ * compatibility). Scoped to active groups the user created or belongs to.
+ * Expense.groupId is NOT NULL, so no group-less expense can exist or leak.
  */
-export async function getAllExpenses() {
+export async function getAllExpenses(userId: number) {
   return prisma.expense.findMany({
+    where: { group: accessibleGroupWhere(userId) },
     include: {
       paidBy: { select: SAFE_USER_SELECT },
       category: true,
@@ -193,15 +186,7 @@ export async function createExpense(data: {
     assertGroupActive(group, groupId);
 
     // Verify the requester (JWT user) belongs to the group; the payer may differ
-    const isRequesterMember = group.members.some((m) => m.id === requesterId);
-    if (!isRequesterMember && group.createdById !== requesterId) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { groupId, userId: requesterId }
-      );
-    }
+    assertGroupMember(group, requesterId, groupId);
 
     // Verify paidById user is a member of the group
     const isPayerMember = group.members.some((m) => m.id === paidById);
@@ -242,6 +227,7 @@ export async function createExpense(data: {
         { categoryId }
       );
     }
+    assertCategoryUsable(categoryRecord, requesterId);
 
     // Look up currency by code to get ID
     const currencyRecord = await prisma.currency.findUnique({
@@ -374,18 +360,7 @@ export async function deleteExpense(expenseId: number, userId: number) {
 
     assertGroupActive(expense.group, expense.group.id);
 
-    // Check authorization: user must be member or creator of the group
-    const isMember = expense.group.members.some((m) => m.id === userId);
-    const isCreator = expense.group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { expenseId, userId }
-      );
-    }
+    assertExpenseAccess(expense.group, userId, expenseId);
 
     // Delete the expense
     return prisma.expense.delete({ where: { id: expenseId } });
@@ -431,18 +406,7 @@ export async function getExpenseById(expenseId: number, userId: number) {
 
     assertGroupActive(expense.group, expense.group.id);
 
-    // Check authorization: user must be member or creator of the group
-    const isMember = expense.group.members.some((m) => m.id === userId);
-    const isCreator = expense.group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { expenseId, userId }
-      );
-    }
+    assertExpenseAccess(expense.group, userId, expenseId);
 
     return expense;
   } catch (error) {
@@ -498,18 +462,7 @@ export async function updateExpense(
 
     assertGroupActive(expense.group, expense.group.id);
 
-    // Check authorization: user must be member or creator of the group
-    const isMember = expense.group.members.some((m) => m.id === userId);
-    const isCreator = expense.group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { expenseId, userId }
-      );
-    }
+    assertExpenseAccess(expense.group, userId, expenseId);
 
     const {
       title,
@@ -546,6 +499,18 @@ export async function updateExpense(
 
       if (!categoryRecord) {
         throw new AppError('Category not found', 404, 'CATEGORY_NOT_FOUND', { categoryId });
+      }
+      assertCategoryUsable(categoryRecord, userId);
+    }
+
+    // Split participants must belong to the expense's group
+    if (splitWithIds !== undefined) {
+      const invalid = splitWithIds.find((id) => !isGroupMember(expense.group, id));
+      if (invalid !== undefined) {
+        throw new AppError('Split member is not a member of this group', 403, 'USER_NOT_GROUP_MEMBER', {
+          groupId: expense.group.id,
+          invalidSplitMemberId: invalid,
+        });
       }
     }
 

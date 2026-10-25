@@ -9,8 +9,8 @@ import { AppError } from "../errors/AppError";
 // Titles shorter than this are too ambiguous to infer a category from
 const MIN_CATEGORY_SUGGEST_TITLE_LENGTH = 2;
 
-export async function getExpenses(req: Request, res: Response) {
-  const expenses = await expenseService.getAllExpenses();
+export async function getExpenses(req: Request, res: Response): Promise<void> {
+  const expenses = await expenseService.getAllExpenses(req.user!.id);
   res.json(expenses);
 }
 
