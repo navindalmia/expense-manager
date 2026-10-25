@@ -811,7 +811,6 @@ describe('ExpenseService', () => {
           title: 'Fuel',
           amount: 45,
           categoryId: 3,
-          category: { id: 3, userId: null },
           groupId: 2, // a different group than "the one currently being edited"
           splitWith: [{ id: 1 }, { id: 2 }],
         },
@@ -832,7 +831,7 @@ describe('ExpenseService', () => {
       const matches = await expenseService.findSimilarExpenses(1, 'Fuel');
 
       expect(prisma.expense.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { groupId: { in: [1, 2] } } })
+        expect.objectContaining({ where: { groupId: { in: [1, 2] }, category: { OR: [{ userId: null }, { userId: 1 }] } } })
       );
       expect(matches).toEqual([]);
     });
@@ -853,7 +852,6 @@ describe('ExpenseService', () => {
           title: 'Fuel',
           amount: 45.5,
           categoryId: 3,
-          category: { id: 3, userId: null },
           expenseDate: new Date('2026-01-01'),
           splitWith: [{ id: 1 }, { id: 5 }],
         },

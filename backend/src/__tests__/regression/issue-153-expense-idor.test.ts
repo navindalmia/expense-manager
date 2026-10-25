@@ -262,31 +262,19 @@ describe('issue #153: expense access is scoped to the caller', () => {
     expect(prisma.expense.create).toHaveBeenCalled();
   });
 
-  describe('findSimilarExpenses category visibility', () => {
-    const candidate = (id: number, categoryId: number, owner: number | null): Record<string, unknown> => ({
-      id,
-      title: `Lunch ${id}`,
-      amount: 5,
-      categoryId,
-      category: { id: categoryId, userId: owner },
-      expenseDate: new Date('2026-01-01'),
-      splitWith: [],
-    });
-
-    it('should null categoryId for a match backed by a co-member private category but keep global and own', async () => {
+  describe('findSimilarExpenses category scoping', () => {
+    it("should scope the query to the caller's usable categories so another user's private category is never matched", async () => {
       (prisma.group.findMany as jest.Mock).mockResolvedValue([{ id: 1 }]);
       (prisma.expense.findMany as jest.Mock).mockResolvedValue([
-        candidate(1, 7, 2), // co-member's private category
-        candidate(2, 8, null), // global
-        candidate(3, 9, ALICE), // caller's own
+        { id: 2, title: 'Lunch', amount: 5, categoryId: 8, expenseDate: new Date('2026-01-01'), splitWith: [] },
       ]);
 
       const matches = await expenseService.findSimilarExpenses(ALICE, 'Lunch');
-      const byId = new Map(matches.map((m) => [m.expenseId, m.categoryId]));
 
-      expect(byId.get(1)).toBeNull();
-      expect(byId.get(2)).toBe(8);
-      expect(byId.get(3)).toBe(9);
+      const args = (prisma.expense.findMany as jest.Mock).mock.calls[0][0];
+      expect(args.where.groupId).toEqual({ in: [1] });
+      expect(args.where.category).toEqual({ OR: [{ userId: null }, { userId: ALICE }] });
+      expect(matches.map((m) => m.categoryId)).toEqual([8]);
     });
   });
 });

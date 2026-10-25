@@ -67,12 +67,13 @@ export async function createCategory(userId: number, label: string) {
  * Fail closed unless the category is global (userId null) or owned by the
  * user. Another user's private category reads as non-existent (404).
  */
-export function isCategoryUsable(category: { userId: number | null }, userId: number): boolean {
-  return category.userId === null || category.userId === userId;
+/** Prisma where-fragment matching categories usable by the user (global or own). Same predicate as assertCategoryUsable. */
+export function usableCategoryWhere(userId: number): { OR: { userId: number | null }[] } {
+  return { OR: [{ userId: null }, { userId }] };
 }
 
 export function assertCategoryUsable(category: { id: number; userId: number | null }, userId: number): void {
-  if (!isCategoryUsable(category, userId)) {
+  if (category.userId !== null && category.userId !== userId) {
     throw new AppError('CATEGORY.NOT_FOUND', 404, 'CATEGORY_NOT_FOUND', { categoryId: category.id });
   }
 }

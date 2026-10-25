@@ -15,13 +15,12 @@ interface PastExpense {
   title: string;
   amount: number;
   categoryId: number;
-  category: { id: number; userId: number | null };
   expenseDate: Date;
   splitWith: { id: number }[];
 }
 
 function past(id: number, title: string, date: string): PastExpense {
-  return { id, title, amount: 10, categoryId: 1, category: { id: 1, userId: null }, expenseDate: new Date(date), splitWith: [] };
+  return { id, title, amount: 10, categoryId: 1, expenseDate: new Date(date), splitWith: [] };
 }
 
 describe('issue-89: autocomplete dedup and filler-word matching', () => {
