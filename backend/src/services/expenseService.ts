@@ -6,6 +6,7 @@
  */
 
 import prisma from "../lib/prisma";
+import { SAFE_USER_SELECT } from "../lib/safeUserSelect";
 import { SplitType, Prisma } from "@prisma/client";
 import { cleanData } from "../utils/cleanData";
 import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
@@ -75,11 +76,11 @@ export async function getGroupExpenses(groupId: number, userId: number) {
           select: { id: true, code: true, label: true },
         },
         paidBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         category: true,
         splitWith: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
       },
       orderBy: { expenseDate: 'desc' },
@@ -99,9 +100,9 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 export async function getAllExpenses() {
   return prisma.expense.findMany({
     include: {
-      paidBy: true,
+      paidBy: { select: SAFE_USER_SELECT },
       category: true,
-      splitWith: true,
+      splitWith: { select: SAFE_USER_SELECT },
     },
   });
 }
@@ -293,9 +294,9 @@ export async function createExpense(data: {
       data: expenseData,
       include: {
         currency: { select: { id: true, code: true, label: true } },
-        paidBy: { select: { id: true, name: true, email: true } },
+        paidBy: { select: SAFE_USER_SELECT },
         category: true,
-        splitWith: { select: { id: true, name: true, email: true } },
+        splitWith: { select: SAFE_USER_SELECT },
       },
     });
 
@@ -418,9 +419,9 @@ export async function getExpenseById(expenseId: number, userId: number) {
           select: { id: true, isActive: true, members: { select: { id: true } }, createdById: true },
         },
         currency: { select: { id: true, code: true, label: true } },
-        paidBy: { select: { id: true, name: true, email: true } },
+        paidBy: { select: SAFE_USER_SELECT },
         category: true,
-        splitWith: { select: { id: true, name: true, email: true } },
+        splitWith: { select: SAFE_USER_SELECT },
       },
     });
 
@@ -662,9 +663,9 @@ export async function updateExpense(
       data: updateData,
       include: {
         currency: { select: { id: true, code: true, label: true } },
-        paidBy: { select: { id: true, name: true, email: true } },
+        paidBy: { select: SAFE_USER_SELECT },
         category: true,
-        splitWith: { select: { id: true, name: true, email: true } },
+        splitWith: { select: SAFE_USER_SELECT },
       },
     });
   } catch (error) {
