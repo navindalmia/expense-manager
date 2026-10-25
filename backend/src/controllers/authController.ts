@@ -204,20 +204,30 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     // Check if account is locked
     if (user.lockedUntil && new Date() < user.lockedUntil) {
+      const retryAfterMinutes = Math.max(
+        1,
+        Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
+      );
       res.status(429).json({
         success: false,
         message: 'Account is temporarily locked. Please try again later.',
         error: 'ACCOUNT_LOCKED',
+        retryAfterMinutes,
       });
       return;
     }
+
+    // An expired lock starts a fresh window: otherwise the stale counter (still at the
+    // threshold) would re-lock the account on a single further wrong password.
+    const lockExpired = user.lockedUntil !== null && new Date() >= user.lockedUntil;
+    const priorFailedAttempts = lockExpired ? 0 : user.failedLoginAttempts;
 
     // Check password
     const isPasswordValid = await comparePassword(password, user.password || '');
 
     if (!isPasswordValid) {
       // Increment failed login attempts
-      const newFailedAttempts = user.failedLoginAttempts + 1;
+      const newFailedAttempts = priorFailedAttempts + 1;
       const shouldLock = newFailedAttempts >= ACCOUNT_LOCKOUT_THRESHOLD;
 
       await prisma.user.update({
