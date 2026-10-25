@@ -109,6 +109,9 @@ const styles = StyleSheet.create({
   },
 });
 
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && (error.name === 'CanceledError' || error.name === 'AbortError');
+
 /**
  * Create Group Form Screen
  */
@@ -119,10 +122,12 @@ function CreateGroupScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   // Set once the user cancels or the screen unmounts: a still-pending create must not touch the UI.
   const cancelledRef = useRef<boolean>(false);
+  const abortRef = useRef<AbortController | null>(null);
   useEffect(() => {
     cancelledRef.current = false;
     return () => {
       cancelledRef.current = true;
+      abortRef.current?.abort();
     };
   }, []);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -168,6 +173,10 @@ function CreateGroupScreen({ navigation }: Props) {
       return;
     }
 
+    cancelledRef.current = false;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
 
     try {
@@ -176,7 +185,7 @@ function CreateGroupScreen({ navigation }: Props) {
         description: description.trim() || undefined,
         currency,
         themeId: themeId || undefined,
-      });
+      }, { signal: controller.signal });
 
       if (cancelledRef.current) {
         return;
@@ -193,7 +202,7 @@ function CreateGroupScreen({ navigation }: Props) {
       setCreatedGroup(group);
       setShowMemberModal(true);
     } catch (error) {
-      if (cancelledRef.current) {
+      if (cancelledRef.current || isAbortError(error) || controller.signal.aborted) {
         return;
       }
       const errorMessage = getErrorMessage(error);
@@ -217,6 +226,7 @@ function CreateGroupScreen({ navigation }: Props) {
       return;
     }
     cancelledRef.current = true;
+    abortRef.current?.abort();
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {

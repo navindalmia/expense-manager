@@ -110,6 +110,81 @@ describe('issue #142: Create Group Cancel always leaves the screen', () => {
     });
   });
 
+  describe('normal create and abort behaviour', () => {
+    const typeNameAndCreate = async (): Promise<void> => {
+      fireEvent.change(byTestId('group-name-input'), { target: { value: 'Trip' } });
+      fireEvent.click(byTestId('create-button'));
+      await waitFor(() => expect(mockPost).toHaveBeenCalled());
+    };
+    const okResponse = { data: { data: { id: 7, name: 'Trip' } } };
+
+    it('should open the member modal and clear loading on a normal create', async () => {
+      let resolve: (v: unknown) => void = () => {};
+      mockPost.mockReturnValue(new Promise((r) => { resolve = r; }));
+      renderScreen(makeNav(true));
+      await typeNameAndCreate();
+      await act(async () => { resolve(okResponse); });
+      expect(document.querySelector('#member-modal')).not.toBeNull();
+      expect(byTestId('create-button').textContent).toBe('Create');
+    });
+
+    it('should open the member modal on a normal create under StrictMode', async () => {
+      let resolve: (v: unknown) => void = () => {};
+      mockPost.mockReturnValue(new Promise((r) => { resolve = r; }));
+      const props = { navigation: makeNav(true), route: { key: 'k', name: 'CreateGroup' } } as unknown as React.ComponentProps<typeof CreateGroupScreen>;
+      render(<React.StrictMode><CreateGroupScreen {...props} /></React.StrictMode>);
+      await typeNameAndCreate();
+      await act(async () => { resolve(okResponse); });
+      expect(document.querySelector('#member-modal')).not.toBeNull();
+    });
+
+    it('should still open the member modal when Create follows a Cancel on a screen that stayed mounted', async () => {
+      mockPost.mockResolvedValue(okResponse);
+      renderScreen(makeNav(true));
+      fireEvent.click(byTestId('cancel-button'));
+      await act(async () => { fireEvent.change(byTestId('group-name-input'), { target: { value: 'Trip' } }); });
+      await act(async () => { fireEvent.click(byTestId('create-button')); });
+      await waitFor(() => expect(document.querySelector('#member-modal')).not.toBeNull());
+      expect(byTestId('create-button').textContent).toBe('Create');
+    });
+
+    it('should abort the request signal when Cancel is pressed', async () => {
+      mockPost.mockReturnValue(new Promise(() => {}));
+      renderScreen(makeNav(true));
+      await typeNameAndCreate();
+      const signal = mockPost.mock.calls[0][2].signal as AbortSignal;
+      expect(signal.aborted).toBe(false);
+      fireEvent.click(byTestId('cancel-button'));
+      expect(signal.aborted).toBe(true);
+    });
+
+    it('should stay silent when the aborted request rejects with a cancel error', async () => {
+      const alertSpy = vi.spyOn(Alert, 'alert').mockImplementation(() => {});
+      let reject: (e: unknown) => void = () => {};
+      mockPost.mockReturnValue(new Promise((_r, j) => { reject = j; }));
+      renderScreen(makeNav(true));
+      await typeNameAndCreate();
+      fireEvent.click(byTestId('cancel-button'));
+      await act(async () => { reject(Object.assign(new Error('canceled'), { name: 'CanceledError' })); });
+      expect(alertSpy).not.toHaveBeenCalled();
+      alertSpy.mockRestore();
+    });
+
+    it('should not open the modal or alert when unmounted mid-request without Cancel', async () => {
+      const alertSpy = vi.spyOn(Alert, 'alert').mockImplementation(() => {});
+      let resolve: (v: unknown) => void = () => {};
+      mockPost.mockReturnValue(new Promise((r) => { resolve = r; }));
+      const props = { navigation: makeNav(true), route: { key: 'k', name: 'CreateGroup' } } as unknown as React.ComponentProps<typeof CreateGroupScreen>;
+      const view = render(<CreateGroupScreen {...props} />);
+      await typeNameAndCreate();
+      view.unmount();
+      await act(async () => { resolve(okResponse); });
+      expect(document.querySelector('#member-modal')).toBeNull();
+      expect(alertSpy).not.toHaveBeenCalled();
+      alertSpy.mockRestore();
+    });
+  });
+
   it('should ignore a second Cancel press so only one screen is popped', () => {
     const nav = makeNav(true);
     renderScreen(nav);
