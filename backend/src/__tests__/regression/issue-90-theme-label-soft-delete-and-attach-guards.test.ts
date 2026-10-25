@@ -74,7 +74,7 @@ describe('issue #90: soft-delete and attach guards', () => {
         createdById: USER_ID,
         members: [{ id: USER_ID }],
       });
-      (prisma.category.findUnique as jest.Mock).mockResolvedValue({ id: 1 });
+      (prisma.category.findUnique as jest.Mock).mockResolvedValue({ id: 1, userId: null });
       (prisma.currency.findUnique as jest.Mock).mockResolvedValue({ id: 1, code: 'GBP' });
       (prisma.expense.create as jest.Mock).mockResolvedValue({ id: 1 });
       (prisma.expense.update as jest.Mock).mockResolvedValue({ id: 1 });

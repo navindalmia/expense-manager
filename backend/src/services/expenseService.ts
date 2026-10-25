@@ -15,7 +15,8 @@ import { assertLabelVisible } from "./labelService";
 import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
-import { assertGroupActive } from './groupGuards';
+import { assertGroupActive, assertGroupMember, assertExpenseAccess, expenseNotFound, isGroupMember, accessibleGroupWhere } from './groupGuards';
+import { assertCategoryUsable, usableCategoryWhere } from './categoryService';
 
 const SUGGESTION_LIMIT = 5;
 // Most recent expenses scanned for autocomplete, to bound memory per keystroke
@@ -52,18 +53,7 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 
     assertGroupActive(group, groupId);
 
-    // Check authorization: user must be member or creator
-    const isMember = group.members.some((m: any) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { groupId, userId }
-      );
-    }
+    assertGroupMember(group, userId, groupId);
 
     // Fetch expenses for this group only
     const expenses = await prisma.expense.findMany({
@@ -94,11 +84,18 @@ export async function getGroupExpenses(groupId: number, userId: number) {
   }
 }
 
+type ExpenseWithRelations = Prisma.ExpenseGetPayload<{
+  include: { paidBy: { select: typeof SAFE_USER_SELECT }; category: true; splitWith: { select: typeof SAFE_USER_SELECT } };
+}>;
+
 /**
- * Get all expenses (DEPRECATED - kept for backward compatibility)
+ * Get all expenses the caller can access (DEPRECATED - kept for backward
+ * compatibility). Scoped to active groups the user created or belongs to.
+ * Expense.groupId is NOT NULL, so no group-less expense can exist or leak.
  */
-export async function getAllExpenses() {
+export async function getAllExpenses(userId: number): Promise<ExpenseWithRelations[]> {
   return prisma.expense.findMany({
+    where: { group: accessibleGroupWhere(userId) },
     include: {
       paidBy: { select: SAFE_USER_SELECT },
       category: true,
@@ -193,15 +190,7 @@ export async function createExpense(data: {
     assertGroupActive(group, groupId);
 
     // Verify the requester (JWT user) belongs to the group; the payer may differ
-    const isRequesterMember = group.members.some((m) => m.id === requesterId);
-    if (!isRequesterMember && group.createdById !== requesterId) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { groupId, userId: requesterId }
-      );
-    }
+    assertGroupMember(group, requesterId, groupId);
 
     // Verify paidById user is a member of the group
     const isPayerMember = group.members.some((m) => m.id === paidById);
@@ -222,7 +211,7 @@ export async function createExpense(data: {
     const invalidSplitMemberId = splitWithIds.find((id) => !groupMemberIds.has(id) && id !== group.createdById);
     if (invalidSplitMemberId !== undefined) {
       throw new AppError(
-        'Split member is not a member of this group',
+        'EXPENSE.SPLIT_MEMBER_NOT_IN_GROUP',
         403,
         'USER_NOT_GROUP_MEMBER',
         { groupId, invalidSplitMemberId }
@@ -242,6 +231,7 @@ export async function createExpense(data: {
         { categoryId }
       );
     }
+    assertCategoryUsable(categoryRecord, requesterId);
 
     // Look up currency by code to get ID
     const currencyRecord = await prisma.currency.findUnique({
@@ -369,23 +359,13 @@ export async function deleteExpense(expenseId: number, userId: number) {
     });
 
     if (!expense) {
-      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+      throw expenseNotFound(expenseId);
     }
+
+    // Access first: a non-member must get the same 404 even for a deleted group
+    assertExpenseAccess(expense.group, userId, expenseId);
 
     assertGroupActive(expense.group, expense.group.id);
-
-    // Check authorization: user must be member or creator of the group
-    const isMember = expense.group.members.some((m) => m.id === userId);
-    const isCreator = expense.group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { expenseId, userId }
-      );
-    }
 
     // Delete the expense
     return prisma.expense.delete({ where: { id: expenseId } });
@@ -426,23 +406,13 @@ export async function getExpenseById(expenseId: number, userId: number) {
     });
 
     if (!expense) {
-      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+      throw expenseNotFound(expenseId);
     }
+
+    // Access first: a non-member must get the same 404 even for a deleted group
+    assertExpenseAccess(expense.group, userId, expenseId);
 
     assertGroupActive(expense.group, expense.group.id);
-
-    // Check authorization: user must be member or creator of the group
-    const isMember = expense.group.members.some((m) => m.id === userId);
-    const isCreator = expense.group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { expenseId, userId }
-      );
-    }
 
     return expense;
   } catch (error) {
@@ -493,23 +463,13 @@ export async function updateExpense(
     });
 
     if (!expense) {
-      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+      throw expenseNotFound(expenseId);
     }
+
+    // Access first: a non-member must get the same 404 even for a deleted group
+    assertExpenseAccess(expense.group, userId, expenseId);
 
     assertGroupActive(expense.group, expense.group.id);
-
-    // Check authorization: user must be member or creator of the group
-    const isMember = expense.group.members.some((m) => m.id === userId);
-    const isCreator = expense.group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { expenseId, userId }
-      );
-    }
 
     const {
       title,
@@ -539,6 +499,8 @@ export async function updateExpense(
     const finalAmount = amount ?? expense.amount;
 
     // Validate category if provided
+    // Categories can be per-user: the edit form resubmits the existing one on
+    // every save (possibly by another member), so only validate on change.
     if (categoryId !== undefined) {
       const categoryRecord = await prisma.category.findUnique({
         where: { id: categoryId },
@@ -546,6 +508,22 @@ export async function updateExpense(
 
       if (!categoryRecord) {
         throw new AppError('Category not found', 404, 'CATEGORY_NOT_FOUND', { categoryId });
+      }
+      if (categoryId !== expense.categoryId) {
+        assertCategoryUsable(categoryRecord, userId);
+      }
+    }
+
+    // Newly-added split participants must belong to the group; members already
+    // on the expense (e.g. someone since removed) must not block unrelated edits
+    if (splitWithIds !== undefined) {
+      const existingSplitIds = new Set(expense.splitWith.map((u) => u.id));
+      const invalid = splitWithIds.find((id) => !existingSplitIds.has(id) && !isGroupMember(expense.group, id));
+      if (invalid !== undefined) {
+        throw new AppError('EXPENSE.SPLIT_MEMBER_NOT_IN_GROUP', 403, 'USER_NOT_GROUP_MEMBER', {
+          groupId: expense.group.id,
+          invalidSplitMemberId: invalid,
+        });
       }
     }
 
@@ -750,7 +728,7 @@ export async function findSimilarExpenses(
     }
 
     const candidates = await prisma.expense.findMany({
-      where: { groupId: { in: accessibleGroupIds } },
+      where: { groupId: { in: accessibleGroupIds }, category: usableCategoryWhere(userId) },
       select: {
         id: true,
         title: true,
@@ -813,7 +791,7 @@ async function suggestCategoryFromHistory(
     where: {
       id: { in: matches.map((m) => m.categoryId) },
       isActive: true,
-      OR: [{ userId: null }, { userId }],
+      ...usableCategoryWhere(userId),
     },
   });
   const selectableById = new Map(selectable.map((c) => [c.id, c]));

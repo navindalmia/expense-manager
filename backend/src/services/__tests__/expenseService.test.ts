@@ -9,6 +9,8 @@ import * as expenseService from '../expenseService';
 import prisma from '../../lib/prisma';
 import { Currency, SplitType } from '@prisma/client';
 import { AppError } from '../../errors/AppError';
+import { accessibleGroupWhere } from '../groupGuards';
+import { SAFE_USER_SELECT } from '../../lib/safeUserSelect';
 
 jest.mock('../../lib/prisma');
 jest.mock('../../utils/cleanData', () => ({
@@ -36,7 +38,7 @@ describe('ExpenseService', () => {
     // createExpense verifies category and currency exist before writing
     (prisma.category.findUnique as jest.Mock).mockImplementation(
       ({ where }: { where: { id: number } }) =>
-        Promise.resolve({ id: where.id, code: 'FOOD', label: 'Food' })
+        Promise.resolve({ id: where.id, code: 'FOOD', label: 'Food', userId: null })
     );
     (prisma.currency.findUnique as jest.Mock).mockImplementation(
       ({ where }: { where: { code: string } }) =>
@@ -79,17 +81,18 @@ describe('ExpenseService', () => {
 
       (prisma.expense.findMany as jest.Mock).mockResolvedValue(mockExpenses);
 
-      const result = await expenseService.getAllExpenses();
+      const result = await expenseService.getAllExpenses(1);
 
       // ✅ TEST: Service returns data from database
       expect(result).toEqual(mockExpenses);
       
       // ✅ TEST: Service called findMany with correct include structure
       expect(prisma.expense.findMany).toHaveBeenCalledWith({
+        where: { group: accessibleGroupWhere(1) },
         include: {
-          paidBy: true,
+          paidBy: { select: SAFE_USER_SELECT },
           category: true,
-          splitWith: true,
+          splitWith: { select: SAFE_USER_SELECT },
         },
       });
     });
@@ -97,7 +100,7 @@ describe('ExpenseService', () => {
     it('should handle empty expense list', async () => {
       (prisma.expense.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await expenseService.getAllExpenses();
+      const result = await expenseService.getAllExpenses(1);
 
       expect(result).toEqual([]);
       expect(prisma.expense.findMany).toHaveBeenCalled();
@@ -117,7 +120,7 @@ describe('ExpenseService', () => {
           splitType: 'EQUAL',
           expenseDate: new Date().toISOString(),
         })
-      ).rejects.toThrow('Split member is not a member of this group');
+      ).rejects.toThrow('EXPENSE.SPLIT_MEMBER_NOT_IN_GROUP');
       expect(prisma.expense.create).not.toHaveBeenCalled();
     });
 
@@ -828,7 +831,7 @@ describe('ExpenseService', () => {
       const matches = await expenseService.findSimilarExpenses(1, 'Fuel');
 
       expect(prisma.expense.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { groupId: { in: [1, 2] } } })
+        expect.objectContaining({ where: { groupId: { in: [1, 2] }, category: { OR: [{ userId: null }, { userId: 1 }] } } })
       );
       expect(matches).toEqual([]);
     });

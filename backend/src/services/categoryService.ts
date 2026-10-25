@@ -64,6 +64,21 @@ export async function createCategory(userId: number, label: string) {
 }
 
 /**
+ * Fail closed unless the category is global (userId null) or owned by the
+ * user. Another user's private category reads as non-existent (404).
+ */
+/** Prisma where-fragment matching categories usable by the user (global or own). Same predicate as assertCategoryUsable. */
+export function usableCategoryWhere(userId: number): { OR: { userId: number | null }[] } {
+  return { OR: [{ userId: null }, { userId }] };
+}
+
+export function assertCategoryUsable(category: { id: number; userId: number | null }, userId: number): void {
+  if (category.userId !== null && category.userId !== userId) {
+    throw new AppError('CATEGORY.NOT_FOUND', 404, 'CATEGORY_NOT_FOUND', { categoryId: category.id });
+  }
+}
+
+/**
  * Disable (not delete) a category. Only the owning user may disable
  * their own custom category -- system categories (userId null) are not
  * user-disableable in this plan (see Scope Boundaries).
