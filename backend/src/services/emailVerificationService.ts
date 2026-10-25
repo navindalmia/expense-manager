@@ -116,7 +116,7 @@ export async function verifyEmail(token: string) {
     // Find token
     const tokenRecord = await prisma.emailVerificationToken.findUnique({
       where: { token },
-      include: { user: true },
+      include: { user: { select: { id: true } } },
     });
 
     // Check if token exists

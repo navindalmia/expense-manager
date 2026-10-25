@@ -6,6 +6,7 @@
  */
 
 import prisma from '../lib/prisma';
+import { SAFE_USER_SELECT } from '../lib/safeUserSelect';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
@@ -138,10 +139,10 @@ export async function createGroup(data: {
           select: { id: true, code: true, label: true },
         },
         createdBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         theme: {
           select: { id: true, name: true },
@@ -185,10 +186,10 @@ export async function getUserGroups(userId: number) {
           select: { id: true, code: true, label: true },
         },
         createdBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         theme: {
           select: { id: true, name: true },
@@ -253,10 +254,10 @@ export async function getGroupById(groupId: number, userId: number) {
           select: { id: true, code: true, label: true },
         },
         createdBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         theme: {
           select: { id: true, name: true },
@@ -318,7 +319,7 @@ export async function addMemberByEmail(
       where: { id: groupId },
       include: {
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
       },
     });
@@ -378,7 +379,7 @@ export async function addMemberByEmail(
       },
       include: {
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
       },
     });
@@ -410,7 +411,7 @@ export async function addMemberToGroup(
       where: { id: groupId },
       include: {
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
       },
     });
@@ -488,10 +489,10 @@ export async function addMemberToGroup(
             select: { id: true, code: true, label: true },
           },
           members: {
-            select: { id: true, name: true, email: true },
+            select: SAFE_USER_SELECT,
           },
           createdBy: {
-            select: { id: true, name: true, email: true },
+            select: SAFE_USER_SELECT,
           },
         },
       });
@@ -614,10 +615,10 @@ export async function removeMemberFromGroup(
           select: { id: true, code: true, label: true },
         },
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         createdBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
       },
     });
@@ -726,10 +727,10 @@ export async function updateGroup(
             select: { id: true, code: true, label: true },
           },
           createdBy: {
-            select: { id: true, name: true, email: true },
+            select: SAFE_USER_SELECT,
           },
           members: {
-            select: { id: true, name: true, email: true },
+            select: SAFE_USER_SELECT,
           },
           theme: {
             select: { id: true, name: true },
@@ -752,10 +753,10 @@ export async function updateGroup(
           select: { id: true, code: true, label: true },
         },
         createdBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         members: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         theme: {
           select: { id: true, name: true },
@@ -903,11 +904,11 @@ export async function getGroupExpenses(groupId: number, userId: number) {
       },
       include: {
         paidBy: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
         category: true,
         splitWith: {
-          select: { id: true, name: true, email: true },
+          select: SAFE_USER_SELECT,
         },
       },
       orderBy: { expenseDate: 'desc' },
