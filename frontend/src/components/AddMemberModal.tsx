@@ -25,6 +25,7 @@ import { getErrorMessage } from '../utils/errorHandler';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import { getAddMemberStrings } from '../i18n/addMemberStrings';
 
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 
 interface AddMemberModalProps {
@@ -38,11 +39,14 @@ interface AddMemberModalProps {
 export const SHARE_AFTER_ADD_GUARD_MS = 600;
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
   centeredView: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalView: {
     width: '90%',
@@ -107,6 +111,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     marginVertical: 12,
     flexShrink: 1,
+    minHeight: 0,
   },
   membersScroll: {
     maxHeight: 220,
@@ -117,6 +122,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     paddingTop: 12,
+    flexShrink: 0,
   },
   membersTitle: {
     fontSize: 13,
@@ -200,7 +206,8 @@ export default function AddMemberModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastAddFinishedAtRef = useRef(0);
+  const lastActionFinishedAtRef = useRef(0);
+  const shareInFlightRef = useRef(false);
   const strings = getAddMemberStrings();
 
   // Clear any pending success timer if the modal unmounts or is closed early,
@@ -212,6 +219,18 @@ export default function AddMemberModal({
       }
     };
   }, []);
+
+  // The modal stays mounted inside an always-mounted EditGroupModal, so reset
+  // guard state and pending timers whenever it is hidden.
+  useEffect(() => {
+    if (visible) return;
+    lastActionFinishedAtRef.current = 0;
+    shareInFlightRef.current = false;
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+  }, [visible]);
 
   const handleClose = () => {
     if (successTimeoutRef.current) {
@@ -259,7 +278,7 @@ export default function AddMemberModal({
       setError(errorMessage);
       logger.error('Failed to add member', err);
     } finally {
-      lastAddFinishedAtRef.current = Date.now();
+      lastActionFinishedAtRef.current = Date.now();
       setLoading(false);
     }
   };
@@ -285,6 +304,7 @@ export default function AddMemberModal({
           Alert.alert('Error', `Failed to remove member: ${errorMessage}`);
           logger.error('Failed to remove member', err);
         } finally {
+          lastActionFinishedAtRef.current = Date.now();
           setLoading(false);
         }
       }
@@ -293,11 +313,21 @@ export default function AddMemberModal({
 
   const handleShareViaWhatsApp = async () => {
     // Guard against a stray tap that was meant for Add (issue #144)
-    if (loading || Date.now() - lastAddFinishedAtRef.current < SHARE_AFTER_ADD_GUARD_MS) return;
+    if (shareInFlightRef.current) return;
+    if (loading || Date.now() - lastActionFinishedAtRef.current < SHARE_AFTER_ADD_GUARD_MS) return;
     if (!group) {
       Alert.alert('Error', 'No group selected');
       return;
     }
+    shareInFlightRef.current = true;
+    try {
+      await openWhatsApp(group);
+    } finally {
+      shareInFlightRef.current = false;
+    }
+  };
+
+  const openWhatsApp = async (group: Group): Promise<void> => {
 
     const text = encodeURIComponent(strings.inviteMessage(group.name));
     // No canOpenURL gate: it returns false on Android 11+ without a <queries> entry even when installed.
@@ -322,6 +352,7 @@ export default function AddMemberModal({
       visible={visible}
       onRequestClose={handleClose}
     >
+      <SafeAreaView style={styles.safeArea}>
       <KeyboardInsetView style={styles.centeredView}>
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Add Members</Text>
@@ -450,6 +481,7 @@ export default function AddMemberModal({
           </View>
         </View>
       </KeyboardInsetView>
+      </SafeAreaView>
     </Modal>
   );
 }
