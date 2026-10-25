@@ -16,7 +16,7 @@ import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 import { assertGroupActive, assertGroupMember, assertExpenseAccess, expenseNotFound, isGroupMember, accessibleGroupWhere } from './groupGuards';
-import { assertCategoryUsable } from './categoryService';
+import { assertCategoryUsable, isCategoryUsable } from './categoryService';
 
 const SUGGESTION_LIMIT = 5;
 // Most recent expenses scanned for autocomplete, to bound memory per keystroke
@@ -31,7 +31,8 @@ export interface SimilarExpenseMatch {
   expenseId: number;
   title: string;
   amount: number;
-  categoryId: number;
+  /** null when the match's category is another user's private category (not usable by the caller). */
+  categoryId: number | null;
   splitWithIds: number[];
 }
 
@@ -734,6 +735,7 @@ export async function findSimilarExpenses(
         title: true,
         amount: true,
         categoryId: true,
+        category: { select: { id: true, userId: true } },
         expenseDate: true,
         splitWith: { select: { id: true } },
       },
@@ -752,7 +754,7 @@ export async function findSimilarExpenses(
       expenseId: item.id,
       title: item.title,
       amount: item.amount,
-      categoryId: item.categoryId,
+      categoryId: isCategoryUsable(item.category, userId) ? item.categoryId : null,
       splitWithIds: item.splitWith.map((member: { id: number }) => member.id),
     }));
   } catch (error) {
@@ -789,7 +791,7 @@ async function suggestCategoryFromHistory(
 
   const selectable = await prisma.category.findMany({
     where: {
-      id: { in: matches.map((m) => m.categoryId) },
+      id: { in: matches.flatMap((m) => (m.categoryId === null ? [] : [m.categoryId])) },
       isActive: true,
       OR: [{ userId: null }, { userId }],
     },
@@ -798,7 +800,7 @@ async function suggestCategoryFromHistory(
 
   const counts = new Map<number, number>();
   for (const match of matches) {
-    if (selectableById.has(match.categoryId)) {
+    if (match.categoryId !== null && selectableById.has(match.categoryId)) {
       counts.set(match.categoryId, (counts.get(match.categoryId) ?? 0) + 1);
     }
   }
@@ -806,8 +808,8 @@ async function suggestCategoryFromHistory(
   let bestId: number | null = null;
   let bestCount = 0;
   for (const match of matches) {
-    const count = counts.get(match.categoryId) ?? 0;
-    if (count > bestCount) {
+    const count = match.categoryId === null ? 0 : counts.get(match.categoryId) ?? 0;
+    if (match.categoryId !== null && count > bestCount) {
       bestId = match.categoryId;
       bestCount = count;
     }

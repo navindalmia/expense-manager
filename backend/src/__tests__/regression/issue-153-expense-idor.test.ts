@@ -261,4 +261,32 @@ describe('issue #153: expense access is scoped to the caller', () => {
     expect(status).toBe('resolved');
     expect(prisma.expense.create).toHaveBeenCalled();
   });
+
+  describe('findSimilarExpenses category visibility', () => {
+    const candidate = (id: number, categoryId: number, owner: number | null): Record<string, unknown> => ({
+      id,
+      title: `Lunch ${id}`,
+      amount: 5,
+      categoryId,
+      category: { id: categoryId, userId: owner },
+      expenseDate: new Date('2026-01-01'),
+      splitWith: [],
+    });
+
+    it('should null categoryId for a match backed by a co-member private category but keep global and own', async () => {
+      (prisma.group.findMany as jest.Mock).mockResolvedValue([{ id: 1 }]);
+      (prisma.expense.findMany as jest.Mock).mockResolvedValue([
+        candidate(1, 7, 2), // co-member's private category
+        candidate(2, 8, null), // global
+        candidate(3, 9, ALICE), // caller's own
+      ]);
+
+      const matches = await expenseService.findSimilarExpenses(ALICE, 'Lunch');
+      const byId = new Map(matches.map((m) => [m.expenseId, m.categoryId]));
+
+      expect(byId.get(1)).toBeNull();
+      expect(byId.get(2)).toBe(8);
+      expect(byId.get(3)).toBe(9);
+    });
+  });
 });

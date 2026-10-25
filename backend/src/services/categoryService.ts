@@ -67,8 +67,12 @@ export async function createCategory(userId: number, label: string) {
  * Fail closed unless the category is global (userId null) or owned by the
  * user. Another user's private category reads as non-existent (404).
  */
+export function isCategoryUsable(category: { userId: number | null }, userId: number): boolean {
+  return category.userId === null || category.userId === userId;
+}
+
 export function assertCategoryUsable(category: { id: number; userId: number | null }, userId: number): void {
-  if (category.userId !== null && category.userId !== userId) {
+  if (!isCategoryUsable(category, userId)) {
     throw new AppError('CATEGORY.NOT_FOUND', 404, 'CATEGORY_NOT_FOUND', { categoryId: category.id });
   }
 }

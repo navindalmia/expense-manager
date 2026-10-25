@@ -811,6 +811,7 @@ describe('ExpenseService', () => {
           title: 'Fuel',
           amount: 45,
           categoryId: 3,
+          category: { id: 3, userId: null },
           groupId: 2, // a different group than "the one currently being edited"
           splitWith: [{ id: 1 }, { id: 2 }],
         },
@@ -852,6 +853,7 @@ describe('ExpenseService', () => {
           title: 'Fuel',
           amount: 45.5,
           categoryId: 3,
+          category: { id: 3, userId: null },
           expenseDate: new Date('2026-01-01'),
           splitWith: [{ id: 1 }, { id: 5 }],
         },
