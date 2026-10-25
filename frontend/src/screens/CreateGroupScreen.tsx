@@ -193,13 +193,13 @@ function CreateGroupScreen({ navigation }: Props) {
 
   /**
    * Cancel always leaves the screen, even while a create request is pending. With no back stack
-   * (e.g. a web reload landed here) goBack is a silent no-op, so fall back to Home.
+   * (e.g. a web reload landed here) goBack is a silent no-op, so reset to Home (navigate would leave CreateGroup beneath Home).
    */
   const handleCancel = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      navigation.navigate('Home');
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     }
   }, [navigation]);
 

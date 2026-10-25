@@ -23,13 +23,13 @@ vi.mock('../../components/CurrencyPicker', () => ({ default: () => null }));
 interface NavMock {
   goBack: ReturnType<typeof vi.fn>;
   canGoBack: ReturnType<typeof vi.fn>;
-  navigate: ReturnType<typeof vi.fn>;
+  reset: ReturnType<typeof vi.fn>;
 }
 
 const makeNav = (canGoBack: boolean): NavMock => ({
   goBack: vi.fn(),
   canGoBack: vi.fn().mockReturnValue(canGoBack),
-  navigate: vi.fn(),
+  reset: vi.fn(),
 });
 
 const renderScreen = (nav: NavMock): HTMLElement => {
@@ -57,7 +57,7 @@ describe('issue #142: Create Group Cancel always leaves the screen', () => {
     renderScreen(nav);
     fireEvent.click(byTestId('cancel-button'));
     expect(nav.goBack).not.toHaveBeenCalled();
-    expect(nav.navigate).toHaveBeenCalledWith('Home');
+    expect(nav.reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Home' }] });
   });
 
   it('should still cancel while a create request is in flight', async () => {
