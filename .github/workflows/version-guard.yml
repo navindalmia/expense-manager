@@ -1,0 +1,29 @@
+name: Version guard
+
+# A PR into staging or master that changes app code must bump the app version
+# (semver, see PROJECT_MEMORY/11-VERSIONING.md). Everything reaches master
+# through staging, so the bump happens in the feature/fix PR. Separate from
+# ci.yml so it never waits on the emulator jobs. Starts non-required, like the
+# other gates (docs/staging-environment.md).
+on:
+  pull_request:
+    branches: [staging, master]
+
+permissions:
+  contents: read
+
+jobs:
+  version-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+      - name: App version must be bumped above the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node scripts/version-guard.js "origin/$BASE_REF" HEAD
