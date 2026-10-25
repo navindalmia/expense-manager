@@ -208,6 +208,8 @@ export default function AddMemberModal({
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActionFinishedAtRef = useRef(0);
   const shareInFlightRef = useRef(false);
+  const pendingResultRef = useRef<Group | null>(null);
+  const visibleRef = useRef(visible);
   const strings = getAddMemberStrings();
 
   // Clear any pending success timer if the modal unmounts or is closed early,
@@ -220,23 +222,34 @@ export default function AddMemberModal({
     };
   }, []);
 
-  // The modal stays mounted inside an always-mounted EditGroupModal, so reset
-  // guard state and pending timers whenever it is hidden.
-  useEffect(() => {
-    if (visible) return;
-    lastActionFinishedAtRef.current = 0;
-    shareInFlightRef.current = false;
+  // Settle any pending success: deliver the parent update now, drop the timer and
+  // reset the form so a reopen starts clean. Shared by hide and handleClose.
+  const settlePendingSuccess = () => {
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current);
       successTimeoutRef.current = null;
     }
+    const pending = pendingResultRef.current;
+    pendingResultRef.current = null;
+    if (pending) onMemberAdded(pending);
+    setSuccess(false);
+    setEmail('');
+    setError('');
+  };
+
+  // The modal stays mounted inside an always-mounted EditGroupModal, so reset
+  // guard state and pending timers whenever it is hidden. shareInFlightRef is
+  // left to its own finally while an openURL is pending.
+  useEffect(() => {
+    visibleRef.current = visible;
+    if (visible) return;
+    lastActionFinishedAtRef.current = 0;
+    settlePendingSuccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const handleClose = () => {
-    if (successTimeoutRef.current) {
-      clearTimeout(successTimeoutRef.current);
-      successTimeoutRef.current = null;
-    }
+    settlePendingSuccess();
     onClose();
   };
 
@@ -263,12 +276,20 @@ export default function AddMemberModal({
         memberEmail: email,
       });
 
+      if (!visibleRef.current) {
+        // Hidden while the add was in flight: no success UI or timer, just update the parent.
+        onMemberAdded(result.data);
+        return;
+      }
+
       // Show success state briefly before notifying parent, so the
       // confirmation is visible instead of the modal disappearing instantly
       setSuccess(true);
+      pendingResultRef.current = result.data;
 
       successTimeoutRef.current = setTimeout(() => {
         successTimeoutRef.current = null;
+        pendingResultRef.current = null;
         setEmail('');
         setSuccess(false);
         onMemberAdded(result.data);

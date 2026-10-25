@@ -174,3 +174,79 @@ describe('issue #144: Share re-entry and failure', () => {
     expect(Linking.openURL).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('issue #144: hiding the modal mid-flow', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-01-01T00:00:00Z')); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  const setup = () => {
+    const onMemberAdded = vi.fn();
+    const onClose = vi.fn();
+    const ui = (visible: boolean) => (
+      <AddMemberModal visible={visible} group={makeGroup(1)} onClose={onClose} onMemberAdded={onMemberAdded} />
+    );
+    const utils = render(ui(true));
+    return { ...utils, ui, onMemberAdded, onClose };
+  };
+  const expectReset = (container: HTMLElement) => {
+    expect((q(container, 'add-member-email-input') as HTMLInputElement).disabled).toBe(false);
+    expect((q(container, 'add-member-email-input') as HTMLInputElement).value).toBe('');
+    expect(container.textContent).not.toMatch(/successfully|added/i);
+    fireEvent.change(q(container, 'add-member-email-input'), { target: { value: 'c@d.com' } });
+    expect((q(container, 'add-member-add-button') as HTMLButtonElement).disabled).toBe(false);
+  };
+
+  it('should reset success state and notify parent once when hidden during the success window', async () => {
+    const { container, rerender, ui, onMemberAdded } = setup();
+    await addAndFinish(container, true);
+    rerender(ui(false));
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).toHaveBeenCalledWith(addResult(2).data);
+    rerender(ui(true));
+    expectReset(container);
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it('should behave the same when handleClose runs during the success window', async () => {
+    const { container, onMemberAdded, onClose } = setup();
+    await addAndFinish(container, true);
+    await act(async () => { fireEvent.click(q(container, 'add-member-close-button')); });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expectReset(container);
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it('should notify parent but set no success state or timer when the add resolves after hide', async () => {
+    let resolve: (v: AddResult) => void = () => {};
+    vi.mocked(groupService.addMemberByEmail).mockReturnValue(new Promise((r) => { resolve = r; }));
+    const { container, rerender, ui, onMemberAdded } = setup();
+    fireEvent.change(q(container, 'add-member-email-input'), { target: { value: 'a@b.com' } });
+    await act(async () => { fireEvent.click(q(container, 'add-member-add-button')); });
+    rerender(ui(false));
+    await act(async () => { resolve(addResult(2)); });
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    rerender(ui(true));
+    expectReset(container);
+    await act(async () => { vi.advanceTimersByTime(3000); });
+    expect(onMemberAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not allow an overlapping share when hidden while a share is pending, and clear the flag after', async () => {
+    let finish: () => void = () => {};
+    vi.mocked(Linking.openURL).mockReturnValueOnce(new Promise<void>((r) => { finish = r; }));
+    const { container, rerender, ui } = setup();
+    await act(async () => { fireEvent.click(q(container, 'add-member-whatsapp-share-button')); });
+    rerender(ui(false));
+    rerender(ui(true));
+    await act(async () => { fireEvent.click(q(container, 'add-member-whatsapp-share-button')); });
+    expect(Linking.openURL).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
+    vi.mocked(Linking.openURL).mockResolvedValue(undefined);
+    await act(async () => { fireEvent.click(q(container, 'add-member-whatsapp-share-button')); });
+    expect(Linking.openURL).toHaveBeenCalledTimes(2);
+  });
+});
