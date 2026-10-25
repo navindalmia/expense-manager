@@ -52,6 +52,14 @@ export function assertGroupMember(group: GroupWithMembers, userId: number, group
  */
 export function assertExpenseAccess(group: GroupWithMembers, userId: number, expenseId: number): void {
   if (!isGroupMember(group, userId)) {
-    throw new AppError('EXPENSE.NOT_FOUND', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+    throw expenseNotFound(expenseId);
   }
+}
+
+/**
+ * The single 404 used for a missing expense AND for one the caller may not
+ * access, so the two cases are byte-identical and ids cannot be enumerated.
+ */
+export function expenseNotFound(expenseId: number): AppError {
+  return new AppError('EXPENSE.NOT_FOUND', 404, 'EXPENSE_NOT_FOUND', { expenseId });
 }

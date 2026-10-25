@@ -11,6 +11,7 @@
     "SPLIT_AMOUNT_INVALID": "Chaque montant de répartition doit être supérieur à 0.",
     "SPLIT_PERCENTAGE_INVALID": "Les pourcentages doivent totaliser 100 %, et chaque pourcentage doit être supérieur à 0.",
     "NOT_FOUND": "Dépense non trouvée.",
+    "SPLIT_MEMBER_NOT_IN_GROUP": "Un membre de la répartition n'appartient pas à ce groupe.",
     "CREATION_FAILED": "Échec de la création de la dépense.",
     "FETCH_FAILED": "Échec du chargement des dépenses.",
     "DELETE_FAILED": "Échec de la suppression de la dépense.",

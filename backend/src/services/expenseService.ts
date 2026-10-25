@@ -15,7 +15,7 @@ import { assertLabelVisible } from "./labelService";
 import { assertThemeVisible } from "./themeService";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
-import { assertGroupActive, assertGroupMember, assertExpenseAccess, isGroupMember, accessibleGroupWhere } from './groupGuards';
+import { assertGroupActive, assertGroupMember, assertExpenseAccess, expenseNotFound, isGroupMember, accessibleGroupWhere } from './groupGuards';
 import { assertCategoryUsable } from './categoryService';
 
 const SUGGESTION_LIMIT = 5;
@@ -84,12 +84,16 @@ export async function getGroupExpenses(groupId: number, userId: number) {
   }
 }
 
+type ExpenseWithRelations = Prisma.ExpenseGetPayload<{
+  include: { paidBy: { select: typeof SAFE_USER_SELECT }; category: true; splitWith: { select: typeof SAFE_USER_SELECT } };
+}>;
+
 /**
  * Get all expenses the caller can access (DEPRECATED - kept for backward
  * compatibility). Scoped to active groups the user created or belongs to.
  * Expense.groupId is NOT NULL, so no group-less expense can exist or leak.
  */
-export async function getAllExpenses(userId: number) {
+export async function getAllExpenses(userId: number): Promise<ExpenseWithRelations[]> {
   return prisma.expense.findMany({
     where: { group: accessibleGroupWhere(userId) },
     include: {
@@ -207,7 +211,7 @@ export async function createExpense(data: {
     const invalidSplitMemberId = splitWithIds.find((id) => !groupMemberIds.has(id) && id !== group.createdById);
     if (invalidSplitMemberId !== undefined) {
       throw new AppError(
-        'Split member is not a member of this group',
+        'EXPENSE.SPLIT_MEMBER_NOT_IN_GROUP',
         403,
         'USER_NOT_GROUP_MEMBER',
         { groupId, invalidSplitMemberId }
@@ -355,12 +359,13 @@ export async function deleteExpense(expenseId: number, userId: number) {
     });
 
     if (!expense) {
-      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+      throw expenseNotFound(expenseId);
     }
 
-    assertGroupActive(expense.group, expense.group.id);
-
+    // Access first: a non-member must get the same 404 even for a deleted group
     assertExpenseAccess(expense.group, userId, expenseId);
+
+    assertGroupActive(expense.group, expense.group.id);
 
     // Delete the expense
     return prisma.expense.delete({ where: { id: expenseId } });
@@ -401,12 +406,13 @@ export async function getExpenseById(expenseId: number, userId: number) {
     });
 
     if (!expense) {
-      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+      throw expenseNotFound(expenseId);
     }
 
-    assertGroupActive(expense.group, expense.group.id);
-
+    // Access first: a non-member must get the same 404 even for a deleted group
     assertExpenseAccess(expense.group, userId, expenseId);
+
+    assertGroupActive(expense.group, expense.group.id);
 
     return expense;
   } catch (error) {
@@ -457,12 +463,13 @@ export async function updateExpense(
     });
 
     if (!expense) {
-      throw new AppError('Expense not found', 404, 'EXPENSE_NOT_FOUND', { expenseId });
+      throw expenseNotFound(expenseId);
     }
 
-    assertGroupActive(expense.group, expense.group.id);
-
+    // Access first: a non-member must get the same 404 even for a deleted group
     assertExpenseAccess(expense.group, userId, expenseId);
+
+    assertGroupActive(expense.group, expense.group.id);
 
     const {
       title,
@@ -492,6 +499,8 @@ export async function updateExpense(
     const finalAmount = amount ?? expense.amount;
 
     // Validate category if provided
+    // Categories can be per-user: the edit form resubmits the existing one on
+    // every save (possibly by another member), so only validate on change.
     if (categoryId !== undefined) {
       const categoryRecord = await prisma.category.findUnique({
         where: { id: categoryId },
@@ -500,14 +509,18 @@ export async function updateExpense(
       if (!categoryRecord) {
         throw new AppError('Category not found', 404, 'CATEGORY_NOT_FOUND', { categoryId });
       }
-      assertCategoryUsable(categoryRecord, userId);
+      if (categoryId !== expense.categoryId) {
+        assertCategoryUsable(categoryRecord, userId);
+      }
     }
 
-    // Split participants must belong to the expense's group
+    // Newly-added split participants must belong to the group; members already
+    // on the expense (e.g. someone since removed) must not block unrelated edits
     if (splitWithIds !== undefined) {
-      const invalid = splitWithIds.find((id) => !isGroupMember(expense.group, id));
+      const existingSplitIds = new Set(expense.splitWith.map((u) => u.id));
+      const invalid = splitWithIds.find((id) => !existingSplitIds.has(id) && !isGroupMember(expense.group, id));
       if (invalid !== undefined) {
-        throw new AppError('Split member is not a member of this group', 403, 'USER_NOT_GROUP_MEMBER', {
+        throw new AppError('EXPENSE.SPLIT_MEMBER_NOT_IN_GROUP', 403, 'USER_NOT_GROUP_MEMBER', {
           groupId: expense.group.id,
           invalidSplitMemberId: invalid,
         });

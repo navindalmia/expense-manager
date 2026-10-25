@@ -9,6 +9,8 @@ import * as expenseService from '../expenseService';
 import prisma from '../../lib/prisma';
 import { Currency, SplitType } from '@prisma/client';
 import { AppError } from '../../errors/AppError';
+import { accessibleGroupWhere } from '../groupGuards';
+import { SAFE_USER_SELECT } from '../../lib/safeUserSelect';
 
 jest.mock('../../lib/prisma');
 jest.mock('../../utils/cleanData', () => ({
@@ -85,9 +87,14 @@ describe('ExpenseService', () => {
       expect(result).toEqual(mockExpenses);
       
       // ✅ TEST: Service called findMany with correct include structure
-      expect(prisma.expense.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ group: expect.anything() }) })
-      );
+      expect(prisma.expense.findMany).toHaveBeenCalledWith({
+        where: { group: accessibleGroupWhere(1) },
+        include: {
+          paidBy: { select: SAFE_USER_SELECT },
+          category: true,
+          splitWith: { select: SAFE_USER_SELECT },
+        },
+      });
     });
 
     it('should handle empty expense list', async () => {
@@ -113,7 +120,7 @@ describe('ExpenseService', () => {
           splitType: 'EQUAL',
           expenseDate: new Date().toISOString(),
         })
-      ).rejects.toThrow('Split member is not a member of this group');
+      ).rejects.toThrow('EXPENSE.SPLIT_MEMBER_NOT_IN_GROUP');
       expect(prisma.expense.create).not.toHaveBeenCalled();
     });
 
