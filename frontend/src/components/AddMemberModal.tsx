@@ -23,6 +23,7 @@ import { addMemberByEmail, removeMemberFromGroup, Group } from '../services/grou
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
+import { getAddMemberStrings } from '../i18n/addMemberStrings';
 
 import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 
@@ -32,6 +33,9 @@ interface AddMemberModalProps {
   onClose: () => void;
   onMemberAdded: (updatedGroup: Group) => void;
 }
+
+// Ignore a Share press this soon after an Add press finished (stray second tap, issue #144).
+export const SHARE_AFTER_ADD_GUARD_MS = 600;
 
 const styles = StyleSheet.create({
   centeredView: {
@@ -102,6 +106,17 @@ const styles = StyleSheet.create({
     borderTopColor: '#e0e0e0',
     paddingTop: 12,
     marginVertical: 12,
+    flexShrink: 1,
+  },
+  membersScroll: {
+    maxHeight: 220,
+    flexShrink: 1,
+  },
+  footer: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
   },
   membersTitle: {
     fontSize: 13,
@@ -145,7 +160,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 12,
+    marginTop: 0,
     alignItems: 'center',
   },
   shareButtonText: {
@@ -158,7 +173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 12,
     alignItems: 'center',
   },
   closeButtonText: {
@@ -185,6 +200,8 @@ export default function AddMemberModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAddFinishedAtRef = useRef(0);
+  const strings = getAddMemberStrings();
 
   // Clear any pending success timer if the modal unmounts or is closed early,
   // so onMemberAdded can't fire a second time after the user has navigated away
@@ -242,6 +259,7 @@ export default function AddMemberModal({
       setError(errorMessage);
       logger.error('Failed to add member', err);
     } finally {
+      lastAddFinishedAtRef.current = Date.now();
       setLoading(false);
     }
   };
@@ -274,28 +292,25 @@ export default function AddMemberModal({
   };
 
   const handleShareViaWhatsApp = async () => {
+    // Guard against a stray tap that was meant for Add (issue #144)
+    if (loading || Date.now() - lastAddFinishedAtRef.current < SHARE_AFTER_ADD_GUARD_MS) return;
     if (!group) {
       Alert.alert('Error', 'No group selected');
       return;
     }
 
-    try {
-      // Create invitation message
-      const message = `Hey! 👋 I've invited you to join "${group.name}" in Expense Manager. It's a great app for splitting expenses with friends and family. Check it out!`;
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
+    const text = encodeURIComponent(strings.inviteMessage(group.name));
+    // No canOpenURL gate: it returns false on Android 11+ without a <queries> entry even when installed.
+    for (const url of [`whatsapp://send?text=${text}`, `https://wa.me/?text=${text}`]) {
+      try {
+        await Linking.openURL(url);
         logger.info('WhatsApp share opened', { groupId: group.id });
-      } else {
-        Alert.alert('Error', 'WhatsApp is not installed on this device');
-        logger.warn('WhatsApp not available');
+        return;
+      } catch (err) {
+        logger.warn('WhatsApp share attempt failed', { url: url.split('?')[0], err });
       }
-    } catch (err) {
-      Alert.alert('Error', 'Failed to open WhatsApp');
-      logger.error('WhatsApp share failed', err);
     }
+    Alert.alert(strings.shareFailedTitle, strings.shareFailedBody);
   };
 
   return (
@@ -312,7 +327,8 @@ export default function AddMemberModal({
           <Text style={styles.modalTitle}>Add Members</Text>
           <Text style={styles.subtitle}>Invite people to join "{group?.name}"</Text>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Fixed section: email input + Add never scroll */}
+          <View testID="add-member-input-section">
             {/* Email Input */}
             <Text style={styles.label}>Email Address</Text>
             <View style={styles.inputContainer}>
@@ -373,12 +389,21 @@ export default function AddMemberModal({
               </View>
             )}
 
-            {/* Members List */}
-            {group && group.members && group.members.length > 0 && (
+          </View>
+
+          {/* Members list scrolls on its own, bounded */}
+          {group && group.members && group.members.length > 0 && (
               <View style={styles.membersList}>
                 <Text style={styles.membersTitle}>
                   Group Members ({group.members.length})
                 </Text>
+                <ScrollView
+                  style={styles.membersScroll}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  testID="add-member-members-scroll"
+                >
                 {group.members.map((member) => (
                   <View key={member.id} style={styles.memberItem}>
                     <View style={styles.memberInfo}>
@@ -400,20 +425,21 @@ export default function AddMemberModal({
                     </TouchableOpacity>
                   </View>
                 ))}
+                </ScrollView>
               </View>
             )}
 
-            {/* Share Button */}
+          {/* Fixed footer, clearly separated from Add */}
+          <View style={styles.footer} testID="add-member-footer">
             <TouchableOpacity
-              style={styles.shareButton}
+              style={[styles.shareButton, loading && { opacity: 0.5 }]}
               onPress={handleShareViaWhatsApp}
+              disabled={loading}
               testID="add-member-whatsapp-share-button"
             >
-              <Text style={styles.shareButtonText}>📱 Share via WhatsApp</Text>
+              <Text style={styles.shareButtonText}>📱 {strings.shareViaWhatsApp}</Text>
             </TouchableOpacity>
-          </ScrollView>
 
-          {/* Close Button */}
           <TouchableOpacity
             style={styles.closeButton}
             onPress={handleClose}
@@ -421,6 +447,7 @@ export default function AddMemberModal({
           >
             <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
+          </View>
         </View>
       </KeyboardInsetView>
     </Modal>
