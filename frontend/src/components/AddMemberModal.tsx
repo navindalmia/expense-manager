@@ -23,6 +23,7 @@ import { addMemberByEmail, removeMemberFromGroup, Group } from '../services/grou
 import { logger } from '../utils/logger';
 import { getErrorMessage } from '../utils/errorHandler';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
+import { getAddMemberStrings } from '../i18n/addMemberStrings';
 
 import { KeyboardInsetView } from '../hooks/useKeyboardInset';
 
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 12,
+    marginTop: 16,
     alignItems: 'center',
   },
   shareButtonText: {
@@ -273,29 +274,26 @@ export default function AddMemberModal({
     );
   };
 
-  const handleShareViaWhatsApp = async () => {
-    if (!group) {
-      Alert.alert('Error', 'No group selected');
-      return;
-    }
+  // Sharing is best-effort and must never block or fail member adding.
+  // canOpenURL is deliberately not used: on Android 11+ it returns false for
+  // installed apps that are not declared in the manifest <queries>.
+  const handleShareViaWhatsApp = async (): Promise<void> => {
+    if (!group) return;
 
-    try {
-      // Create invitation message
-      const message = `Hey! 👋 I've invited you to join "${group.name}" in Expense Manager. It's a great app for splitting expenses with friends and family. Check it out!`;
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    const strings = getAddMemberStrings();
+    const text = encodeURIComponent(strings.inviteMessage(group.name));
+    const urls = [`whatsapp://send?text=${text}`, `https://wa.me/?text=${text}`];
 
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
+    for (const url of urls) {
+      try {
+        await Linking.openURL(url);
         logger.info('WhatsApp share opened', { groupId: group.id });
-      } else {
-        Alert.alert('Error', 'WhatsApp is not installed on this device');
-        logger.warn('WhatsApp not available');
+        return;
+      } catch (err) {
+        logger.warn('WhatsApp share attempt failed', { scheme: url.split(':')[0], err });
       }
-    } catch (err) {
-      Alert.alert('Error', 'Failed to open WhatsApp');
-      logger.error('WhatsApp share failed', err);
     }
+    Alert.alert(strings.shareFailedTitle, strings.shareFailedBody);
   };
 
   return (
@@ -403,15 +401,16 @@ export default function AddMemberModal({
               </View>
             )}
 
-            {/* Share Button */}
-            <TouchableOpacity
-              style={styles.shareButton}
-              onPress={handleShareViaWhatsApp}
-              testID="add-member-whatsapp-share-button"
-            >
-              <Text style={styles.shareButtonText}>📱 Share via WhatsApp</Text>
-            </TouchableOpacity>
           </ScrollView>
+
+          {/* Share Button: fixed footer, clear of the growing members list */}
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShareViaWhatsApp}
+            testID="add-member-whatsapp-share-button"
+          >
+            <Text style={styles.shareButtonText}>{getAddMemberStrings().shareViaWhatsApp}</Text>
+          </TouchableOpacity>
 
           {/* Close Button */}
           <TouchableOpacity
