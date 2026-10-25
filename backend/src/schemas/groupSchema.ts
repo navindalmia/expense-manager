@@ -6,6 +6,13 @@
  */
 
 import { z } from 'zod';
+import { SEED_CURRENCIES } from '../lib/seedCurrencies';
+
+/** Single source of truth: codes seeded in the Currency table (plus legacy OTHER). */
+export const ALLOWED_GROUP_CURRENCY_CODES: readonly string[] = [
+  ...SEED_CURRENCIES.map((c) => c.code),
+  'OTHER',
+];
 
 /**
  * Schema for creating a new group
@@ -22,7 +29,10 @@ export const createGroupSchema = z.object({
     .trim()
     .optional(),
   currency: z
-    .enum(['GBP', 'INR', 'USD', 'EUR', 'AUD', 'CAD', 'JPY', 'CNY', 'OTHER'])
+    .string()
+    .refine((code: string) => ALLOWED_GROUP_CURRENCY_CODES.includes(code), {
+      message: 'Unsupported currency code',
+    })
     .optional()
     .default('GBP'),
   themeId: z.number().int().positive().optional(),
