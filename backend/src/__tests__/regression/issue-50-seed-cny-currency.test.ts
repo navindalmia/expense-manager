@@ -1,14 +1,16 @@
 import { SEED_CURRENCIES } from '../../lib/seedCurrencies';
-import { createGroupSchema } from '../../schemas/groupSchema';
+import { ALLOWED_GROUP_CURRENCY_CODES } from '../../schemas/groupSchema';
 
 describe('SEED_CURRENCIES', () => {
-  it('should include every currency code the group schema accepts (except OTHER) so saving a group never hits GROUP.CURRENCY_NOT_FOUND', () => {
+  it('should allow exactly the seeded currency codes plus OTHER in the group schema', () => {
     const seededCodes: string[] = SEED_CURRENCIES.map((c) => c.code);
-    const schemaCodes: string[] = createGroupSchema.shape.currency
-      .removeDefault()
-      .unwrap()
-      .options.filter((c: string) => c !== 'OTHER');
-    for (const code of schemaCodes) {
+    expect([...ALLOWED_GROUP_CURRENCY_CODES].sort()).toEqual([...seededCodes, 'OTHER'].sort());
+  });
+
+  it('should keep the anchor set of 13 currencies in the seed so truncating it fails', () => {
+    const seededCodes: string[] = SEED_CURRENCIES.map((c) => c.code);
+    const anchor: string[] = ['GBP', 'USD', 'EUR', 'INR', 'AUD', 'CAD', 'JPY', 'CNY', 'SGD', 'HKD', 'CHF', 'NZD', 'SEK'];
+    for (const code of anchor) {
       expect(seededCodes).toContain(code);
     }
   });
