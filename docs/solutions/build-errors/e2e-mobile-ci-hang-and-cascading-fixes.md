@@ -161,3 +161,11 @@ Baselines always come from the CI emulator, never a local AVD:
 1. `gh run download <run-id> -D /tmp/maestro` (all shards' `maestro-debug-output-*` artifacts).
 2. For each flow, take `<timestamp>/<flow>/screenshots/step-NNN-assertScreenshot.png` and copy it to `maestro-flows/visual/<name>.png`, where `<name>` is the string passed to `assertScreenshot:` in the flow (a flow can assert several screenshots).
 3. Commit as `test(e2e): add <flow> baseline`, push, and let the next CI run confirm the baselines compare green.
+
+## Shared-APK topology and step budget (PR #129)
+
+The debug APK is now built once in `e2e-mobile-build` and shared with the four `e2e-mobile-shard` jobs through an artifact (retention 3 days so a re-run of a day-old run still finds it). Each shard boots an emulator, installs the prebuilt APK, warms the Metro bundle (`scripts/warm-metro-android.sh`, best effort, emits `::warning::` on every skip or failure) and runs its flows.
+
+- Emulator step cap is 20 min (was 25, briefly 15). Budget: emulator boot + wait-on (up to 120s) + warm-up (`curl -m 240`) + install + flows with up to 3 attempts each. The figure is unmeasured; re-tune after timing a few runs.
+- Blast radius: there is one build job, so one Maven 429 or Gradle failure now fails all four shards. Re-run the build job once before editing code (see the 2026-10-02 bullet above).
+- `e2e-mobile-build` must NOT be made a required check. Only the `e2e-mobile` aggregate is required; it fails closed on any skipped, cancelled or failed shard, so the required-check name is unchanged.
