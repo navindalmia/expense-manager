@@ -5,7 +5,7 @@
  * Includes name, description, and currency selection.
  */
 
-import React, { useState, useCallback, useEffect, memo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -109,6 +109,9 @@ const styles = StyleSheet.create({
   },
 });
 
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && (error.name === 'CanceledError' || error.name === 'AbortError');
+
 /**
  * Create Group Form Screen
  */
@@ -117,6 +120,16 @@ function CreateGroupScreen({ navigation }: Props) {
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('GBP');
   const [loading, setLoading] = useState(false);
+  // Set once the user cancels or the screen unmounts: a still-pending create must not touch the UI.
+  const cancelledRef = useRef<boolean>(false);
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      abortRef.current?.abort();
+    };
+  }, []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [createdGroup, setCreatedGroup] = useState<Group | null>(null);
@@ -160,6 +173,10 @@ function CreateGroupScreen({ navigation }: Props) {
       return;
     }
 
+    cancelledRef.current = false;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
 
     try {
@@ -168,7 +185,11 @@ function CreateGroupScreen({ navigation }: Props) {
         description: description.trim() || undefined,
         currency,
         themeId: themeId || undefined,
-      });
+      }, { signal: controller.signal });
+
+      if (cancelledRef.current) {
+        return;
+      }
 
       const group = response.data.data as Group;
       logger.info('Group created successfully', {
@@ -181,15 +202,37 @@ function CreateGroupScreen({ navigation }: Props) {
       setCreatedGroup(group);
       setShowMemberModal(true);
     } catch (error) {
+      if (cancelledRef.current || isAbortError(error) || controller.signal.aborted) {
+        return;
+      }
       const errorMessage = getErrorMessage(error);
       Alert.alert('Error', errorMessage);
       logger.error('Failed to create group', error, {
         screen: 'CreateGroupScreen',
       });
     } finally {
-      setLoading(false);
+      if (!cancelledRef.current) {
+        setLoading(false);
+      }
     }
   }, [name, description, currency, themeId, validateForm, navigation]);
+
+  /**
+   * Cancel always leaves the screen, even while a create request is pending. With no back stack
+   * (e.g. a web reload landed here) goBack is a silent no-op, so reset to Home (navigate would leave CreateGroup beneath Home).
+   */
+  const handleCancel = useCallback(() => {
+    if (cancelledRef.current) {
+      return;
+    }
+    cancelledRef.current = true;
+    abortRef.current?.abort();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    }
+  }, [navigation]);
 
   const handleMemberAdded = useCallback(() => {
     setShowMemberModal(false);
@@ -298,12 +341,11 @@ function CreateGroupScreen({ navigation }: Props) {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
-            onPress={() => navigation.goBack()}
+            onPress={handleCancel}
             testID="cancel-button"
             accessible={true}
             accessibilityLabel="Cancel"
             accessibilityRole="button"
-            disabled={loading}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>

@@ -89,6 +89,6 @@ describe('issue #51: group currency list is identical on create and edit', () =>
     fireEvent.click(document.querySelector('[testid="create-button"]') as Element);
 
     await waitFor(() => expect(http.post).toHaveBeenCalled());
-    expect(http.post).toHaveBeenCalledWith('/groups', expect.objectContaining({ currency: 'SGD' }));
+    expect(http.post).toHaveBeenCalledWith('/groups', expect.objectContaining({ currency: 'SGD' }), expect.anything());
   });
 });
