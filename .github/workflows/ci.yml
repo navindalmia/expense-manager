@@ -725,7 +725,7 @@ jobs:
           # do not loosen it. See scripts/run-maestro-ci.sh.
           script: >
             set -m;
-            npx expo start & METRO_PID=$!;
+            npx expo start > "$GITHUB_WORKSPACE/metro.log" 2>&1 < /dev/null & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
             adb root || true;
