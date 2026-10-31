@@ -723,9 +723,12 @@ jobs:
           # were regenerated from real CI-emulator screenshots (run 36263266511's
           # maestro-debug-output artifact) so the 95% threshold is meaningful here -
           # do not loosen it. See scripts/run-maestro-ci.sh.
+          # Metro's stdio is detached below so it cannot hold the step's output pipe open;
+          # that made this step hang to its 20 min cap (android-emulator-runner#385).
+          # Measured 21 min -> 9-11 min per shard.
           script: >
             set -m;
-            npx expo start & METRO_PID=$!;
+            npx expo start > "$GITHUB_WORKSPACE/metro.log" 2>&1 < /dev/null & METRO_PID=$!;
             trap 'kill -- -"$METRO_PID" 2>/dev/null || kill "$METRO_PID" 2>/dev/null || true; ./android/gradlew --stop 2>/dev/null || true' EXIT;
             adb shell settings put global hide_error_dialogs 1;
             adb root || true;
@@ -746,6 +749,7 @@ jobs:
             bash ../scripts/run-maestro-ci.sh;
             code=$?;
             echo "$code" > "$GITHUB_WORKSPACE/maestro-result.txt";
+            bash ../scripts/kill-emulator-android.sh;
             exit "$code"
       - name: Report Maestro test result (source of truth for this job's conclusion)
         # Runs regardless of whether the previous step's own conclusion was
