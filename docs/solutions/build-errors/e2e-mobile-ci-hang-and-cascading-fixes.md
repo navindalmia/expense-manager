@@ -169,3 +169,11 @@ The debug APK is now built once in `e2e-mobile-build` and shared with the four `
 - Emulator step cap is 20 min (was 25, briefly 15). Budget: emulator boot + wait-on (up to 120s) + warm-up (`curl -m 240`) + install + flows with up to 3 attempts each. The figure is unmeasured; re-tune after timing a few runs.
 - Blast radius: there is one build job, so one Maven 429 or Gradle failure now fails all four shards. Re-run the build job once before editing code (see the 2026-10-02 bullet above).
 - `e2e-mobile-build` must NOT be made a required check. Only the `e2e-mobile` aggregate is required; it fails closed on any skipped, cancelled or failed shard, so the required-check name is unchanged.
+
+## 2026-10-31: emulator-runner step hangs after the script finishes (Metro stdio)
+
+- Symptom: the `reactivecircus/android-emulator-runner` step hangs ~10-12 min after the script has finished; "Terminate Emulator" prints connection refused, then silence, until the 20 min cap.
+- Did NOT fix it: killing only the emulator / crashpad_handler / qemu-system. The hang persisted (run 41206159672).
+- Fixed it: starting Metro with stdio detached (`npx expo start > "$GITHUB_WORKSPACE/metro.log" 2>&1 < /dev/null &`) plus the emulator kill plus `adb kill-server` (`scripts/kill-emulator-android.sh`). Run 41208416486: all 4 shards 9-11 min instead of ~21 (observed).
+- Mechanism (inference, not directly observed): a leftover descendant (Metro) kept the step's stdout/stderr pipe open, and the action does not wait on the process tree, only on the pipe closing (per its source, v2.38.0).
+- A pipe-holder scan/kill was tried in the script and found nothing to kill (zero `pipe-holder:` lines), so it was removed as unproven. Which of the three changes is strictly necessary was not isolated.

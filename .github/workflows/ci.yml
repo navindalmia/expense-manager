@@ -723,6 +723,9 @@ jobs:
           # were regenerated from real CI-emulator screenshots (run 36263266511's
           # maestro-debug-output artifact) so the 95% threshold is meaningful here -
           # do not loosen it. See scripts/run-maestro-ci.sh.
+          # Metro's stdio is detached below so it cannot hold the step's output pipe open;
+          # that made this step hang to its 20 min cap (android-emulator-runner#385).
+          # Measured 21 min -> 9-11 min per shard.
           script: >
             set -m;
             npx expo start > "$GITHUB_WORKSPACE/metro.log" 2>&1 < /dev/null & METRO_PID=$!;
