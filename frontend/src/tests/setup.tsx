@@ -36,8 +36,9 @@ vi.mock('react-native', () => ({
   ),
   Text: ({ children, ...props }: any) => <span {...props}>{children}</span>,
   // contentContainerStyle is not a DOM attribute; expose its paddingBottom so tests can assert on it.
-  ScrollView: ({ children, contentContainerStyle, ...props }: any) => (
-    <div {...props} data-content-padding-bottom={contentContainerStyle?.paddingBottom}>{children}</div>
+  // data-rn-scroll marks every scroll node so tests can query the rendered tree (issue #144).
+  ScrollView: ({ children, contentContainerStyle, nestedScrollEnabled, ...props }: any) => (
+    <div {...props} data-rn-scroll="true" data-nested-scroll={String(!!nestedScrollEnabled)} data-content-padding-bottom={contentContainerStyle?.paddingBottom}>{children}</div>
   ),
   KeyboardAvoidingView: ({ children, ...props }: any) => <div {...props}>{children}</div>,
   Modal: ({ children, visible }: any) => (visible ? <div>{children}</div> : null),
