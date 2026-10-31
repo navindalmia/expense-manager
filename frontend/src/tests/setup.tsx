@@ -56,6 +56,7 @@ vi.mock('react-native', () => ({
   TextInput: ({ onChangeText, ...props }: any) => (
     <input {...props} onChange={(e: any) => onChangeText?.(e.target.value)} />
   ),
+  RefreshControl: () => null,
   ActivityIndicator: (props: any) => <div {...props}>loading</div>,
   StyleSheet: {
     create: (styles: any) => styles,
