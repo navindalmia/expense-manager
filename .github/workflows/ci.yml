@@ -742,6 +742,7 @@ jobs:
             bash ../scripts/warm-metro-android.sh &&
             adb install -r ../apk/app-debug.apk &&
             adb reverse tcp:8081 tcp:8081 &&
+            bash ../scripts/probe-metro-android.sh &&
             bash ../scripts/run-maestro-ci.sh;
             code=$?;
             echo "$code" > "$GITHUB_WORKSPACE/maestro-result.txt";

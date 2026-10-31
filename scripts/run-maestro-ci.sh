@@ -34,7 +34,9 @@ reset_app() {
 }
 # Retry only infrastructure/app-launch failures; never screenshot or other assertion failures.
 is_retryable() { # $1=exit status $2=log
-  if grep -qE 'Comparison error|assertScreenshot|screenshot' "$2"; then return 1; fi
+  # Only a genuine screenshot comparison failure is non-retryable. The bare word
+  # 'screenshot' is NOT matched: Maestro prints "Debug output (logs & screenshots)" in every failure.
+  if grep -qE 'Comparison error|Image comparison|Assertion is false: .*[Ss]creenshot' "$2"; then return 1; fi
   [ "$1" -eq 124 ] && return 0
   grep -qE 'Unable to launch app|email-input is visible' "$2"
 }
