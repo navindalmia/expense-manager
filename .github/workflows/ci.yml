@@ -745,6 +745,7 @@ jobs:
             bash ../scripts/run-maestro-ci.sh;
             code=$?;
             echo "$code" > "$GITHUB_WORKSPACE/maestro-result.txt";
+            bash ../scripts/kill-emulator-android.sh;
             exit "$code"
       - name: Report Maestro test result (source of truth for this job's conclusion)
         # Runs regardless of whether the previous step's own conclusion was
