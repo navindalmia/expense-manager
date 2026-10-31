@@ -1,6 +1,7 @@
 ---
 title: "Regression-Exempt must be in the last paragraph of the commit message or the CI regression-gate ignores it"
 date: 2026-10-09
+last_updated: 2026-10-31
 category: docs/solutions/workflow-issues
 module: scripts/regression-gate.js
 problem_type: workflow_issue
@@ -56,3 +57,7 @@ node -e "const g=require('./scripts/regression-gate.js'); const m=require('child
 
 - PR #96. `docs/solutions/integration-issues/hook-matcher-with-permission-pattern-never-matches-tool-name.md`.
 - `docs/solutions/tooling-decisions/visual-regression-hook-uses-exempt-trailer-not-hard-block.md`
+
+## 2026-10-31 update: squash merges (observed, cause not established)
+
+The squash commit of PR #163 failed the `regression-gate` push run 41210430374 with "PR contains a fix commit but adds no qualifying regression test", although its body contained a `Regression-Exempt:` trailer; GitHub's squash had concatenated two commits' message text. PR #164's squash push run 41237367858 passed. INFERRED, not verified: the trailer sat outside the last paragraph of the concatenated message. Before relying on a trailer in a PR that will be squashed, make sure the squash message (edit it at merge time) ends with the trailer paragraph.
