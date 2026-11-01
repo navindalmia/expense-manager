@@ -6,7 +6,7 @@
  * Shows loading, error, and empty states.
  */
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -233,14 +233,26 @@ function HomeScreen({ navigation }: Props) {
   }, [navigation, logout]);
 
   /**
-   * Fetch all groups from backend
+   * Monotonic request id: only the newest fetch may write state, so a slow
+   * older response can never overwrite a newer one or an optimistic merge.
    */
-  const loadGroups = useCallback(async () => {
+  const latestRequestRef = useRef(0);
+
+  /**
+   * Fetch all groups from backend.
+   * `silent` (background refresh): no error screen, keeps the current list on failure.
+   */
+  const loadGroups = useCallback(async (options: { silent?: boolean } = {}) => {
+    const silent = options.silent === true;
+    const requestId = ++latestRequestRef.current;
+    const isStale = () => requestId !== latestRequestRef.current;
     try {
-      setError(null);
+      if (!silent) setError(null);
       const response = await http.get('/groups');
+      if (isStale()) return;
       setGroups(response.data.data || []);
     } catch (err: any) {
+      if (isStale()) return;
       // Handle expired token - logout and redirect to login
       if (err?.status === 401 || err?.data?.error === 'AUTH_FAILED') {
         logger.info('Token expired, logging out', {
@@ -251,6 +263,13 @@ function HomeScreen({ navigation }: Props) {
         return;
       }
 
+      if (silent) {
+        logger.error('Failed to refresh groups', err, {
+          screen: 'HomeScreen',
+          action: 'refreshGroups',
+        });
+        return;
+      }
       const errorMessage = getErrorMessage(err);
       setError(errorMessage);
       logger.error('Failed to load groups', err, {
@@ -258,8 +277,10 @@ function HomeScreen({ navigation }: Props) {
         action: 'loadGroups',
       });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!isStale()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [logout]);
 
@@ -300,7 +321,20 @@ function HomeScreen({ navigation }: Props) {
       groupId: updatedGroup.id,
       name: updatedGroup.name,
     });
-  }, []);
+
+    // Then reconcile with the server (counts, totals); the merge above is only the instant update
+    loadGroups({ silent: true });
+  }, [loadGroups]);
+
+  /**
+   * Edit Group modal closed without a success callback (e.g. closed during the
+   * Add Member success window): members may still have changed, so refetch.
+   */
+  const handleEditClose = useCallback(() => {
+    setEditModalVisible(false);
+    setSelectedGroupForEdit(null);
+    loadGroups({ silent: true });
+  }, [loadGroups]);
 
   /**
    * Handle group deletion - remove from list and close modal
@@ -501,10 +535,7 @@ function HomeScreen({ navigation }: Props) {
       <EditGroupModal
         visible={editModalVisible}
         group={selectedGroupForEdit}
-        onClose={() => {
-          setEditModalVisible(false);
-          setSelectedGroupForEdit(null);
-        }}
+        onClose={handleEditClose}
         onSuccess={handleEditSuccess}
         onDeleted={handleGroupDeleted}
         currentUserId={user?.id}

@@ -17,6 +17,16 @@ export function mergeUpdatedGroup(groups: Group[], updated: GroupUpdateResult): 
     // An explicit undefined must not wipe the totals the list item already has.
     const totalAmount: number = updated.totalAmount ?? g.totalAmount;
     const userPersonalTotal: number = updated.userPersonalTotal ?? g.userPersonalTotal;
-    return { ...g, ...updated, totalAmount, userPersonalTotal };
+    // Add/remove-member responses carry a fresh `members` array but no `_count`;
+    // derive the member count from it so the Home card is not stale (#143).
+    const memberCount: number = Array.isArray(updated.members)
+      ? updated.members.length
+      : (updated._count?.members ?? g._count?.members ?? 0);
+    const _count: Group['_count'] = {
+      ...g._count,
+      ...updated._count,
+      members: memberCount,
+    };
+    return { ...g, ...updated, totalAmount, userPersonalTotal, _count };
   });
 }
