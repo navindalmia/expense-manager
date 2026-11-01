@@ -41,8 +41,8 @@ test('probe fails with a cold-start message after exhausting attempts', () => {
   const { res, calls } = probe(0);
   assert.notEqual(res.status, 0);
   assert.match(res.stdout, /cold-start: emulator cannot reach Metro/);
-  assert.equal((calls.match(/reverse/g) || []).length, 4);
-  assert.equal((calls.match(/adb shell/g) || []).length, 4, 'one probe per attempt');
+  assert.equal((calls.match(/reverse tcp:8081/g) || []).length, 4);
+  assert.equal((calls.match(/adb shell curl/g) || []).length, 4, 'one probe per attempt');
 });
 
 function retryable(log, status) {
@@ -93,4 +93,48 @@ test('probe falls back to nc when curl is not found', () => {
   const calls = fs.readFileSync(path.join(dir, 'calls.log'), 'utf8');
   assert.equal(res.status, 0);
   assert.match(calls, /nc -w5/);
+});
+
+function probeDiag(adbBody, curlBody) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'probediag-'));
+  const w = (n, b) => { fs.writeFileSync(path.join(dir, n), `#!/usr/bin/env bash\n${b}\n`, { mode: 0o755 }); return path.join(dir, n); };
+  const res = spawnSync('bash', [PROBE], {
+    env: { ...process.env, ADB_BIN: w('adb', adbBody), SLEEP_BIN: w('fakesleep', ''), DIAG_CURL_BIN: w('fakecurl', curlBody), PROBE_ATTEMPTS: '2', GITHUB_WORKSPACE: dir },
+    encoding: 'utf8', timeout: 60000,
+  });
+  return { res, dir };
+}
+
+test('on exhaustion probe prints host and emulator diagnostics and still exits 1', () => {
+  const { res, dir } = probeDiag('echo "adb-out $*"', 'echo curl-out');
+  fs.writeFileSync(path.join(dir, 'metro.log'), 'metro-log-line\n');
+  const again = spawnSync('bash', [PROBE], { env: { ...process.env, ADB_BIN: path.join(dir, 'adb'), SLEEP_BIN: path.join(dir, 'fakesleep'), DIAG_CURL_BIN: path.join(dir, 'fakecurl'), PROBE_ATTEMPTS: '2', GITHUB_WORKSPACE: dir }, encoding: 'utf8' });
+  assert.equal(res.status, 1);
+  for (const r of [res, again]) assert.match(r.stdout, /cold-start: emulator cannot reach Metro/);
+  assert.match(again.stdout, /probe-diag: == host: metro \/status ==\ncurl-out/);
+  assert.match(again.stdout, /metro-log-line/);
+  assert.match(again.stdout, /adb-out devices/);
+  assert.match(again.stdout, /adb-out reverse --list/);
+  assert.match(again.stdout, /adb-out shell getprop sys.boot_completed/);
+  assert.match(again.stdout, /adb-out shell ip route/);
+  assert.match(again.stdout, /adb-out shell ping -c1 -W2 10.0.2.2/);
+});
+
+test('failing or missing diagnostic commands do not change exit code 1', () => {
+  const { res } = probeDiag('exit 3', 'exit 7');
+  assert.equal(res.status, 1);
+  assert.match(res.stdout, /probe-diag: \(command failed or timed out: host: metro \/status\)/);
+  assert.match(res.stdout, /cold-start: emulator cannot reach Metro/);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'probediag-'));
+  fs.writeFileSync(path.join(dir, 'adb'), '#!/usr/bin/env bash\nexit 1\n', { mode: 0o755 });
+  const missing = spawnSync('bash', [PROBE], { env: { ...process.env, ADB_BIN: path.join(dir, 'adb'), SLEEP_BIN: 'true', DIAG_CURL_BIN: '/nonexistent/curl', PROBE_ATTEMPTS: '1', GITHUB_WORKSPACE: dir }, encoding: 'utf8' });
+  assert.equal(missing.status, 1);
+});
+
+test('a hanging diagnostic command is bounded by the timeout and exit stays 1', { skip: !require('node:child_process').spawnSync('bash', ['-c', 'command -v timeout']).stdout.length }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'probediag-'));
+  fs.writeFileSync(path.join(dir, 'adb'), '#!/usr/bin/env bash\nsleep 30\n', { mode: 0o755 });
+  const r = spawnSync('bash', [PROBE], { env: { ...process.env, ADB_BIN: path.join(dir, 'adb'), SLEEP_BIN: 'true', PROBE_ADB_TIMEOUT: '1', DIAG_CURL_BIN: 'true', PROBE_ATTEMPTS: '1', GITHUB_WORKSPACE: dir }, encoding: 'utf8', timeout: 50000 });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /cold-start/);
 });
