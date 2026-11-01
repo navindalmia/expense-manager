@@ -76,7 +76,8 @@
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-merge-review-gate.js\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-merge-review-gate.js\"",
+            "timeout": 30
           }
         ]
       }

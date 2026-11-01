@@ -41,12 +41,14 @@ function hasReceipt(headSha, roots) {
   return null;
 }
 
-function prHead({ selector, repo }, cwd) {
+function prHead({ selector, repo, env }, cwd) {
   const args = ['pr', 'view'];
   if (selector) args.push(selector);
   if (repo) args.push('-R', repo);
   args.push('--json', 'headRefOid', '-q', '.headRefOid');
-  const r = spawnSync('gh', args, { encoding: 'utf8', cwd });
+  const timeout = Number(process.env.CE_GH_TIMEOUT_MS) || 20000;
+  const r = spawnSync('gh', args, { encoding: 'utf8', cwd, timeout, killSignal: 'SIGKILL', env: { ...process.env, ...(env || {}) } });
+  if (r.error) return ''; // ENOENT, ETIMEDOUT: unresolved head, so decide() blocks
   return r.status === 0 && r.stdout ? r.stdout.trim() : '';
 }
 
@@ -55,6 +57,7 @@ const label = (p) => (p.selector || '(current branch)') + (p.repo ? ` in ${p.rep
 function decide(command, { headSha, roots }) {
   const p = parsePrMerge(command);
   if (p === null) return { block: false };
+  if (p.unsupported) return { block: true, reason: p.unsupported };
   if (p.api && !p.selector) return { block: true, reason: 'gh api PR merge with an unresolvable PR number; use `gh pr merge <n>` after a /ce-code-review receipt exists' };
   if (!headSha) return { block: true, reason: `could not resolve the head commit of PR ${label(p)}; refusing to merge without a review receipt` };
   if (hasReceipt(headSha, roots)) return { block: false };
@@ -80,7 +83,7 @@ function main() {
   const command = input.tool_input && input.tool_input.command;
   const p = parsePrMerge(command);
   if (p === null) process.exit(0);
-  const headSha = p.api && !p.selector ? '' : prHead(p, input.cwd || process.cwd());
+  const headSha = p.unsupported || (p.api && !p.selector) ? '' : prHead(p, input.cwd || process.cwd());
   const out = decide(command, { headSha, roots: receiptRoots(process.env) });
   if (out.block) { process.stderr.write(`PRE-MERGE REVIEW GATE: ${out.reason}\n`); process.exit(2); }
   process.exit(0);

@@ -21,7 +21,7 @@ test('parsePrMerge reads selector and repo from plain, flagged and compound form
   const sel = (c) => { const p = parsePrMerge(c); return p && p.selector; };
   assert.equal(sel('gh pr merge 166 --squash'), '166');
   assert.equal(sel('gh pr merge --squash 165'), '165');
-  assert.equal(sel('cd x && gh pr merge 7 --squash && echo ok'), '7');
+  assert.equal(sel('echo a && gh pr merge 7 --squash && echo ok'), '7');
   assert.equal(sel('gh pr merge --squash'), '');
   assert.equal(sel('gh pr merge https://github.com/o/r/pull/9 --squash'), 'https://github.com/o/r/pull/9');
   assert.equal(sel('gh pr merge feature/x --squash'), 'feature/x');
@@ -39,7 +39,7 @@ test('parsePrMerge reads selector and repo from plain, flagged and compound form
 
 test('parsePrMerge detects gh api merge endpoints', () => {
   const p = parsePrMerge('gh api -X PUT repos/o/r/pulls/42/merge');
-  assert.deepEqual(p, { selector: '42', repo: 'o/r', api: true });
+  assert.deepEqual(p, { selector: '42', repo: 'o/r', api: true, env: {} });
   assert.equal(parsePrMerge('gh api repos/o/r/pulls/$N/merge').selector, '');
 });
 
@@ -151,4 +151,90 @@ test('main on malformed stdin exits 2 only when it mentions gh and merge', () =>
   assert.equal(runHook('gh pr merge 5 {not json').status, 2);
   assert.equal(runHook('').status, 0);
   assert.equal(runHook('garbage').status, 0);
+});
+
+// --- nested/obfuscated forms, env/cd prefixes, other merge routes, timeout ---
+test('parsePrMerge sees merges inside nested shells and obfuscation', () => {
+  const cases = [
+    'bash -c "gh pr merge 5 --squash"', "sh -c 'gh pr merge 5'", 'eval "gh pr merge 5"', 'eval gh pr merge 5',
+    '(gh pr merge 5)', 'echo $(gh pr merge 5)', '`gh pr merge 5`', '{ gh pr merge 5; }',
+    '\\gh pr merge 5', 'gh \\\npr merge 5', 'bash -lc "cd x && gh pr merge 5 -R o/r"',
+  ];
+  for (const c of cases) {
+    const p = parsePrMerge(c);
+    assert.ok(p && !p.unsupported, `not detected: ${c}`);
+    assert.equal(p.selector, '5', c);
+  }
+});
+
+test('parsePrMerge does not flag mentions of a merge inside plain quoted text', () => {
+  assert.equal(parsePrMerge('git commit -m "docs: gh pr merge is gated"'), null);
+  assert.equal(parsePrMerge('echo "gh pr merge 5"'), null);
+});
+
+test('parsePrMerge fails closed on an unbalanced quote that mentions a merge', () => {
+  assert.match(parsePrMerge("echo it's; gh pr merge 5").unsupported, /unbalanced quote/);
+  assert.equal(parsePrMerge("echo it's fine"), null);
+});
+
+test('parsePrMerge reads GH_REPO/GH_HOST prefixes into repo and env', () => {
+  const p = parsePrMerge('GH_REPO=o/r GH_HOST=h.example gh pr merge 5');
+  assert.equal(p.repo, 'o/r');
+  assert.equal(p.env.GH_HOST, 'h.example');
+});
+
+test('parsePrMerge fails closed when cd/pushd or export GH_REPO precedes the merge without -R or URL', () => {
+  assert.match(parsePrMerge('cd /x && gh pr merge 5').unsupported, /cd\/pushd/);
+  assert.match(parsePrMerge('pushd /x; gh pr merge 5').unsupported, /cd\/pushd/);
+  assert.match(parsePrMerge('export GH_REPO=o/r; gh pr merge 5').unsupported, /GH_REPO/);
+  assert.equal(parsePrMerge('cd /x && gh pr merge 5 -R o/r').repo, 'o/r');
+  assert.equal(parsePrMerge('cd /x && gh pr merge https://github.com/o/r/pull/5').selector, 'https://github.com/o/r/pull/5');
+});
+
+test('parsePrMerge blocks graphql and curl merge routes', () => {
+  assert.match(parsePrMerge('gh api graphql -f query="mutation { mergePullRequest(input:{pullRequestId:\\"x\\"}) { clientMutationId } }"').unsupported, /graphql/);
+  assert.match(parsePrMerge('curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge').unsupported, /curl/);
+  assert.equal(parsePrMerge('curl https://example.com'), null);
+});
+
+test('decide blocks an unsupported merge form with its reason, without a head lookup', () => {
+  const out = decide('cd /x && gh pr merge 5', { headSha: 'abc', roots: receipts({ r: { head_sha: 'abc', verdict: 'Ready to merge' } }) });
+  assert.equal(out.block, true);
+  assert.match(out.reason, /cd\/pushd/);
+});
+
+test('main exits 2 for nested bash -c merge, cd prefix and curl merge', () => {
+  const roots = receipts({ r1: { head_sha: 'abc1234', verdict: 'Ready to merge' } });
+  const gh = fakeGh('echo abc1234');
+  const pathDir = `${gh.dir}:${process.env.PATH}`;
+  assert.equal(runHook(bash('bash -c "gh pr merge 9"'), { pathDir, roots: receipts({}) }).status, 2);
+  assert.equal(runHook(bash('bash -c "gh pr merge 9"'), { pathDir, roots }).status, 0);
+  assert.equal(runHook(bash('cd /tmp && gh pr merge 9'), { pathDir, roots }).status, 2);
+  assert.equal(runHook(bash('curl -X PUT https://api.github.com/repos/o/r/pulls/9/merge'), { pathDir, roots }).status, 2);
+});
+
+test('main passes GH_REPO/GH_HOST prefixes to gh through the spawn env', () => {
+  const roots = receipts({ r1: { head_sha: 'abc1234', verdict: 'Ready to merge' } });
+  const gh = fakeGh('echo "$GH_HOST" >> "$0.host"; echo abc1234');
+  const r = runHook(bash('GH_REPO=o/r GH_HOST=h.example gh pr merge 5'), { pathDir: `${gh.dir}:${process.env.PATH}`, roots });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(fs.readFileSync(path.join(gh.dir, 'gh.host'), 'utf8'), /h\.example/);
+  assert.ok(fs.readFileSync(gh.log, 'utf8').includes('-R o/r'));
+});
+
+test('main fails closed when gh hangs past the timeout', () => {
+  const roots = receipts({ r1: { head_sha: 'abc1234', verdict: 'Ready to merge' } });
+  const gh = fakeGh('sleep 20; echo abc1234');
+  const t0 = Date.now();
+  const r = runHook(bash('gh pr merge 9'), { pathDir: `${gh.dir}:${process.env.PATH}`, roots, extraEnv: { CE_GH_TIMEOUT_MS: '300' } });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /could not resolve/);
+  assert.ok(Date.now() - t0 < 10000);
+});
+
+test('settings.json gives the merge gate hook a timeout', () => {
+  const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'settings.json'), 'utf8'));
+  const hooks = JSON.stringify(cfg.hooks);
+  const m = /pre-merge-review-gate\.js[^}]*?"timeout":\s*(\d+)/.exec(hooks);
+  assert.ok(m && Number(m[1]) >= 25 && Number(m[1]) <= 60);
 });
