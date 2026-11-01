@@ -95,8 +95,9 @@ test('probe falls back to nc when curl is not found', () => {
   assert.match(calls, /nc -w5/);
 });
 
-function probeDiag(adbBody, curlBody) {
+function probeDiag(adbBody, curlBody, metroLog) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'probediag-'));
+  if (metroLog !== undefined) fs.writeFileSync(path.join(dir, 'metro.log'), metroLog);
   const w = (n, b) => { fs.writeFileSync(path.join(dir, n), `#!/usr/bin/env bash\n${b}\n`, { mode: 0o755 }); return path.join(dir, n); };
   const res = spawnSync('bash', [PROBE], {
     env: { ...process.env, ADB_BIN: w('adb', adbBody), SLEEP_BIN: w('fakesleep', ''), DIAG_CURL_BIN: w('fakecurl', curlBody), PROBE_ATTEMPTS: '2', GITHUB_WORKSPACE: dir },
@@ -106,18 +107,25 @@ function probeDiag(adbBody, curlBody) {
 }
 
 test('on exhaustion probe prints host and emulator diagnostics and still exits 1', () => {
-  const { res, dir } = probeDiag('echo "adb-out $*"', 'echo curl-out');
-  fs.writeFileSync(path.join(dir, 'metro.log'), 'metro-log-line\n');
-  const again = spawnSync('bash', [PROBE], { env: { ...process.env, ADB_BIN: path.join(dir, 'adb'), SLEEP_BIN: path.join(dir, 'fakesleep'), DIAG_CURL_BIN: path.join(dir, 'fakecurl'), PROBE_ATTEMPTS: '2', GITHUB_WORKSPACE: dir }, encoding: 'utf8' });
+  const { res } = probeDiag('echo "adb-out $*"', 'echo curl-out', 'metro-log-line\n');
   assert.equal(res.status, 1);
-  for (const r of [res, again]) assert.match(r.stdout, /cold-start: emulator cannot reach Metro/);
-  assert.match(again.stdout, /probe-diag: == host: metro \/status ==\ncurl-out/);
-  assert.match(again.stdout, /metro-log-line/);
-  assert.match(again.stdout, /adb-out devices/);
-  assert.match(again.stdout, /adb-out reverse --list/);
-  assert.match(again.stdout, /adb-out shell getprop sys.boot_completed/);
-  assert.match(again.stdout, /adb-out shell ip route/);
-  assert.match(again.stdout, /adb-out shell ping -c1 -W2 10.0.2.2/);
+  assert.match(res.stdout, /cold-start: emulator cannot reach Metro/);
+  assert.match(res.stdout, /probe-diag: == host: metro \/status ==\ncurl-out/);
+  assert.match(res.stdout, /metro-log-line/);
+  assert.match(res.stdout, /adb-out devices/);
+  assert.match(res.stdout, /adb-out reverse --list/);
+  assert.match(res.stdout, /adb-out shell getprop sys.boot_completed/);
+  assert.match(res.stdout, /adb-out shell ip route/);
+  assert.match(res.stdout, /adb-out shell ping -c1 -W2 10.0.2.2/);
+  const out = res.stdout + res.stderr;
+  assert.ok(out.indexOf('probe-diag:') >= 0 && out.indexOf('probe-diag:') < out.indexOf('::error::cold-start'));
+});
+
+test('failing ip route and ping print their failure notes', () => {
+  const { res } = probeDiag('if [ "$1" = shell ] && { [ "$2" = ip ] || [ "$2" = "ping -c1 -W2 10.0.2.2" ]; }; then exit 1; fi; echo "adb-out $*"', 'echo curl-out');
+  assert.equal(res.status, 1);
+  assert.match(res.stdout, /probe-diag: \(ip route failed\)/);
+  assert.match(res.stdout, /probe-diag: \(ping failed\)/);
 });
 
 test('failing or missing diagnostic commands do not change exit code 1', () => {
