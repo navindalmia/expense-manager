@@ -36,6 +36,7 @@ const ERROR_TEXT: Record<ReleaseNotesErrorKind, keyof WhatsNewStrings> = {
   rate_limit: 'errorRateLimit',
   not_found: 'errorNotFound',
   http: 'errorGeneric',
+  bad_response: 'errorBadResponse',
 };
 
 function ReleaseCard({ note, heading, strings, index }: {

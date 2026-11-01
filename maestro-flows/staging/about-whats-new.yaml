@@ -1,5 +1,6 @@
 appId: com.navindalmia.expensemanager.staging
 ---
+# The What's new section is the LAST block of the About screen (scrollUntilVisible reaches it).
 # Staging-build only (APP_VARIANT=staging): the What's new section is hidden in production, and
 # the CI Maestro job drives the production build, so this flow lives outside maestro-flows/visual/
 # and is run by hand against a staging APK:  maestro test maestro-flows/staging/about-whats-new.yaml

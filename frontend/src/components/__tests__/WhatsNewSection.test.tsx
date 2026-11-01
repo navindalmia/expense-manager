@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/react';
+import { render, fireEvent, waitFor, act } from '@testing-library/react';
+import { getWhatsNewStrings } from '../../i18n/whatsNewStrings';
 import type { ReleaseNotesResult } from '../../services/releaseNotesService';
 
 const fetchMock = vi.fn();
@@ -50,5 +51,53 @@ describe('WhatsNewSection', () => {
     const { container } = render(<WhatsNewSection />);
     await waitFor(() => expect(q(container, 'whats-new-release-0')).not.toBeNull());
     expect(container.querySelector('b')).toBeNull();
+  });
+
+  it('should show the message for each error kind', async () => {
+    const strings = getWhatsNewStrings('en');
+    const cases = [
+      ['offline', strings.errorOffline], ['rate_limit', strings.errorRateLimit],
+      ['not_found', strings.errorNotFound], ['http', strings.errorGeneric], ['bad_response', strings.errorBadResponse],
+    ] as const;
+    for (const [kind, text] of cases) {
+      fetchMock.mockResolvedValueOnce({ releases: [], fromCache: false, error: kind });
+      const { container, unmount } = render(<WhatsNewSection />);
+      await waitFor(() => expect(q(container, 'whats-new-error')?.textContent).toBe(text));
+      unmount();
+    }
+  });
+
+  it('should collapse older releases again on the second toggle', async () => {
+    fetchMock.mockResolvedValue(ok([rel('a', '2026-10-31', ['One']), rel('b', '2026-10-30', ['Old'])]));
+    const { container } = render(<WhatsNewSection />);
+    await waitFor(() => expect(q(container, 'whats-new-toggle-older')).not.toBeNull());
+    const toggle = q(container, 'whats-new-toggle-older') as HTMLElement;
+    fireEvent.click(toggle);
+    expect(q(container, 'whats-new-release-1')).not.toBeNull();
+    fireEvent.click(toggle);
+    expect(q(container, 'whats-new-release-1')).toBeNull();
+  });
+
+  it('should let only the latest load win when an earlier overlapping load resolves late', async () => {
+    let resolveFirst: (r: ReleaseNotesResult) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<ReleaseNotesResult>((r) => { resolveFirst = r; }));
+    fetchMock.mockResolvedValueOnce(ok([rel('second', '2026-10-30', ['fresh bullet'])]));
+    // StrictMode runs the mount effect twice, which starts two overlapping loads.
+    const { container } = render(<React.StrictMode><WhatsNewSection /></React.StrictMode>);
+    await waitFor(() => expect(container.textContent).toContain('fresh bullet'));
+    await act(async () => { resolveFirst(ok([rel('stale', '2026-01-01', ['stale bullet'])])); });
+    expect(container.textContent).toContain('fresh bullet');
+    expect(container.textContent).not.toContain('stale bullet');
+  });
+
+  it('should not update state after unmount', async () => {
+    let resolveFirst: (r: ReleaseNotesResult) => void = () => undefined;
+    fetchMock.mockImplementationOnce(() => new Promise<ReleaseNotesResult>((r) => { resolveFirst = r; }));
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { unmount } = render(<WhatsNewSection />);
+    unmount();
+    await act(async () => { resolveFirst(ok([rel('late', null, [])])); });
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 });

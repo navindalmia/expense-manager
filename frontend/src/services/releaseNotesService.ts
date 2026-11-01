@@ -20,7 +20,7 @@ export interface ReleaseNote {
   bullets: string[];
 }
 
-export type ReleaseNotesErrorKind = 'offline' | 'rate_limit' | 'not_found' | 'http';
+export type ReleaseNotesErrorKind = 'offline' | 'rate_limit' | 'not_found' | 'http' | 'bad_response';
 
 export interface ReleaseNotesResult {
   releases: ReleaseNote[];
@@ -51,12 +51,15 @@ export function parseTagDate(tag: string): string | null {
   return valid ? `${year}-${month}-${day}` : null;
 }
 
-/** Strip inline markdown/HTML so the text is safe to show verbatim as plain text. */
+/** Strip paired emphasis, links and HTML tags (lone * _ < > characters stay) so the text is safe to show verbatim as plain text. */
 function toPlainText(line: string): string {
   return line
-    .replace(/<[^>]*>/g, '')
+    .replace(/<\/?[a-z][^>]*>/gi, '')
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/[*_`~]/g, '')
+    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`([^`]*)`/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -87,12 +90,25 @@ export function parseReleases(payload: unknown): ReleaseNote[] {
     .filter((note): note is ReleaseNote => note !== null);
 }
 
+function isReleaseNote(value: unknown): value is ReleaseNote {
+  if (!value || typeof value !== 'object') return false;
+  const note = value as Record<string, unknown>;
+  return (
+    typeof note.tag === 'string' &&
+    (note.date === null || typeof note.date === 'string') &&
+    Array.isArray(note.bullets) &&
+    note.bullets.every((b) => typeof b === 'string')
+  );
+}
+
 async function readCache(): Promise<ReleaseNote[] | null> {
   try {
     const raw = await AsyncStorage.getItem(RELEASES_CACHE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ReleaseNote[]) : null;
+    if (!Array.isArray(parsed)) return null;
+    const valid = parsed.filter(isReleaseNote);
+    return valid.length > 0 ? valid : null;
   } catch {
     return null;
   }
@@ -113,6 +129,14 @@ function classifyFailure(response: Response): ReleaseNotesErrorKind {
   return 'http';
 }
 
+async function parseBody(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 async function requestReleases(): Promise<{ releases: ReleaseNote[] } | { error: ReleaseNotesErrorKind }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -122,7 +146,8 @@ async function requestReleases(): Promise<{ releases: ReleaseNote[] } | { error:
       signal: controller.signal,
     });
     if (!response.ok) return { error: classifyFailure(response) };
-    return { releases: parseReleases(await response.json()) };
+    const payload = await parseBody(response);
+    return Array.isArray(payload) ? { releases: parseReleases(payload) } : { error: 'bad_response' };
   } catch {
     return { error: 'offline' };
   } finally {

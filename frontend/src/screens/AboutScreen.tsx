@@ -3,7 +3,8 @@
  *
  * Shows the app name, version, environment and build/update details so users
  * can quote them in bug reports. Read-only; never shows secrets or tokens.
- * (The app has no i18n layer yet; strings are English like the rest of the UI.)
+ * (The screen itself is English like the rest of the UI; the staging-only What's new
+ * section is EN/FR by device locale, and is always the last block on the page.)
  */
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';

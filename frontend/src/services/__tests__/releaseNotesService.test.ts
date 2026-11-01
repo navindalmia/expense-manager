@@ -32,6 +32,14 @@ describe('parseBullets', () => {
     expect(parseBullets(payload[0].body as string)).toEqual(['Fixed login', 'Added docs', 'alert(1)ok']);
   });
   it('should return an empty list for an empty body', () => expect(parseBullets('')).toEqual([]));
+  it('should keep intraword underscores and lone symbols', () => {
+    expect(parseBullets('- Fixed user_id lookup\n- amount < 5 and total > 3\n- 2 * 3')).toEqual([
+      'Fixed user_id lookup', 'amount < 5 and total > 3', '2 * 3',
+    ]);
+  });
+  it('should strip paired emphasis, code and strikethrough', () => {
+    expect(parseBullets('- __bold__ *em* `code` ~~gone~~')).toEqual(['bold em code gone']);
+  });
 });
 
 describe('parseReleases', () => {
@@ -70,9 +78,60 @@ describe('fetchReleaseNotes', () => {
     expect((await fetchReleaseNotes()).error).toBe('rate_limit');
   });
 
-  it('should report http on a plain 403 or 500', async () => {
+  it('should report http on a 500', async () => {
     vi.mocked(fetch).mockResolvedValue(res(500, {}));
     expect((await fetchReleaseNotes()).error).toBe('http');
+  });
+
+  it('should report http on a plain 403 without an exhausted quota', async () => {
+    vi.mocked(fetch).mockResolvedValue(res(403, {}, { 'x-ratelimit-remaining': '12' }));
+    expect((await fetchReleaseNotes()).error).toBe('http');
+  });
+
+  it('should report rate_limit on a 429', async () => {
+    vi.mocked(fetch).mockResolvedValue(res(429, {}));
+    expect((await fetchReleaseNotes()).error).toBe('rate_limit');
+  });
+
+  it('should report bad_response when the 200 body cannot be parsed', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, headers: new Headers(), json: async () => { throw new SyntaxError('bad'); } } as unknown as Response);
+    expect((await fetchReleaseNotes()).error).toBe('bad_response');
+  });
+
+  it('should keep a good cache when a 200 returns a non-array body', async () => {
+    store.set(RELEASES_CACHE_KEY, JSON.stringify([{ tag: 'staging-20261031-abcdef1', date: '2026-10-31', bullets: ['kept'] }]));
+    vi.mocked(fetch).mockResolvedValue(res(200, { message: 'unexpected' }));
+    const r = await fetchReleaseNotes();
+    expect(r).toMatchObject({ fromCache: true, error: 'bad_response' });
+    expect(r.releases[0].bullets).toEqual(['kept']);
+    expect(JSON.parse(store.get(RELEASES_CACHE_KEY) as string)).toHaveLength(1);
+  });
+
+  it('should drop malformed cache entries and keep valid ones', async () => {
+    store.set(RELEASES_CACHE_KEY, JSON.stringify([{ tag: 'x' }, { tag: 't', date: null, bullets: ['ok'] }, null, { tag: 'u', date: null, bullets: [1] }]));
+    vi.mocked(fetch).mockRejectedValue(new TypeError('offline'));
+    const r = await fetchReleaseNotes();
+    expect(r.releases).toEqual([{ tag: 't', date: null, bullets: ['ok'] }]);
+  });
+
+  it('should treat a cache with only malformed entries as no cache', async () => {
+    store.set(RELEASES_CACHE_KEY, JSON.stringify([{ tag: 5 }]));
+    vi.mocked(fetch).mockRejectedValue(new TypeError('offline'));
+    expect(await fetchReleaseNotes()).toEqual({ releases: [], fromCache: false, error: 'offline' });
+  });
+
+  it('should abort after 10 seconds and report offline', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(fetch).mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+        (init?.signal as AbortSignal).addEventListener('abort', () => reject(new Error('aborted')));
+      }));
+      const pending = fetchReleaseNotes();
+      await vi.advanceTimersByTimeAsync(10000);
+      expect((await pending).error).toBe('offline');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('should report offline when fetch rejects', async () => {

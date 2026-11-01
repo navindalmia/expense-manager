@@ -2,6 +2,7 @@
  * "What's new" screen strings (EN + FR).
  * The frontend has no i18n layer yet, so the locale is taken from the device.
  */
+import { isFrenchLocale } from './resolveLocale';
 
 export interface WhatsNewStrings {
   title: string;
@@ -17,6 +18,7 @@ export interface WhatsNewStrings {
   errorOffline: string;
   errorRateLimit: string;
   errorNotFound: string;
+  errorBadResponse: string;
   errorGeneric: string;
 }
 
@@ -34,6 +36,7 @@ const en: WhatsNewStrings = {
   errorOffline: 'You appear to be offline. Check your connection and retry.',
   errorRateLimit: 'GitHub is limiting requests right now. Please try again in a while.',
   errorNotFound: 'Release notes were not found.',
+  errorBadResponse: 'GitHub returned an unexpected response. Please retry.',
   errorGeneric: 'Could not load the release notes. Please retry.',
 };
 
@@ -51,17 +54,10 @@ const fr: WhatsNewStrings = {
   errorOffline: 'Vous semblez hors ligne. Vérifiez votre connexion et réessayez.',
   errorRateLimit: 'GitHub limite les requêtes pour le moment. Réessayez dans un moment.',
   errorNotFound: 'Les notes de version sont introuvables.',
+  errorBadResponse: 'GitHub a renvoyé une réponse inattendue. Veuillez réessayer.',
   errorGeneric: 'Impossible de charger les notes de version. Veuillez réessayer.',
 };
 
 export function getWhatsNewStrings(locale?: string): WhatsNewStrings {
-  let resolved: string = locale ?? 'en';
-  if (!locale) {
-    try {
-      resolved = Intl.DateTimeFormat().resolvedOptions().locale;
-    } catch {
-      resolved = 'en';
-    }
-  }
-  return resolved.toLowerCase().startsWith('fr') ? fr : en;
+  return isFrenchLocale(locale) ? fr : en;
 }
