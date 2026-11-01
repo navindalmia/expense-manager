@@ -54,9 +54,9 @@ export default function AboutScreen(): React.JSX.Element {
         {info.buildNumber ? <Row id="about-build" label="Build" value={info.buildNumber} /> : null}
         <Row id="about-update" label="Update" value={updateValue} />
       </View>
-      {info.environment === 'staging' ? <WhatsNewSection /> : null}
       {info.environment === 'staging' ? <UpdateCheck /> : null}
       {info.environment === 'staging' ? <DeviceDiagnostics /> : null}
+      {info.environment === 'staging' ? <WhatsNewSection /> : null}
     </ScrollView>
     </ScreenContainer>
   );

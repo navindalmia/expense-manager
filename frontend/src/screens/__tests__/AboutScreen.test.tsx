@@ -66,4 +66,13 @@ describe('AboutScreen', () => {
     mockInfo.value = base;
     expect(render(<AboutScreen />).container.querySelector('[testid="whats-new-section"]')).toBeNull();
   });
+
+  it('should render the What\'s new section last, after the diagnostics card', () => {
+    mockInfo.value = { ...base, environment: 'staging' };
+    const { container } = render(<AboutScreen />);
+    const diag = container.querySelector('[testid="device-diagnostics"]') as Node;
+    const whatsNew = container.querySelector('[testid="whats-new-section"]') as Node;
+    expect(diag.compareDocumentPosition(whatsNew) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(whatsNew.parentElement?.lastElementChild).toBe(whatsNew);
+  });
 });
