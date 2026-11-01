@@ -9,6 +9,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import ScreenContainer from '../components/ScreenContainer';
 import DeviceDiagnostics from '../components/DeviceDiagnostics';
+import WhatsNewSection from '../components/WhatsNewSection';
 import UpdateCheck from '../components/UpdateCheck';
 import { getAboutInfo } from '../utils/aboutInfo';
 
@@ -53,6 +54,7 @@ export default function AboutScreen(): React.JSX.Element {
         {info.buildNumber ? <Row id="about-build" label="Build" value={info.buildNumber} /> : null}
         <Row id="about-update" label="Update" value={updateValue} />
       </View>
+      {info.environment === 'staging' ? <WhatsNewSection /> : null}
       {info.environment === 'staging' ? <UpdateCheck /> : null}
       {info.environment === 'staging' ? <DeviceDiagnostics /> : null}
     </ScrollView>
