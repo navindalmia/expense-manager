@@ -35,7 +35,7 @@ test('every hook matcher is a plain tool-name list, never a permission-rule patt
 
 test('the commit gates are registered on the Bash tool (they filter for git commit themselves)', () => {
   const commands = SETTINGS.hooks.PreToolUse.filter((e) => e.matcher === 'Bash').flatMap((e) => e.hooks);
-  for (const script of ['pre-commit-gate.js', 'pre-commit-quality-gate.js']) {
+  for (const script of ['pre-commit-gate.js', 'pre-commit-quality-gate.js', 'pre-merge-review-gate.js']) {
     assert.ok(commands.find((h) => h.command.includes(script)), `${script} must be registered under the Bash matcher`);
   }
 });
@@ -65,7 +65,7 @@ test('isGitCommit ignores other git and non-git commands', () => {
 });
 
 test('the gate scripts exit 0 immediately for a non-commit Bash command', () => {
-  for (const script of ['pre-commit-gate.js', 'pre-commit-quality-gate.js']) {
+  for (const script of ['pre-commit-gate.js', 'pre-commit-quality-gate.js', 'pre-merge-review-gate.js']) {
     const result = spawnSync(process.execPath, [path.join(__dirname, '..', script)], {
       input: JSON.stringify({ tool_input: { command: 'git status' }, cwd: os.tmpdir() }),
       encoding: 'utf8',
