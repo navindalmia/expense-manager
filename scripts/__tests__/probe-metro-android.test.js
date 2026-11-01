@@ -121,11 +121,12 @@ test('on exhaustion probe prints host and emulator diagnostics and still exits 1
   assert.ok(out.indexOf('probe-diag:') >= 0 && out.indexOf('probe-diag:') < out.indexOf('::error::cold-start'));
 });
 
-test('failing ip route and ping print their failure notes', () => {
-  const { res } = probeDiag('if [ "$1" = shell ] && { [ "$2" = ip ] || [ "$2" = "ping -c1 -W2 10.0.2.2" ]; }; then exit 1; fi; echo "adb-out $*"', 'echo curl-out');
+test('failing ip route and ping print their failure notes and keep their captured output', () => {
+  // Synthetic fake adb: arg shapes mirror the script's calls, not verified against real adb.
+  const { res } = probeDiag('if [ "$1" = shell ] && [ "$2" = ip ]; then echo "iproute-err"; exit 1; fi; if [ "$1" = shell ] && [ "$2" = "ping -c1 -W2 10.0.2.2" ]; then echo "ping-err"; exit 1; fi; echo "adb-out $*"', 'echo curl-out');
   assert.equal(res.status, 1);
-  assert.match(res.stdout, /probe-diag: \(ip route failed\)/);
-  assert.match(res.stdout, /probe-diag: \(ping failed\)/);
+  assert.match(res.stdout, /iproute-err\nprobe-diag: \(ip route failed\)/);
+  assert.match(res.stdout, /ping-err\nprobe-diag: \(ping failed\)/);
 });
 
 test('failing or missing diagnostic commands do not change exit code 1', () => {
