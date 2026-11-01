@@ -1,7 +1,7 @@
 ---
 title: "e2e-mobile CI job: from a 6h hang to a trustworthy green run"
 date: 2026-09-01
-last_updated: 2026-10-02
+last_updated: 2026-10-31
 category: build-errors
 module: ci-e2e-mobile
 problem_type: build_error
@@ -177,3 +177,10 @@ The debug APK is now built once in `e2e-mobile-build` and shared with the four `
 - Fixed it: starting Metro with stdio detached (`npx expo start > "$GITHUB_WORKSPACE/metro.log" 2>&1 < /dev/null &`) plus the emulator kill plus `adb kill-server` (`scripts/kill-emulator-android.sh`). Run 41208416486: all 4 shards 9-11 min instead of ~21 (observed).
 - Mechanism (inference, not directly observed): a leftover descendant (Metro) kept the step's stdout/stderr pipe open, and the action does not wait on the process tree, only on the pipe closing (per its source, v2.38.0).
 - A pipe-holder scan/kill was tried in the script and found nothing to kill (zero `pipe-holder:` lines), so it was removed as unproven. Which of the three changes is strictly necessary was not isolated.
+
+## 2026-10-31: stale login-screen baseline, and re-running old shards
+
+- Stale baseline signature: `Comparison error: ... current: 88.36...%` against the 95% threshold on EVERY run after the layout change in PRs #135/#138 (2026-10-24). This is deterministic. The Metro-redbox signature (`docs/solutions/best-practices/metro-unreachable-redbox-signature-in-e2e-shards.md`) fails only some shards and shows a redbox, so tell them apart by whether every run fails with the same percentage. Diagnosed (observed) by reading real failure logs and downloading `maestro-debug-output-N`; fixed by refreshing `maestro-flows/visual/login-screen.png` from the CI emulator in PR #160.
+- Process gap: a PR that changes layout must refresh the affected baselines from the CI emulator (steps in the baseline extraction section above), never from a local AVD. The rule was already recorded; the new fact is that it was missed for the layout change and went red on every run until #160.
+- Re-running a single failed shard of a run older than 3 days fails with `Artifact not found for name: e2e-debug-apk`: the build job's upload sets `retention-days: 3` (`.github/workflows/ci.yml`, "Upload debug APK" step). Re-run ALL jobs or push a new commit. `gh pr update-branch` is a no-op when the branch is already up to date.
+- Retry classifier dead on every failure: see `docs/solutions/test-failures/maestro-retry-classifier-matched-text-in-every-failure-log.md`.
