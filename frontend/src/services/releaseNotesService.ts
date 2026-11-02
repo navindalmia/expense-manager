@@ -147,7 +147,10 @@ async function requestReleases(): Promise<{ releases: ReleaseNote[] } | { error:
     });
     if (!response.ok) return { error: classifyFailure(response) };
     const payload = await parseBody(response);
-    return Array.isArray(payload) ? { releases: parseReleases(payload) } : { error: 'bad_response' };
+    if (!Array.isArray(payload)) return { error: 'bad_response' };
+    const releases = parseReleases(payload);
+    // A non-empty array that yields nothing usable is schema drift, not "no releases".
+    return payload.length > 0 && releases.length === 0 ? { error: 'bad_response' } : { releases };
   } catch {
     return { error: 'offline' };
   } finally {
@@ -159,7 +162,8 @@ async function requestReleases(): Promise<{ releases: ReleaseNote[] } | { error:
 export async function fetchReleaseNotes(): Promise<ReleaseNotesResult> {
   const outcome = await requestReleases();
   if ('releases' in outcome) {
-    await writeCache(outcome.releases);
+    // Never replace a good cache with an empty list.
+    if (outcome.releases.length > 0) await writeCache(outcome.releases);
     return { releases: outcome.releases, fromCache: false, error: null };
   }
   const cached = await readCache();

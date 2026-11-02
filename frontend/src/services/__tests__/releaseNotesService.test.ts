@@ -107,6 +107,24 @@ describe('fetchReleaseNotes', () => {
     expect(JSON.parse(store.get(RELEASES_CACHE_KEY) as string)).toHaveLength(1);
   });
 
+  it('should not overwrite a good cache when a 200 returns an empty array', async () => {
+    const good = JSON.stringify([{ tag: 'staging-20261031-abcdef1', date: '2026-10-31', bullets: ['kept'] }]);
+    store.set(RELEASES_CACHE_KEY, good);
+    vi.mocked(fetch).mockResolvedValue(res(200, []));
+    expect(await fetchReleaseNotes()).toEqual({ releases: [], fromCache: false, error: null });
+    expect(store.get(RELEASES_CACHE_KEY)).toBe(good);
+  });
+
+  it('should report bad_response and keep the cache when every item fails parsing', async () => {
+    const good = JSON.stringify([{ tag: 'staging-20261031-abcdef1', date: '2026-10-31', bullets: ['kept'] }]);
+    store.set(RELEASES_CACHE_KEY, good);
+    vi.mocked(fetch).mockResolvedValue(res(200, [{ nope: 1 }, { tag_name: 5 }]));
+    const r = await fetchReleaseNotes();
+    expect(r).toMatchObject({ fromCache: true, error: 'bad_response' });
+    expect(r.releases).toHaveLength(1);
+    expect(store.get(RELEASES_CACHE_KEY)).toBe(good);
+  });
+
   it('should drop malformed cache entries and keep valid ones', async () => {
     store.set(RELEASES_CACHE_KEY, JSON.stringify([{ tag: 'x' }, { tag: 't', date: null, bullets: ['ok'] }, null, { tag: 'u', date: null, bullets: [1] }]));
     vi.mocked(fetch).mockRejectedValue(new TypeError('offline'));

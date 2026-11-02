@@ -2,6 +2,12 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, waitFor, act } from '@testing-library/react';
 import { getWhatsNewStrings } from '../../i18n/whatsNewStrings';
+
+// getWhatsNewStrings runs once per WhatsNewSection render, so its call count is a render counter.
+vi.mock('../../i18n/whatsNewStrings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../i18n/whatsNewStrings')>();
+  return { ...actual, getWhatsNewStrings: vi.fn(actual.getWhatsNewStrings) };
+});
 import type { ReleaseNotesResult } from '../../services/releaseNotesService';
 
 const fetchMock = vi.fn();
@@ -90,14 +96,13 @@ describe('WhatsNewSection', () => {
     expect(container.textContent).not.toContain('stale bullet');
   });
 
-  it('should not update state after unmount', async () => {
+  it('should not render again after unmount when the pending load resolves', async () => {
     let resolveFirst: (r: ReleaseNotesResult) => void = () => undefined;
     fetchMock.mockImplementationOnce(() => new Promise<ReleaseNotesResult>((r) => { resolveFirst = r; }));
-    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { unmount } = render(<WhatsNewSection />);
+    const before = vi.mocked(getWhatsNewStrings).mock.calls.length;
     unmount();
     await act(async () => { resolveFirst(ok([rel('late', null, [])])); });
-    expect(errors).not.toHaveBeenCalled();
-    errors.mockRestore();
+    expect(vi.mocked(getWhatsNewStrings).mock.calls.length).toBe(before);
   });
 });
