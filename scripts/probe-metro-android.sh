@@ -47,9 +47,9 @@ diag_all() {
   diag_run "emulator: adb reverse --list" "$ADB_BIN" reverse --list
   diag_run "emulator: sys.boot_completed" "$ADB_BIN" shell getprop sys.boot_completed
   echo "probe-diag: == emulator: ip route =="
-  { diag_t "$ADB_BIN" shell ip route < /dev/null 2>&1 | head -5; } || echo "probe-diag: (ip route failed)"
+  if out=$(diag_t "$ADB_BIN" shell ip route < /dev/null 2>&1); then printf '%s\n' "$out" | head -5; else printf '%s\n' "$out" | head -5; echo "probe-diag: (ip route failed)"; fi
   echo "probe-diag: == emulator: ping 10.0.2.2 =="
-  { diag_t "$ADB_BIN" shell "ping -c1 -W2 10.0.2.2" < /dev/null 2>&1 | tail -2; } || echo "probe-diag: (ping failed)"
+  if out=$(diag_t "$ADB_BIN" shell "ping -c1 -W2 10.0.2.2" < /dev/null 2>&1); then printf '%s\n' "$out" | tail -2; else printf '%s\n' "$out" | tail -2; echo "probe-diag: (ping failed)"; fi
 }
 diag_all || :
 echo "::error::cold-start: emulator cannot reach Metro at 10.0.2.2:8081 after $ATTEMPTS attempts"
