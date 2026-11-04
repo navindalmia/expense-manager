@@ -45,4 +45,4 @@ Issues already tracked are listed under the **known-issue** label:
 
 ## For maintainers
 
-Setup, rollback and the release flow are in [`docs/staging-environment.md`](../staging-environment.md). Release notes for each staging build are created automatically on every push to `staging`; add a **Tester notes** section to your pull request so it can be copied into the release.
+Setup, rollback and the release flow are in [`docs/staging-environment.md`](../staging-environment.md). Release notes for each staging build are created automatically on every push to `staging`; users read them on the GitHub Releases page (<https://github.com/navindalmia/expense-manager/releases>); an in-app What's new on About is planned but not shipped yet. The release's **What to check** part is built from the `## What to check` section of each merged pull request body (the older `## Tester notes` heading still works), so add one to every PR; PRs without it are simply omitted there. Release notes never use the word "tester": any such wording in a pull request is rewritten to "user".
