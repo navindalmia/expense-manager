@@ -12,15 +12,30 @@ on:
       - 'frontend/**'
       - '.github/workflows/eas-staging.yml'
       - 'scripts/eas-release-notes.js'
-  workflow_dispatch: {}
+      - 'scripts/resolve-notes-base.js'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Release notes start after this sha/ref (default: last staging release)'
+        type: string
+        default: ''
+      build:
+        description: 'Also run a native APK build (uses the capped EAS build budget)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   update:
+    needs: detect-native-changes
     if: vars.STAGING_ENABLED == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      notes_base: ${{ steps.notes.outputs.base }}
+      update_group: ${{ steps.publish.outputs.group }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -44,35 +59,46 @@ jobs:
         working-directory: frontend
         run: npm test -- --run
       - name: Generate release notes
+        id: notes
         env:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
+          SINCE_INPUT: ${{ inputs.since }}
         run: |
-          if ! NOTES="$(node scripts/eas-release-notes.js "$BEFORE_SHA" "$HEAD_SHA")"; then
-            echo "::warning::release-notes script failed"
-            NOTES=""
-          fi
-          if [ -z "$NOTES" ]; then
-            echo "::warning::release-notes script produced no output; using generic message"
-            NOTES="Bug fixes and improvements"
-          fi
+          # Any failure here (bad since, force-pushed before, unreadable range) must fail the job:
+          # publishing generic notes for the wrong range would pass silently.
+          BASE_SHA="$(node scripts/resolve-notes-base.js --since "$SINCE_INPUT" --before "$BEFORE_SHA" --head "$HEAD_SHA")"
+          echo "base=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          NOTES="$(node scripts/eas-release-notes.js "$BASE_SHA" "$HEAD_SHA")"
           DELIM="EOF_$(openssl rand -hex 8)"
           { echo "RELEASE_NOTES<<$DELIM"; echo "$NOTES"; echo "$DELIM"; } >> "$GITHUB_ENV"
-          {
-            echo "## What to test on staging"
-            node scripts/eas-release-notes.js --list "$BEFORE_SHA" "$HEAD_SHA" || { echo "::warning::--list failed" >&2; echo "- $NOTES"; }
-          } >> "$GITHUB_STEP_SUMMARY"
       - name: Refuse to publish against a placeholder or production URL
         env:
           STAGING_API_URL: ${{ vars.STAGING_API_URL }}
         run: node scripts/check-staging-config.js frontend/eas.json "$STAGING_API_URL"
       - name: Publish EAS Update (staging branch)
+        id: publish
         working-directory: frontend
         env:
           APP_VARIANT: staging
           EXPO_PUBLIC_API_BASE_URL: ${{ vars.STAGING_API_URL }}
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli update --branch staging --message "$RELEASE_NOTES" --non-interactive
+        run: |
+          npx eas-cli update --branch staging --message "$RELEASE_NOTES" --non-interactive --json > "$RUNNER_TEMP/eas-update.json"
+          cat "$RUNNER_TEMP/eas-update.json"
+          GROUP="$(node ../scripts/eas-release-notes.js --update-group "$RUNNER_TEMP/eas-update.json")"
+          echo "group=$GROUP" >> "$GITHUB_OUTPUT"
+      - name: Job summary
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BASE_SHA: ${{ steps.notes.outputs.base }}
+          UPDATE_GROUP: ${{ steps.publish.outputs.group }}
+          NATIVE: ${{ needs.detect-native-changes.outputs.native }}
+        run: |
+          if [ "$NATIVE" = "true" ]; then export BUILD_KIND=native; else export BUILD_KIND=ota; fi
+          node scripts/eas-release-notes.js --template "$BASE_SHA" "$HEAD_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   detect-native-changes:
     if: vars.STAGING_ENABLED == 'true'
@@ -88,9 +114,16 @@ jobs:
           EVENT: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
+          BUILD_INPUT: ${{ inputs.build }}
         run: |
           if [ "$EVENT" = "workflow_dispatch" ]; then
-            echo "native=true" >> "$GITHUB_OUTPUT"; exit 0
+            # Manual runs build only when asked; the native-files diff applies to pushes only.
+            if [ "$BUILD_INPUT" = "true" ]; then
+              echo "native=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "native=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
           fi
           if echo "$BEFORE_SHA" | grep -Eq '^0+$'; then
             echo "native=true" >> "$GITHUB_OUTPUT"; exit 0
@@ -133,10 +166,11 @@ jobs:
   # Prerelease GitHub Release "staging-YYYYMMDD-<sha7>" with the same notes.
   prerelease:
     if: vars.STAGING_ENABLED == 'true' && github.event_name == 'push'
-    needs: update
+    needs: [update, detect-native-changes]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -144,13 +178,17 @@ jobs:
       - name: Create prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-          BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
+          BASE_SHA: ${{ needs.update.outputs.notes_base }}
+          UPDATE_GROUP: ${{ needs.update.outputs.update_group }}
+          NATIVE: ${{ needs.detect-native-changes.outputs.native }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           TAG="staging-$(date -u +%Y%m%d)-${HEAD_SHA::7}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; skipping"
             exit 0
           fi
-          node scripts/eas-release-notes.js --list "$BEFORE_SHA" "$HEAD_SHA" > notes.md || echo "- Bug fixes and improvements" > notes.md
+          if [ "$NATIVE" = "true" ]; then export BUILD_KIND=native; else export BUILD_KIND=ota; fi
+          node scripts/eas-release-notes.js --template "$BASE_SHA" "$HEAD_SHA" > notes.md
           gh release create "$TAG" --target "$HEAD_SHA" --prerelease --title "$TAG" --notes-file notes.md
