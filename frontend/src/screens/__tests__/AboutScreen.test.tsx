@@ -6,6 +6,10 @@ import type { AboutInfo } from '../../utils/aboutInfo';
 const mockInfo: { value: AboutInfo } = { value: {} as AboutInfo };
 vi.mock('../../utils/aboutInfo', () => ({ getAboutInfo: () => mockInfo.value }));
 
+vi.mock('../../services/releaseNotesService', () => ({
+  fetchReleaseNotes: vi.fn().mockResolvedValue({ releases: [], fromCache: false, error: null }),
+}));
+
 import AboutScreen from '../AboutScreen';
 
 const base: AboutInfo = {
@@ -54,5 +58,21 @@ describe('AboutScreen', () => {
     const production = render(<AboutScreen />).container;
     expect(production.querySelector('[testid="device-diagnostics"]')).toBeNull();
     expect(production.querySelector('[testid="update-check-button"]')).toBeNull();
+  });
+
+  it('should show the What\'s new section on staging only', () => {
+    mockInfo.value = { ...base, environment: 'staging' };
+    expect(render(<AboutScreen />).container.querySelector('[testid="whats-new-section"]')).not.toBeNull();
+    mockInfo.value = base;
+    expect(render(<AboutScreen />).container.querySelector('[testid="whats-new-section"]')).toBeNull();
+  });
+
+  it('should render the What\'s new section last, after the diagnostics card', () => {
+    mockInfo.value = { ...base, environment: 'staging' };
+    const { container } = render(<AboutScreen />);
+    const diag = container.querySelector('[testid="device-diagnostics"]') as Node;
+    const whatsNew = container.querySelector('[testid="whats-new-section"]') as Node;
+    expect(diag.compareDocumentPosition(whatsNew) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(whatsNew.parentElement?.lastElementChild).toBe(whatsNew);
   });
 });

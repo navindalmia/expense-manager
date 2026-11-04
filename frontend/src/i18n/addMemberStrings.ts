@@ -2,6 +2,7 @@
  * Add Member modal strings (EN + FR).
  * The frontend has no i18n layer yet, so the locale is taken from the device.
  */
+import { isFrenchLocale } from './resolveLocale';
 
 export interface AddMemberStrings {
   shareViaWhatsApp: string;
@@ -27,13 +28,5 @@ const fr: AddMemberStrings = {
 };
 
 export function getAddMemberStrings(locale?: string): AddMemberStrings {
-  let resolved: string = locale ?? 'en';
-  if (!locale) {
-    try {
-      resolved = Intl.DateTimeFormat().resolvedOptions().locale;
-    } catch {
-      resolved = 'en';
-    }
-  }
-  return resolved.toLowerCase().startsWith('fr') ? fr : en;
+  return isFrenchLocale(locale) ? fr : en;
 }
