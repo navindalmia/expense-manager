@@ -37,6 +37,9 @@ describe('parseBullets', () => {
       'Fixed user_id lookup', 'amount < 5 and total > 3', '2 * 3',
     ]);
   });
+  it('should leave lone asterisks between numbers intact', () => {
+    expect(parseBullets('- 2 * 3 * 4')).toEqual(['2 * 3 * 4']);
+  });
   it('should strip paired emphasis, code and strikethrough', () => {
     expect(parseBullets('- __bold__ *em* `code` ~~gone~~')).toEqual(['bold em code gone']);
   });

@@ -6,7 +6,7 @@
  * Release text arrives already reduced to plain strings by releaseNotesService.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { getWhatsNewStrings, type WhatsNewStrings } from '../i18n/whatsNewStrings';
 import {
   fetchReleaseNotes,
@@ -28,8 +28,11 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#0066cc', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   toggle: { paddingVertical: 12, alignItems: 'center' },
+  linkText: { color: '#0066cc', fontSize: 14, fontWeight: '600', textAlign: 'center', paddingVertical: 12 },
   toggleText: { color: '#0066cc', fontSize: 15, fontWeight: '600' },
 });
+
+const ALL_RELEASES_URL = 'https://github.com/navindalmia/expense-manager/releases';
 
 const ERROR_TEXT: Record<ReleaseNotesErrorKind, keyof WhatsNewStrings> = {
   offline: 'errorOffline',
@@ -80,7 +83,7 @@ export default function WhatsNewSection(): React.JSX.Element {
         <Text style={styles.title}>{strings.title}</Text>
         {result === null ? <Text style={styles.muted} testID="whats-new-loading">{strings.loading}</Text> : null}
         {result?.error ? (
-          <Text style={styles.error} testID="whats-new-error">{strings[ERROR_TEXT[result.error]] as string}</Text>
+          <Text style={styles.error} testID="whats-new-error">{strings[ERROR_TEXT[result.error]]}</Text>
         ) : null}
         {result?.fromCache ? <Text style={styles.notice} testID="whats-new-cached">{strings.showingSaved}</Text> : null}
         {result && !result.error && releases.length === 0 ? (
@@ -102,6 +105,9 @@ export default function WhatsNewSection(): React.JSX.Element {
             <Text style={styles.buttonText}>{strings.retry}</Text>
           </TouchableOpacity>
         ) : null}
+        <TouchableOpacity onPress={() => void Linking.openURL(ALL_RELEASES_URL)} accessibilityRole="link" testID="whats-new-all-releases-link">
+          <Text style={styles.linkText}>{strings.allReleasesLink}</Text>
+        </TouchableOpacity>
     </View>
   );
 }

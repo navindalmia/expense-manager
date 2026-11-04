@@ -9,6 +9,7 @@ export interface WhatsNewStrings {
   latest: string;
   olderReleases: string;
   seeAll: string;
+  allReleasesLink: string;
   hideOlder: string;
   loading: string;
   empty: string;
@@ -27,6 +28,7 @@ const en: WhatsNewStrings = {
   latest: 'Latest release',
   olderReleases: 'Older releases',
   seeAll: 'See all',
+  allReleasesLink: 'See all releases',
   hideOlder: 'Hide older releases',
   loading: 'Loading release notes...',
   empty: 'No release notes have been published yet.',
@@ -45,6 +47,7 @@ const fr: WhatsNewStrings = {
   latest: 'Dernière version',
   olderReleases: 'Versions précédentes',
   seeAll: 'Tout voir',
+  allReleasesLink: 'Voir toutes les versions',
   hideOlder: 'Masquer les versions précédentes',
   loading: 'Chargement des notes de version...',
   empty: "Aucune note de version n'a encore été publiée.",

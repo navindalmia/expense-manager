@@ -1,13 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Linking } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react';
 import { getWhatsNewStrings } from '../../i18n/whatsNewStrings';
 
-// getWhatsNewStrings runs once per WhatsNewSection render, so its call count is a render counter.
-vi.mock('../../i18n/whatsNewStrings', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../i18n/whatsNewStrings')>();
-  return { ...actual, getWhatsNewStrings: vi.fn(actual.getWhatsNewStrings) };
-});
 import type { ReleaseNotesResult } from '../../services/releaseNotesService';
 
 const fetchMock = vi.fn();
@@ -96,13 +92,15 @@ describe('WhatsNewSection', () => {
     expect(container.textContent).not.toContain('stale bullet');
   });
 
-  it('should not render again after unmount when the pending load resolves', async () => {
-    let resolveFirst: (r: ReleaseNotesResult) => void = () => undefined;
-    fetchMock.mockImplementationOnce(() => new Promise<ReleaseNotesResult>((r) => { resolveFirst = r; }));
-    const { unmount } = render(<WhatsNewSection />);
-    const before = vi.mocked(getWhatsNewStrings).mock.calls.length;
-    unmount();
-    await act(async () => { resolveFirst(ok([rel('late', null, [])])); });
-    expect(vi.mocked(getWhatsNewStrings).mock.calls.length).toBe(before);
+  // No unmount test on purpose: React never re-renders an unmounted component, so such a test passes with or
+  // without the guard. The StrictMode overlapping-load test above is the one that exercises the requestId guard.
+
+  it('should open the GitHub releases page from the All releases link', async () => {
+    fetchMock.mockResolvedValue(ok([rel('a', '2026-10-31', ['One'])]));
+    const { container } = render(<WhatsNewSection />);
+    const link = q(container, 'whats-new-all-releases-link') as HTMLElement;
+    expect(link.textContent).toBe(getWhatsNewStrings('en').allReleasesLink);
+    fireEvent.click(link);
+    expect(Linking.openURL).toHaveBeenCalledWith('https://github.com/navindalmia/expense-manager/releases');
   });
 });

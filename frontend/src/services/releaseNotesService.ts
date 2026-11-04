@@ -56,9 +56,9 @@ function toPlainText(line: string): string {
   return line
     .replace(/<\/?[a-z][^>]*>/gi, '')
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/(\*\*|__)(.+?)\1/g, '$2')
+    .replace(/(\*\*|__)(\S(?:.*?\S)?)\1/g, '$2')
     .replace(/~~(.+?)~~/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/\*(\S(?:.*?\S)?)\*/g, '$1')
     .replace(/`([^`]*)`/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
