@@ -101,3 +101,63 @@ test('scanWorkspace is recursive and flags undiscoverable / banned files', () =>
   assert.strictEqual(r.problems.length, 2);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+// --- squash-merge layouts: GitHub appends a Co-authored-by-only paragraph (and a "---------" separator) ---
+const SQUASH_173 = `fix(ci): staging release notes cover everything since the last published release (#173)
+
+Release notes now span the commits since the newest published staging-* release.
+
+Regression-Exempt: CI workflow and release-notes tooling; covered by node:test unit and CLI tests in scripts/__tests__ run via test:gate
+
+Co-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>
+`;
+const SQUASH_168 = `fix(ci): probe diagnostics (#168)
+
+* fix(ci): keep captured ip route/ping output when the command fails
+
+Print the captured output before the failure note so the diagnostic is not
+lost, and add a test for it. Label the fake adb as synthetic.
+
+Regression-Exempt: probe diagnostics script, covered by scripts/__tests__/probe-metro-android.test.js
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+---------
+
+Co-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>
+`;
+test('squash layout of #173 (exemption, blank line, Co-authored-by paragraph) is exempt', () => {
+  assert.strictEqual(g.hasExemption(SQUASH_173), true);
+});
+test('squash layout of #168 (trailers, ---------, Co-authored-by paragraph) is exempt', () => {
+  assert.strictEqual(g.hasExemption(SQUASH_168), true);
+});
+test('multiple trailing co-author lines are stripped', () => {
+  const m = 'fix: x\n\nRegression-Exempt: why\n\nCo-authored-by: A <a@x.io>\nco-authored-by: B <b@x.io>\n';
+  assert.strictEqual(g.hasExemption(m), true);
+});
+test('exemption mid-body is still not honoured after a squash appendix', () => {
+  const m = 'fix: x\n\nRegression-Exempt: why\n\nMore prose here.\n\nCo-authored-by: A <a@x.io>\n';
+  assert.strictEqual(g.hasExemption(m), false);
+});
+test('a paragraph mixing prose and Co-authored-by is not stripped', () => {
+  const m = 'fix: x\n\nRegression-Exempt: why\n\nthanks!\nCo-authored-by: A <a@x.io>\n';
+  assert.strictEqual(g.hasExemption(m), false);
+});
+test('exemption followed by prose then separator and co-author is not honoured', () => {
+  assert.strictEqual(g.hasExemption('fix: x\n\nRegression-Exempt: why\n\nprose\n\n---------\n\nCo-authored-by: A <a@x.io>\n'), false);
+});
+test('no exemption at all stays blocked, with or without a co-author paragraph', () => {
+  assert.strictEqual(g.hasExemption('fix: x\n\nbody\n\nCo-authored-by: A <a@x.io>\n'), false);
+  assert.strictEqual(g.hasExemption('fix: x\n\nbody\n'), false);
+  assert.strictEqual(g.hasExemption('Co-authored-by: A <a@x.io>'), false);
+});
+test('co-author paragraph that is not final is not stripped', () => {
+  const m = 'fix: x\n\nRegression-Exempt: why\n\nCo-authored-by: A <a@x.io>\n\nclosing prose\n';
+  assert.strictEqual(g.hasExemption(m), false);
+});
+test('PR mode: squash-layout fix commit with exemption passes, without exemption fails', () => {
+  const ok = g.evaluatePr([{ message: SQUASH_168, changes: [] }], [], {}, {});
+  assert.strictEqual(ok.ok, true);
+  const bad = g.evaluatePr([{ message: 'fix: x\n\nbody\n\nCo-authored-by: A <a@x.io>\n', changes: [] }], [], {}, {});
+  assert.strictEqual(bad.ok, false);
+});

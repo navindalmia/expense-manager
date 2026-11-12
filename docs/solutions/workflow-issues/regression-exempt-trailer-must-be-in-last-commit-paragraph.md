@@ -1,7 +1,7 @@
 ---
 title: "Regression-Exempt must be in the last paragraph of the commit message or the CI regression-gate ignores it"
 date: 2026-10-09
-last_updated: 2026-10-31
+last_updated: 2026-11-05
 category: docs/solutions/workflow-issues
 module: scripts/regression-gate.js
 problem_type: workflow_issue
@@ -58,6 +58,10 @@ node -e "const g=require('./scripts/regression-gate.js'); const m=require('child
 - PR #96. `docs/solutions/integration-issues/hook-matcher-with-permission-pattern-never-matches-tool-name.md`.
 - `docs/solutions/tooling-decisions/visual-regression-hook-uses-exempt-trailer-not-hard-block.md`
 
-## 2026-10-31 update: squash merges (observed, cause not established)
+## 2026-11-05 update: squash merges (cause verified, gate fixed)
 
-The squash commit of PR #163 failed the `regression-gate` push run 41210430374 with "PR contains a fix commit but adds no qualifying regression test", although its body contained a `Regression-Exempt:` trailer; GitHub's squash had concatenated two commits' message text. PR #164's squash push run 41237367858 passed. INFERRED, not verified: the trailer sat outside the last paragraph of the concatenated message. Before relying on a trailer in a PR that will be squashed, make sure the squash message (edit it at merge time) ends with the trailer paragraph.
+Root cause: when GitHub squash-merges a PR whose commits carry `Co-Authored-By:`, it APPENDS a final paragraph made only of `Co-authored-by: Name <email>` lines (preceded by a bare `---------` line when several commits were squashed). That pushed the author's `Regression-Exempt:` trailer out of the last paragraph, so the push-event step "Pushed fix commits must add a regression test" failed on squash commits (real layouts: c55a4e8 / #173 and 2b86927 / #168) even though the PR check had passed. This replaces the earlier "cause not established" note on #163.
+
+Fix: `parseTrailers` in `scripts/regression-gate.js` now drops trailing paragraphs that consist only of `Co-authored-by:` lines (case-insensitive) or a bare `---------` line, then applies the unchanged last-paragraph rule. Still not honoured: an exemption mid-body, in a paragraph that also holds prose, or followed by a non-appendix paragraph. Tests: `scripts/__tests__/regression-gate.test.js` (the #173 and #168 layouts verbatim).
+
+#164 check: its squash commit 399a6fc has the same layout (Co-authored-by paragraph last) yet its push run passed. Verified with `git log`: its subject is `ci: ...`, not `fix...`, so the gate treated it as a non-fix commit and never looked for an exemption. Not a counterexample.
