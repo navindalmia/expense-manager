@@ -1,6 +1,7 @@
 ---
 title: "EAS Update (OTA) added so JS/UI fixes reach installed builds without manual reinstall"
 date: 2026-08-16
+last_updated: 2026-10-24
 category: docs/solutions/tooling-decisions
 module: frontend (Expo), .github/workflows/eas-build.yml
 problem_type: tooling_decision
@@ -40,7 +41,7 @@ Two CI bugs were hit and fixed while wiring this up:
 
 ## Why This Matters
 
-OTA updates only reach installs that already contain the `expo-updates` runtime — **a build that predates this setup cannot receive OTA updates at all.** One more full APK install was required as the "base" build (the first build produced after this setup landed) specifically to adopt OTA; every install after that base build gets JS/UI fixes automatically on next app open. This is a one-time transition cost, not a recurring one.
+OTA updates only reach installs that already contain the `expo-updates` runtime — **a build that predates this setup cannot receive OTA updates at all.** One more full APK install was required as the "base" build (the first build produced after this setup landed) specifically to adopt OTA; every install after that base build can receive JS/UI fixes over the air, but not instantly: by default the app downloads the update in the background at launch and applies it on a LATER launch (see "Staging channel, launch wait and the Free-plan build cap" below). This is a one-time transition cost, not a recurring one.
 
 OTA cannot deliver native changes: new native modules, permission changes, or an Expo SDK bump still require a fresh full APK build and manual reinstall, same as before. Don't claim OTA replaces full builds entirely — it only replaces them for the JS/UI-only case, which is most day-to-day fixes but not all of them.
 
@@ -54,4 +55,15 @@ OTA cannot deliver native changes: new native modules, permission changes, or an
 
 Before: every fix (however small) → trigger EAS build → wait for it to finish → share a fresh `.apk` link → every device manually reinstalls.
 
-After (JS/UI fix): push to `master` → CI publishes an OTA update on the `preview` channel → devices already on a post-base-build install pick it up automatically next time they open the app, no link or reinstall needed.
+After (JS/UI fix): push to `master` → CI publishes an OTA update on the `preview` channel → devices already on a post-base-build install download it at the next launch and apply it on the launch after that, no link or reinstall needed (staging builds can be made to apply it on the same launch, below).
+
+## Staging channel, launch wait and the Free-plan build cap (added 2026-10-24)
+
+What happened: on 2026-10-24 the owner's staging phone stayed on "Embedded build" (About screen) although updates were being published, and a later change could not be built at all because the Expo Free plan's monthly Android build allowance was used up (`This account has used its Android builds from the Free plan this month`, reset 2026-11-01; per the `eas build` error text). JS-only fixes still reached the phone as over-the-air updates, which is what made the cap survivable.
+
+- **Verify the server side before suspecting the phone.** The staging channel maps to the `staging` update branch, and the update server can be asked directly what it would serve to a given build: `curl -H 'expo-protocol-version: 1' -H 'expo-platform: android' -H 'expo-runtime-version: 1.0.0' -H 'expo-channel-name: staging' -H 'accept: multipart/mixed' https://u.expo.dev/<projectId>` returns a manifest with the update id and runtimeVersion. A build's `updateChannel` and `runtime.version` are in `eas build:view <id> --json`. When all three match, the gap is client behavior, not publishing.
+- **Default client behavior is download now, apply later.** With `checkAutomatically` ON_LOAD and `fallbackToCacheTimeout` 0 the app fetches in the background and uses the new update only on the next launch (Expo's `expo-updates` docs). For internal staging testers this reads as "updates never arrive".
+- **Staging-only fix (#137):** the staging variant sets `updates: { ...baseConfig.updates, checkAutomatically: 'ON_LOAD', fallbackToCacheTimeout: 5000 }` (`frontend/app.config.js:89`) so launch waits up to 5s for an update and applies it on the same launch; production keeps the default. About also has a staging-only **Check for update** button (`runUpdateCheck`, `frontend/src/components/UpdateCheck.tsx:19-34`) that calls `checkForUpdateAsync`, `fetchUpdateAsync`, `reloadAsync` and shows the real error text, so a tester can see why a phone is not updating. These are native/config changes: they only take effect on a build installed after #137 (the first such staging APK was build 29881183 per this session).
+- **The staging workflow builds an APK only when native or config files changed** (`.github/workflows/eas-staging.yml`, job `detect-native-changes`, lines 77-101) and always publishes the update (`eas update --branch staging`, line 75). Remember that CI-started builds also draw from the same monthly allowance; batch native changes and prefer OTA for UI/logic.
+- **Do not tell testers "it will update by itself".** Give the install link for native changes and say "About -> Check for update" for JS changes.
+
