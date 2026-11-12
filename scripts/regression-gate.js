@@ -24,7 +24,7 @@
 // Accepted and documented (not built): a message-only reword or `--allow-empty` fix commit passes
 // locally (CI pr mode is the backstop); an amend that stages a small tweak is judged on the tweak only;
 // `git commit --no-verify` skips local hooks (only CI plus branch protection close that).
-// Exemptions are real trailers (last paragraph of the message) and scoped PER COMMIT.
+// Exemptions are real trailers (last paragraph of the message, ignoring trailing Co-authored-by-only / "---------" paragraphs GitHub appends on squash) and scoped PER COMMIT.
 const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -57,9 +57,17 @@ function isFixSubject(subject) {
 function isFixCommit(raw) {
   return isFixSubject(cleanMessage(raw).split('\n')[0] || '');
 }
-/** Trailers = "Key: value" lines of the LAST paragraph (never the subject paragraph). */
+/** A paragraph GitHub's squash merge appends: only Co-authored-by lines, or a bare "---------" separator. */
+function isSquashAppendix(para) {
+  const lines = para.split('\n').map((l) => l.trim()).filter((l) => l !== '');
+  if (lines.length === 0) return true;
+  if (lines.length === 1 && /^-{3,}$/.test(lines[0])) return true;
+  return lines.every((l) => /^co-authored-by:\s*\S.*$/i.test(l));
+}
+/** Trailers = "Key: value" lines of the LAST paragraph (never the subject paragraph), after dropping squash-appended co-author/separator paragraphs. */
 function parseTrailers(raw) {
   const paras = cleanMessage(raw).trimEnd().split(/\n[ \t]*\n/);
+  while (paras.length > 1 && isSquashAppendix(paras[paras.length - 1])) paras.pop();
   if (paras.length < 2) return [];
   const out = [];
   for (const line of paras[paras.length - 1].split('\n')) {
