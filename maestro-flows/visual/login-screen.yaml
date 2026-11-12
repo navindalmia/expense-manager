@@ -39,4 +39,11 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "submit-button"
     enabled: true
+# Text assertions (LoginScreen.tsx, login mode) so a missing/changed label fails
+# here explicitly instead of relying on the screenshot's pixel threshold.
+- assertVisible: "Expense Manager"
+- assertVisible: "Welcome Back"
+- assertVisible: "Login"
+- assertVisible: "Don't have account?"
+- assertVisible: "Signup"
 - assertScreenshot: "login-screen"
