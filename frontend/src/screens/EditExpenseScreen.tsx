@@ -116,6 +116,10 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // approach that works on Android, where a one-off programmatic value change
   // otherwise leaves the caret at the previously typed position.
   const titleInputRef = useRef<TextInput>(null);
+  // Epoch ms until which a focus landing on Amount is treated as a stray
+  // touch-through from the suggestion row (the dropdown overlays the Amount
+  // field) and handed straight back to the Title.
+  const titleFocusLockUntilRef = useRef(0);
   const [titleSelection, setTitleSelection] = useState<{ start: number; end: number } | undefined>(undefined);
 
   // Invalidate any pending/in-flight suggestion so a late response cannot
@@ -189,6 +193,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // one that is still selectable, so an existing choice is never cleared.
     updateField('title', match.title);
     setTitleSelection({ start: match.title.length, end: match.title.length });
+    titleFocusLockUntilRef.current = Date.now() + 800;
     titleInputRef.current?.focus();
     // Android's native EditText applies the new text and then resets the caret,
     // so a `selection` prop committed together with the new value is ignored.
@@ -196,6 +201,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // and again shortly after to win any late reset), then release the prop.
     const end = match.title.length;
     const applyCaret = (): void => {
+      titleInputRef.current?.focus();
       titleInputRef.current?.setSelection?.(end, end);
       titleInputRef.current?.setNativeProps?.({ selection: { start: end, end } });
     };
@@ -459,7 +465,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             </View>
           )}
         </View>
-        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onChangeText={val => {
+        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onFocus={() => { if (Date.now() < titleFocusLockUntilRef.current) { titleInputRef.current?.focus(); } }} onChangeText={val => {
               // Reject negative amounts
               if (val.startsWith('-')) {
                 return;
