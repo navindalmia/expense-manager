@@ -1,0 +1,50 @@
+appId: com.navindalmia.expensemanager
+---
+# Issue #175: picking a title suggestion must replace the partially typed
+# title with the full past title (and fill category/label/theme/amount).
+# Uses the CI fixtures (test@test.com, "QA Test Group", past expense
+# "Diberr Repro"). Typing only "Dibe" proves the field is filled by the
+# selection, not by the typed text.
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Wait"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    text: "Wait"
+    optional: true
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    text: "QA Test Group"
+- assertVisible:
+    id: "expense-list-screen"
+- tapOn:
+    id: "add-expense-button"
+- tapOn:
+    id: "edit-expense-title-input"
+- inputText: "Dibe"
+- extendedWaitUntil:
+    visible:
+      id: "edit-expense-title-suggestions"
+    timeout: 10000
+- tapOn:
+    text: "Diberr Repro"
+- assertNotVisible:
+    id: "edit-expense-title-suggestions"
+- assertVisible:
+    id: "edit-expense-title-input"
+    text: "Diberr Repro"

@@ -202,6 +202,8 @@ export interface SuggestedExpenseMatch {
   title: string;
   amount: number;
   categoryId: number;
+  labelId?: number | null;
+  themeId?: number | null;
   splitWithIds: number[];
 }
 
