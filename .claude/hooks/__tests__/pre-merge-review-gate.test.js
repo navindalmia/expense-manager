@@ -36,8 +36,8 @@ test('classify accepts only the plain single gh pr merge form', () => {
     ['gh pr merge https://github.com/o/r/pull/9 --squash', 'https://github.com/o/r/pull/9', ''],
     ['gh pr merge feature/x -d', 'feature/x', ''],
     ['gh pr merge 5 -R o/r', '5', 'o/r'],
-    ['gh pr merge 5 --repo=o/r --auto', '5', 'o/r'],
-    ['gh pr merge 5 --admin --squash -F body.md', '5', ''],
+    ['gh pr merge 5 --repo=o/r --squash', '5', 'o/r'],
+    ['gh pr merge 5 --squash -F body.md --match-head-commit abc1234', '5', ''],
     ['  gh pr merge 7  ', '7', ''],
   ];
   for (const [cmd, selector, repo] of ok) {
@@ -57,7 +57,9 @@ test('classify blocks chained, nested, indirect and obfuscated merges', () => {
     "echo it's; gh pr merge 5", 'sudo gh pr merge 5', '/usr/bin/gh pr merge 5',
     'git commit -m "docs: gh pr merge is gated"', 'echo "gh pr merge 5"',
     'gh api -X PUT repos/o/r/pulls/42/merge', 'gh api graphql -f query=\'mutation { mergePullRequest(input:{}) { clientMutationId } }\'',
-    'curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge', 'gh pr merge 5 --auto && echo ok',
+    'curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge', 'gh pr merge 5 --auto && echo ok', 'GH pr merge 5', 'gh pr "mer"ge 5', 'gh pr mer\\ge 5', 'g\\h pr merge 5', "gh pr $'merge' 5", 'Gh Pr Merge 5',
+    'gh pr merge 5 --auto', 'gh pr merge 5 --admin', 'gh pr merge --squash #12', 'gh pr merge ~/x', 'gh pr merge 5 -R o/r#x', 'gh pr merge -x', 'git merge x && gh pr view 5',
+    'gh pr merge feature*', 'gh pr merge https://evil.example/o/r/pull/5', 'gh pr merge https://github.com/o/r/issues/5', 'gh pr merge a@b',
   ];
   for (const c of bad) {
     const r = classify(c);
@@ -90,7 +92,7 @@ test('check blocks without a receipt, with a stale head, and with a missing or f
 
 test('check allows on a matching head with an accepted verdict, among several and corrupt runs', () => {
   const roots = receipts({ a: 'not json{', b: { head_sha: 'zzz', verdict: 'Ready to merge' }, c: { head_sha: 'abc1234', verdict: 'Not ready' }, d: { head_sha: 'abc1234', verdict: 'Ready with fixes' } });
-  assert.equal(check('gh pr merge 166 --auto', { resolveHead: head('abc1234'), roots }).block, false);
+  assert.equal(check('gh pr merge 166 --squash', { resolveHead: head('abc1234'), roots }).block, false);
 });
 
 test('check fails closed when the head cannot be resolved', () => {
@@ -150,7 +152,7 @@ test('main passes URL, branch, number and -R/--repo straight to gh pr view', () 
   const cases = [
     ['gh pr merge https://github.com/o/r/pull/9 --squash', 'pr view https://github.com/o/r/pull/9 --json'],
     ['gh pr merge feature/x', 'pr view feature/x --json'],
-    ['gh pr merge 5 --auto', 'pr view 5 --json'],
+    ['gh pr merge 5 --squash', 'pr view 5 --json'],
     ['gh pr merge 5 -R o/r', 'pr view 5 -R o/r --json'],
     ['gh pr merge 5 --repo o/r', 'pr view 5 -R o/r --json'],
   ];
@@ -173,8 +175,12 @@ test('main fails closed when gh is missing, errors, or hangs past the timeout', 
   assert.ok(Date.now() - t0 < 10000);
 });
 
-test('prHead returns the trimmed head sha, and empty on failure', () => {
-  assert.equal(prHead({ selector: '5', repo: '' }, os.tmpdir()), process.env.PATH ? prHead({ selector: '5', repo: '' }, os.tmpdir()) : '');
+test('prHead calls gh pr view with selector and -R and returns the trimmed head sha, or empty on failure', () => {
+  const gh = fakeGh('echo " abc1234 "');
+  const prev0 = process.env.PATH;
+  process.env.PATH = gh.dir;
+  try { assert.equal(prHead({ selector: '5', repo: 'o/r' }, os.tmpdir()), 'abc1234'); } finally { process.env.PATH = prev0; }
+  assert.equal(fs.readFileSync(gh.log, 'utf8').trim(), 'pr view 5 -R o/r --json headRefOid -q .headRefOid');
   const prev = process.env.PATH;
   process.env.PATH = fakeGh('echo " abc1234 "').dir;
   try { assert.equal(prHead({ selector: '5', repo: '' }, os.tmpdir()), 'abc1234'); } finally { process.env.PATH = prev; }
@@ -193,4 +199,30 @@ test('settings.json gives the merge gate hook a timeout that outlives the gh tim
   const entries = Object.values(cfg.hooks).flat().flatMap((g) => g.hooks).filter((h) => /pre-merge-review-gate\.js/.test(h.command));
   assert.equal(entries.length, 1);
   assert.ok(entries[0].timeout >= 25 && entries[0].timeout <= 60);
+});
+
+test('main blocks case-variant and quote-split merges and the --auto/--admin flags with specific messages', () => {
+  const gh = fakeGh('echo abc1234');
+  const roots = receipts({ r1: ok });
+  const run = (c) => runHook(bash(c), { pathDir: withGh(gh), roots });
+  assert.equal(run('GH pr merge 5').status, 2);
+  assert.equal(run('gh pr "mer"ge 5').status, 2);
+  assert.match(run('gh pr merge 5 --auto').stderr, /--auto is not allowed/);
+  assert.match(run('gh pr merge 5 --admin').stderr, /--admin is not allowed/);
+  assert.match(run('git merge x && gh pr view 5').stderr, /Split chained commands/);
+  assert.match(run('gh pr merge --squash #12').stderr, /metacharacters/);
+});
+
+test('main exits 2 on an internal error only when the raw input mentions gh and merge (case-insensitive)', () => {
+  // A directory as a receipt root override cannot crash; force a throw via a non-string cwd instead.
+  const crash = (command) => runHook(JSON.stringify({ tool_input: { command }, cwd: { not: 'a string' } }), { pathDir: withGh(fakeGh('echo abc1234')), roots: receipts({ r1: ok }) });
+  assert.equal(crash('GH pr merge 5').status, 2);
+  assert.equal(crash('ls').status, 0);
+});
+
+test('looksLikeMerge is case-insensitive and needs both words', () => {
+  const { looksLikeMerge } = require('../pre-merge-review-gate');
+  assert.equal(looksLikeMerge('GH PR MERGE'), true);
+  assert.equal(looksLikeMerge('gh pr view'), false);
+  assert.equal(looksLikeMerge('git merge'), false);
 });
