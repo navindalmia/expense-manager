@@ -59,7 +59,7 @@ test('classify blocks chained, nested, indirect and obfuscated merges', () => {
     'gh api -X PUT repos/o/r/pulls/42/merge', 'gh api graphql -f query=\'mutation { mergePullRequest(input:{}) { clientMutationId } }\'',
     'curl -X PUT https://api.github.com/repos/o/r/pulls/5/merge', 'gh pr merge 5 --auto && echo ok', 'GH pr merge 5', 'gh pr "mer"ge 5', 'gh pr mer\\ge 5', 'g\\h pr merge 5', "gh pr $'merge' 5", 'Gh Pr Merge 5',
     'gh pr merge 5 --auto', 'gh pr merge 5 --admin', 'gh pr merge --squash #12', 'gh pr merge ~/x', 'gh pr merge 5 -R o/r#x', 'gh pr merge -x', 'git merge x && gh pr view 5',
-    'gh pr merge feature*', 'gh pr merge https://evil.example/o/r/pull/5', 'gh pr merge https://github.com/o/r/issues/5', 'gh pr merge a@b',
+    'gh pr merge feature*', 'gh pr merge https://evil.example/o/r/pull/5', 'gh pr merge https://github.com/o/r/issues/5', 'gh pr merge a@b', 'gh pr merge .', 'gh pr merge ..',
   ];
   for (const c of bad) {
     const r = classify(c);

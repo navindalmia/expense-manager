@@ -2,15 +2,9 @@
 
 <!-- What changes and why, in a few lines. -->
 
-## Tester notes
+## What to check
 
-<!-- Copied into the staging release so testers know what to check. Plain language, no jargon. -->
-
-**What to test**
--
-
-**Known limits / what is not covered**
--
+<!-- Shown to users in the staging release notes. Plain language, one or two lines, no jargon. Delete this section's text if there is nothing to check. -->
 
 ## Checks
 

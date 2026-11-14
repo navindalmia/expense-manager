@@ -1,0 +1,40 @@
+appId: com.navindalmia.expensemanager.staging
+---
+# The What's new section is the LAST block of the About screen (scrollUntilVisible reaches it).
+# Staging-build only (APP_VARIANT=staging): the What's new section is hidden in production, and
+# the CI Maestro job drives the production build, so this flow lives outside maestro-flows/visual/
+# and is run by hand against a staging APK:  maestro test maestro-flows/staging/about-whats-new.yaml
+# The section reads the public GitHub Releases API, so the flow accepts either outcome (notes, or
+# the offline/rate-limit error with its Retry button) instead of depending on the network.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: "email-input"
+    timeout: 30000
+- tapOn:
+    id: "email-input"
+- inputText: "test@test.com"
+- tapOn:
+    id: "password-input"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "submit-button"
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "home-menu-button"
+- tapOn:
+    id: "home-menu-about"
+- assertVisible:
+    id: "about-screen"
+- scrollUntilVisible:
+    element:
+      id: "whats-new-section"
+- assertVisible:
+    id: "whats-new-section"
+- extendedWaitUntil:
+    notVisible:
+      id: "whats-new-loading"
+    timeout: 20000

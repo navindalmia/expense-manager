@@ -31,6 +31,7 @@ const REFUSED_FLAGS = new Set(['--auto', '--admin']);
 const NUMBER = /^\d+$/;
 const PR_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/;
 const BRANCH = /^[A-Za-z0-9._/-]+$/;
+const DOT_ONLY = /^\.+$/;
 
 const HELP = 'Run the plain single form `gh pr merge <number|PR URL|branch> [--squash|--merge|--rebase] [-d] [-R owner/repo] [-F bodyfile]` as its own Bash call: no chaining, pipes, quotes, subshells, eval/bash -c, env or cd prefixes. Split chained commands into separate calls; for commit/PR text that only mentions gh and merge, write it to a file and use -F.';
 
@@ -43,7 +44,7 @@ function normalize(command) {
 }
 
 function validSelector(s) {
-  return NUMBER.test(s) || PR_URL.test(s) || (BRANCH.test(s) && !s.startsWith('-'));
+  return NUMBER.test(s) || PR_URL.test(s) || (BRANCH.test(s) && !s.startsWith('-') && !DOT_ONLY.test(s));
 }
 
 function parseSimple(command) {

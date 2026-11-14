@@ -31,6 +31,8 @@ Download the artifacts and look, do not guess: `gh run download <run> -n maestro
 
 Mitigation (PR #163): `scripts/probe-metro-android.sh` runs before the flows, polls Metro at 10.0.2.2:8081 from inside the emulator, and fails fast with `::error::cold-start: ...` instead of burning every flow. Note the label `cold-start:` is the script's own name for this failure; it is a misnomer relative to the diagnosis above.
 
+Triage signal (PR #166): on exhaustion the probe also prints `probe-diag:` host and emulator diagnostics (Metro /status, 8081 listeners, metro.log tail, adb devices/reverse, boot state, ip route, ping 10.0.2.2) before the `::error::cold-start` line. Read those first to tell host-side Metro death from a dead emulator route.
+
 Distinguish from the stale-baseline signature (`Comparison error ... current: 88.36%` on every run): see the 2026-10-31 section of `docs/solutions/build-errors/e2e-mobile-ci-hang-and-cascading-fixes.md`.
 
 ## When to Apply
