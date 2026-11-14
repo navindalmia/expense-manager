@@ -190,7 +190,18 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     updateField('title', match.title);
     setTitleSelection({ start: match.title.length, end: match.title.length });
     titleInputRef.current?.focus();
-    setTimeout(() => setTitleSelection(undefined), 100);
+    // Android's native EditText applies the new text and then resets the caret,
+    // so a `selection` prop committed together with the new value is ignored.
+    // Re-apply the caret imperatively AFTER the native text update (next frame,
+    // and again shortly after to win any late reset), then release the prop.
+    const end = match.title.length;
+    const applyCaret = (): void => {
+      titleInputRef.current?.setSelection?.(end, end);
+      titleInputRef.current?.setNativeProps?.({ selection: { start: end, end } });
+    };
+    requestAnimationFrame(applyCaret);
+    setTimeout(applyCaret, 80);
+    setTimeout(() => setTitleSelection(undefined), 400);
     if (match.labelId != null && labels.some((l) => l.id === match.labelId)) {
       updateField('labelId', match.labelId);
     }
