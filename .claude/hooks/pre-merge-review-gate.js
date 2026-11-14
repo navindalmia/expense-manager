@@ -14,7 +14,7 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { parsePrMerge } = require('./lib/is-pr-merge');
+const { classify } = require('./lib/is-pr-merge');
 
 // Only a passing verdict counts; "Not ready" must not unlock a merge.
 const ACCEPTED_VERDICTS = new Set(['Ready to merge', 'Ready with fixes']);
@@ -41,53 +41,40 @@ function hasReceipt(headSha, roots) {
   return null;
 }
 
-function prHead({ selector, repo, env }, cwd) {
-  const args = ['pr', 'view'];
-  if (selector) args.push(selector);
+function prHead({ selector, repo }, cwd) {
+  const args = ['pr', 'view', selector];
   if (repo) args.push('-R', repo);
   args.push('--json', 'headRefOid', '-q', '.headRefOid');
   const timeout = Number(process.env.CE_GH_TIMEOUT_MS) || 20000;
-  const r = spawnSync('gh', args, { encoding: 'utf8', cwd, timeout, killSignal: 'SIGKILL', env: { ...process.env, ...(env || {}) } });
-  if (r.error) return ''; // ENOENT, ETIMEDOUT: unresolved head, so decide() blocks
-  return r.status === 0 && r.stdout ? r.stdout.trim() : '';
+  const r = spawnSync('gh', args, { encoding: 'utf8', cwd, timeout, killSignal: 'SIGKILL' });
+  return !r.error && r.status === 0 ? r.stdout.trim() : '';
 }
 
-const label = (p) => (p.selector || '(current branch)') + (p.repo ? ` in ${p.repo}` : '');
-
-function decide(command, { headSha, roots }) {
-  const p = parsePrMerge(command);
-  if (p === null) return { block: false };
-  if (p.unsupported) return { block: true, reason: p.unsupported };
-  if (p.api && !p.selector) return { block: true, reason: 'gh api PR merge with an unresolvable PR number; use `gh pr merge <n>` after a /ce-code-review receipt exists' };
-  if (!headSha) return { block: true, reason: `could not resolve the head commit of PR ${label(p)}; refusing to merge without a review receipt` };
+// Pure decision. resolveHead(parsed) returns the PR head sha ('' when unresolved).
+function check(command, { resolveHead, roots }) {
+  const c = classify(command);
+  if (c.kind === 'none') return { block: false };
+  if (c.kind === 'blocked') return { block: true, reason: c.reason };
+  const label = c.selector + (c.repo ? ` in ${c.repo}` : '');
+  const headSha = resolveHead(c);
+  if (!headSha) return { block: true, reason: `could not resolve the head commit of PR ${label}; refusing to merge without a review receipt` };
   if (hasReceipt(headSha, roots)) return { block: false };
-  return {
-    block: true,
-    reason: `no passing /ce-code-review receipt for PR ${label(p)} head ${headSha.slice(0, 7)}. Run the real /ce-code-review on this exact head (a new commit invalidates an earlier review), then merge.`,
-  };
+  return { block: true, reason: `no passing /ce-code-review receipt for PR ${label} head ${headSha.slice(0, 7)}. Run the real /ce-code-review on this exact head (a new commit invalidates an earlier review), then merge.` };
 }
 
 function main() {
-  // The harness always sends valid JSON. If it is unreadable, fail closed only when the
-  // raw text looks like a merge (contains both 'gh' and 'merge'); otherwise allow.
+  // The harness always sends valid JSON. Unparseable input is blocked only when its raw text
+  // looks like a merge (contains both 'gh' and 'merge'); anything else is not ours to gate.
   let raw = '';
   let input = null;
   try { raw = fs.readFileSync(0, 'utf8'); input = JSON.parse(raw); } catch { /* handled below */ }
-  if (!input || typeof input !== 'object') {
-    if (raw.includes('gh') && raw.includes('merge')) {
-      process.stderr.write('PRE-MERGE REVIEW GATE: unparseable hook input that mentions gh and merge; refusing\n');
-      process.exit(2);
-    }
-    process.exit(0);
-  }
-  const command = input.tool_input && input.tool_input.command;
-  const p = parsePrMerge(command);
-  if (p === null) process.exit(0);
-  const headSha = p.unsupported || (p.api && !p.selector) ? '' : prHead(p, input.cwd || process.cwd());
-  const out = decide(command, { headSha, roots: receiptRoots(process.env) });
+  const valid = input && typeof input === 'object';
+  const command = valid ? (input.tool_input && input.tool_input.command) : raw;
+  const cwd = (valid && input.cwd) || process.cwd();
+  const out = check(command, { resolveHead: (c) => prHead(c, cwd), roots: receiptRoots(process.env) });
   if (out.block) { process.stderr.write(`PRE-MERGE REVIEW GATE: ${out.reason}\n`); process.exit(2); }
   process.exit(0);
 }
 
 if (require.main === module) main();
-module.exports = { decide, hasReceipt, receiptRoots, prHead };
+module.exports = { check, hasReceipt, receiptRoots, prHead };
