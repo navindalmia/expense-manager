@@ -176,6 +176,17 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   const selectSuggestedMatch = useCallback((match: SuggestedExpenseMatch) => {
     cancelPendingSuggestion();
     categoryTouchedRef.current = true;
+    // Picking a suggestion is an explicit choice: it replaces the partially
+    // typed title with the full past title and fills every field the past
+    // expense carried. Label/theme are only applied when the past expense had
+    // one that is still selectable, so an existing choice is never cleared.
+    updateField('title', match.title);
+    if (match.labelId != null && labels.some((l) => l.id === match.labelId)) {
+      updateField('labelId', match.labelId);
+    }
+    if (match.themeId != null && themes.some((t) => t.id === match.themeId)) {
+      updateField('themeId', match.themeId);
+    }
     updateField('amount', match.amount.toString());
     updateField('category', match.categoryId);
     // Belt-and-suspenders per AE2: always default to today client-side even
@@ -194,7 +205,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     match.splitWithIds.filter((memberId) => groupMemberIds.has(memberId)).forEach((memberId) => addMember(memberId));
     setSuggestedMatches([]);
     setSuggestedCategoryId(null);
-  }, [updateField, addMember, groupMembers, cancelPendingSuggestion]);
+  }, [updateField, addMember, groupMembers, labels, themes, cancelPendingSuggestion]);
 
   // Set header with group name on the right and title
   useEffect(() => {
