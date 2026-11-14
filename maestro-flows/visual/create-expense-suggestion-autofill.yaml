@@ -48,3 +48,8 @@ appId: com.navindalmia.expensemanager
 - assertVisible:
     id: "edit-expense-title-input"
     text: "Diberr Repro"
+# Cursor must be at the end and focus kept: appended text lands after the title.
+- inputText: " 2"
+- assertVisible:
+    id: "edit-expense-title-input"
+    text: "Diberr Repro 2"

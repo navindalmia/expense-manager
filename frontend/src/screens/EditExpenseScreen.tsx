@@ -110,6 +110,13 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // Once the user picks a category themselves (picker or a past suggestion),
   // later auto-suggestions must never override it.
   const categoryTouchedRef = useRef(false);
+  // After a suggestion fills the title, put the cursor at its end and keep
+  // focus. `selection` is controlled only briefly (then released with
+  // undefined) so normal typing/cursor moves are not pinned; this is the
+  // approach that works on Android, where a one-off programmatic value change
+  // otherwise leaves the caret at the previously typed position.
+  const titleInputRef = useRef<TextInput>(null);
+  const [titleSelection, setTitleSelection] = useState<{ start: number; end: number } | undefined>(undefined);
 
   // Invalidate any pending/in-flight suggestion so a late response cannot
   // reopen the matches list or overwrite a category the user just chose.
@@ -181,6 +188,9 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // expense carried. Label/theme are only applied when the past expense had
     // one that is still selectable, so an existing choice is never cleared.
     updateField('title', match.title);
+    setTitleSelection({ start: match.title.length, end: match.title.length });
+    titleInputRef.current?.focus();
+    setTimeout(() => setTitleSelection(undefined), 100);
     if (match.labelId != null && labels.some((l) => l.id === match.labelId)) {
       updateField('labelId', match.labelId);
     }
@@ -418,7 +428,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
         <View style={[styles.formSection, suggestedMatches.length > 0 && styles.formSectionRaised]}>
           <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
-          <TextInput style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
+          <TextInput ref={titleInputRef} selection={titleSelection} style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
           {formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}
           {suggestedMatches.length > 0 && (
             // Bounded, scrollable overlay under the Title field: never grows the form.
