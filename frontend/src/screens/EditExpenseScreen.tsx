@@ -22,6 +22,7 @@ import { AccordionSection } from '../components/AccordionSection';
 import { confirmThenProceed } from '../utils/crossPlatformAlert';
 import TypeAheadDropdown, { TypeAheadItem } from '../components/TypeAheadDropdown';
 import FieldHelp from '../components/FieldHelp';
+import { useTitleCaretAndFocusGuard } from '../hooks/useTitleCaretAndFocusGuard';
 import KeyboardAwareScroll from '../components/KeyboardAwareScroll';
 
 // Sentinel picker row id (real theme ids are positive) meaning "clear the theme".
@@ -113,18 +114,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // Once the user picks a category themselves (picker or a past suggestion),
   // later auto-suggestions must never override it.
   const categoryTouchedRef = useRef(false);
-  // After a suggestion fills the title, put the cursor at its end and keep
-  // focus. `selection` is controlled only briefly (then released with
-  // undefined) so normal typing/cursor moves are not pinned; this is the
-  // approach that works on Android, where a one-off programmatic value change
-  // otherwise leaves the caret at the previously typed position.
-  const titleInputRef = useRef<TextInput>(null);
-  // Epoch ms until which a focus landing on Amount is treated as a stray
-  // touch-through from the suggestion row (the dropdown overlays the Amount
-  // field) and handed straight back to the Title.
-  const titleFocusLockUntilRef = useRef(0);
-  const titleCaretRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
-  const [titleSelection, setTitleSelection] = useState<{ start: number; end: number } | undefined>(undefined);
+  const { titleInputRef, titleSelection, onTitleSelectionChange, armFocusLock, pinCaretAtEnd, onAmountFocus } = useTitleCaretAndFocusGuard();
 
   // Invalidate any pending/in-flight suggestion so a late response cannot
   // reopen the matches list or overwrite a category the user just chose.
@@ -164,7 +154,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             return; // a newer request has since superseded this one
           }
           if (result.matches.length > 0) {
-            titleFocusLockUntilRef.current = Date.now() + 800;
+            armFocusLock();
           }
           setSuggestedMatches(result.matches);
           if (result.categorySuggestion && !categoryTouchedRef.current) {
@@ -199,23 +189,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // expense carried. Label/theme are only applied when the past expense had
     // one that is still selectable, so an existing choice is never cleared.
     updateField('title', match.title);
-    setTitleSelection({ start: match.title.length, end: match.title.length });
-    titleFocusLockUntilRef.current = Date.now() + 800;
-    titleInputRef.current?.focus();
-    // Android's native EditText applies the new text and then resets the caret,
-    // so a `selection` prop committed together with the new value is ignored.
-    // Re-apply the caret imperatively AFTER the native text update (next frame,
-    // and again shortly after to win any late reset), then release the prop.
-    const end = match.title.length;
-    titleCaretRef.current = { start: end, end };
-    const applyCaret = (): void => {
-      titleInputRef.current?.focus();
-      titleInputRef.current?.setSelection?.(end, end);
-      titleInputRef.current?.setNativeProps?.({ selection: { start: end, end } });
-    };
-    requestAnimationFrame(applyCaret);
-    setTimeout(applyCaret, 80);
-    setTimeout(() => setTitleSelection(undefined), 400);
+    pinCaretAtEnd(match.title.length);
     if (match.labelId != null && labels.some((l) => l.id === match.labelId)) {
       updateField('labelId', match.labelId);
     }
@@ -240,7 +214,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     match.splitWithIds.filter((memberId) => groupMemberIds.has(memberId)).forEach((memberId) => addMember(memberId));
     setSuggestedMatches([]);
     setSuggestedCategoryId(null);
-  }, [updateField, addMember, groupMembers, labels, themes, cancelPendingSuggestion]);
+  }, [updateField, addMember, groupMembers, labels, themes, cancelPendingSuggestion, pinCaretAtEnd]);
 
   // Set header with group name on the right and title
   useEffect(() => {
@@ -453,7 +427,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
         <View style={[styles.formSection, styles.formSectionRaised]}>
           <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
-          <TextInput ref={titleInputRef} selection={titleSelection} onSelectionChange={(e) => { titleCaretRef.current = e.nativeEvent.selection; }} style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
+          <TextInput ref={titleInputRef} selection={titleSelection} onSelectionChange={(e) => onTitleSelectionChange(e.nativeEvent.selection)} style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
           {formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}
           {suggestedMatches.length > 0 && (
             // Bounded, scrollable overlay under the Title field: never grows the form.
@@ -473,7 +447,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             </View>
           )}
         </View>
-        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onFocus={() => { if (Date.now() < titleFocusLockUntilRef.current) { titleInputRef.current?.focus(); const { start, end } = titleCaretRef.current; titleInputRef.current?.setSelection?.(start, end); } }} onChangeText={val => {
+        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onFocus={onAmountFocus} onChangeText={val => {
               // Reject negative amounts
               if (val.startsWith('-')) {
                 return;
