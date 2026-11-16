@@ -33,6 +33,9 @@ const styles = StyleSheet.create({
   stickyFooter: { backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 12, paddingBottom: 20, flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: '#e0e0e0', marginTop: 8 },
   formSection: { backgroundColor: '#fff', borderRadius: 6, padding: 12, marginBottom: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
   label: { fontSize: 13, fontWeight: '600', color: '#333', marginBottom: 6 },
+  // Static (never toggled with suggestion state): changing elevation/zIndex on the
+  // parent of the focused Title when the dropdown mounted made Android relayout it,
+  // dropping Title focus onto the next focusable (Amount).
   formSectionRaised: { zIndex: 10, elevation: 10 },
   suggestionDropdown: { position: 'absolute', left: 12, right: 12, top: 72, maxHeight: 180, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 6, elevation: 6, zIndex: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4 },
   required: { color: '#cc0000' },
@@ -120,6 +123,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
   // touch-through from the suggestion row (the dropdown overlays the Amount
   // field) and handed straight back to the Title.
   const titleFocusLockUntilRef = useRef(0);
+  const titleCaretRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
   const [titleSelection, setTitleSelection] = useState<{ start: number; end: number } | undefined>(undefined);
 
   // Invalidate any pending/in-flight suggestion so a late response cannot
@@ -158,6 +162,9 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         .then((result) => {
           if (requestId !== suggestRequestIdRef.current) {
             return; // a newer request has since superseded this one
+          }
+          if (result.matches.length > 0) {
+            titleFocusLockUntilRef.current = Date.now() + 800;
           }
           setSuggestedMatches(result.matches);
           if (result.categorySuggestion && !categoryTouchedRef.current) {
@@ -200,6 +207,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // Re-apply the caret imperatively AFTER the native text update (next frame,
     // and again shortly after to win any late reset), then release the prop.
     const end = match.title.length;
+    titleCaretRef.current = { start: end, end };
     const applyCaret = (): void => {
       titleInputRef.current?.focus();
       titleInputRef.current?.setSelection?.(end, end);
@@ -444,9 +452,9 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Modal visible={showPayerModal} transparent animationType="slide" onRequestClose={() => setShowPayerModal(false)}><SafeAreaView style={styles.pickerModal}><View style={styles.pickerContent}><View style={styles.pickerHeader}><Text style={styles.pickerTitle}>Who Paid?</Text><TouchableOpacity onPress={() => setShowPayerModal(false)} testID="edit-expense-paid-by-modal-close-button"><Text style={{ fontSize: 14, color: '#0066cc', fontWeight: '600' }}>Done</Text></TouchableOpacity></View><ScrollView>{groupMembers.map(member => (<TouchableOpacity key={member.id} style={[styles.pickerItem, formState.paidById === member.id && { backgroundColor: '#e6f0ff' }]} onPress={() => { updateField('paidById', member.id); setShowPayerModal(false); }} testID={`edit-expense-paid-by-option-${member.id}`}><Text style={[styles.pickerItemText, formState.paidById === member.id && { color: '#0066cc', fontWeight: '600' }]}>{member.name}</Text></TouchableOpacity>))}</ScrollView></View></SafeAreaView></Modal>
         <View style={styles.formSection}><Text style={styles.label}>Paid By <Text style={styles.required}>*</Text></Text><TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setShowPayerModal(true)} testID="edit-expense-paid-by-picker-button"><Text style={{ color: formState.paidById ? '#333' : '#999' }}>{groupMembers.find(m => m.id === formState.paidById)?.name || 'Select payer...'}</Text></TouchableOpacity>{formState.errors.paidById && <Text style={styles.errorText}>{formState.errors.paidById}</Text>}</View>
-        <View style={[styles.formSection, suggestedMatches.length > 0 && styles.formSectionRaised]}>
+        <View style={[styles.formSection, styles.formSectionRaised]}>
           <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
-          <TextInput ref={titleInputRef} selection={titleSelection} style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
+          <TextInput ref={titleInputRef} selection={titleSelection} onSelectionChange={(e) => { titleCaretRef.current = e.nativeEvent.selection; }} style={styles.input} placeholder="e.g., Dinner" value={formState.title} onChangeText={handleTitleChange} onBlur={handleTitleBlur} editable={!submitting} testID="edit-expense-title-input" />
           {formState.errors.title && <Text style={styles.errorText}>{formState.errors.title}</Text>}
           {suggestedMatches.length > 0 && (
             // Bounded, scrollable overlay under the Title field: never grows the form.
@@ -466,7 +474,7 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
             </View>
           )}
         </View>
-        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onFocus={() => { if (Date.now() < titleFocusLockUntilRef.current) { titleInputRef.current?.focus(); } }} onChangeText={val => {
+        <View style={styles.formSection}><View style={styles.row}><View style={{width: 70}}><Text style={styles.label}>Currency</Text><TextInput style={[styles.input, styles.readonlyInput]} value={currency} editable={false} testID="edit-expense-currency-input" /></View><View style={styles.flex1}><Text style={styles.label}>Amount <Text style={styles.required}>*</Text></Text><TextInput style={styles.input} placeholder="0.00" value={formState.amount} onFocus={() => { if (Date.now() < titleFocusLockUntilRef.current) { titleInputRef.current?.focus(); const { start, end } = titleCaretRef.current; titleInputRef.current?.setSelection?.(start, end); } }} onChangeText={val => {
               // Reject negative amounts
               if (val.startsWith('-')) {
                 return;
