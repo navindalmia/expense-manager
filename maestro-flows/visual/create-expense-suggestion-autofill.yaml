@@ -41,8 +41,10 @@ appId: com.navindalmia.expensemanager
     visible:
       id: "edit-expense-title-suggestions"
     timeout: 10000
+# Maestro text selectors are full-string regexes and the row reads
+# "<title> — <currency> <amount>", so match the prefix.
 - tapOn:
-    text: "Diberr Repro"
+    text: "Diberr Repro.*"
 - assertNotVisible:
     id: "edit-expense-title-suggestions"
 - assertVisible:
