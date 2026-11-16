@@ -12,7 +12,7 @@ const src = fs.readFileSync(path.resolve(__dirname, '../../screens/EditExpenseSc
 
 describe('issue #175: title input selection wiring', () => {
   it('should pass ref and selection straight to the title TextInput', () => {
-    expect(src).toMatch(/<TextInput ref=\{titleInputRef\} selection=\{titleSelection\}[^>]*testID="edit-expense-title-input"/);
+    expect(src).toMatch(/<TextInput ref=\{titleInputRef\} selection=\{titleSelection\}[\s\S]*?testID="edit-expense-title-input"/);
   });
 
   it('should re-apply the caret imperatively after the native text update', () => {
