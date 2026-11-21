@@ -11,7 +11,7 @@ cp .env.example .env.local
 ### 2. Fill in Local Values
 Edit `.env.local` with:
 - **Database**: Your local PostgreSQL connection string
-- **JWT_SECRET**: Keep the placeholder for development
+- **JWT_SECRET**: Set a random value of at least 32 characters (the server refuses to start without one)
 - **SendGrid**: Add your SendGrid API key (from `.env.local` on your original machine, or generate new)
 - **Frontend URL**: Keep as `http://localhost:8081` for local development
 

@@ -245,3 +245,21 @@ describe('JWT Helper', () => {
     });
   });
 });
+
+describe('jwtHelper without JWT_SECRET (fail closed)', () => {
+  const saved = process.env.JWT_SECRET;
+  afterEach(() => {
+    process.env.JWT_SECRET = saved;
+  });
+
+  it('should refuse to sign a token instead of using a default secret', () => {
+    delete process.env.JWT_SECRET;
+    expect(() => generateToken(1)).toThrow();
+  });
+
+  it('should reject verification instead of accepting a token signed with a default secret', () => {
+    const forged = jwt.sign({ userId: 1 }, 'your-secret-key-change-in-production');
+    delete process.env.JWT_SECRET;
+    expect(() => verifyToken(forged)).toThrow();
+  });
+});

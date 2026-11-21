@@ -1,13 +1,9 @@
-
-import dotenv from "dotenv";
-import path from "path";
+import "./config/loadEnv"; // must stay first: populates process.env before other modules read it
+import { validateRequiredEnv } from "./config/env";
 import app from "./app";
 
-// Load environment variables from .env.local (or .env as fallback)
-// Use process.cwd() to get the backend directory correctly
-const backendDir = process.cwd();
-dotenv.config({ path: path.join(backendDir, ".env.local") });
-dotenv.config({ path: path.join(backendDir, ".env") });
+// Fail closed: refuse to start with a missing/weak JWT secret.
+validateRequiredEnv();
 
 const PORT = process.env.PORT || 4000;
 
