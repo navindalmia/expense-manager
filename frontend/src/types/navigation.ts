@@ -22,30 +22,15 @@ export interface RootStackParamList extends Record<string, object | undefined> {
 }
 
 /**
- * Props for HomeScreen
- */
-export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
-
-/**
  * Props for ExpenseListScreen
  * Uses NativeStackScreenProps for proper navigation typing
  */
 export type ExpenseListScreenProps = NativeStackScreenProps<RootStackParamList, 'ExpenseList'>;
 
 /**
- * Props for ExpenseDetailScreen
- */
-export type ExpenseDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
-
-/**
  * Props for EditExpenseScreen (handles both create and edit modes)
  */
 export type EditExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
-
-/**
- * Props for CreateGroupScreen
- */
-export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
 
 /**
  * Props for SettlementScreen

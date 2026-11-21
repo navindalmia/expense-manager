@@ -12,7 +12,7 @@ import { http } from '../api/http';
  * User entity from backend.
  * Represents a user who can pay for or split expenses.
  */
-export interface User {
+interface User {
   id: number;
   name: string;
   email: string;
@@ -22,7 +22,7 @@ export interface User {
  * Category entity from backend.
  * Categorizes expenses (e.g., FOOD, TRAVEL, ENTERTAINMENT).
  */
-export interface Category {
+interface Category {
   id: number;
   code: string;
   label: string;
@@ -205,7 +205,7 @@ export interface SuggestedExpenseMatch {
   splitWithIds: number[];
 }
 
-export interface CategorySuggestion {
+interface CategorySuggestion {
   categoryId: number;
   code: string;
   source?: 'history' | 'keyword';

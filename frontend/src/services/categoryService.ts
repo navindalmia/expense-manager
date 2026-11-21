@@ -52,15 +52,3 @@ export async function createCategory(label: string): Promise<Category> {
   const response = await http.post<{ statusCode: number; data: Category }>('/categories', { label });
   return response.data.data;
 }
-
-/**
- * Disable (not delete) a custom category the current user owns.
- *
- * PATCH /api/categories/:id/disable
- */
-export async function disableCategory(categoryId: number): Promise<Category> {
-  const response = await http.patch<{ statusCode: number; data: Category }>(
-    `/categories/${categoryId}/disable`
-  );
-  return response.data.data;
-}

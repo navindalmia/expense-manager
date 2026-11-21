@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { isStaging } from './appVariant';
 
-export type AppEnvironment = 'production' | 'staging';
+type AppEnvironment = 'production' | 'staging';
 
 export interface AboutInfo {
   appName: string;

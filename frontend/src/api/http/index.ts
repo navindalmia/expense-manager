@@ -16,5 +16,3 @@ attachInterceptors(httpBase);
 // Export the ready-to-use client
 export const http = httpBase;
 
-//  export type for other API modules
-export type HttpClient = typeof httpBase;

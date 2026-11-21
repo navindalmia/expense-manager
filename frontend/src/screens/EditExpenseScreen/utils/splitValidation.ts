@@ -209,20 +209,3 @@ export function validateSplitConfig(
   }
   return null;
 }
-
-/**
- * Check if split configuration is valid
- * @param splitType - Type of split
- * @param expenseAmount - Total expense amount
- * @param splitAmount - Map of member amounts
- * @param splitPercentage - Map of member percentages
- * @returns true if valid, false otherwise
- */
-export function isSplitValid(
-  splitType: SplitType,
-  expenseAmount: string,
-  splitAmount: Record<number, string>,
-  splitPercentage: Record<number, string>
-): boolean {
-  return validateSplitConfig(splitType, expenseAmount, splitAmount, splitPercentage) === null;
-}

@@ -14,7 +14,7 @@ import { http } from '../api/http';
 import { setAuthToken } from '../api/http/interceptors';
 import { logger } from '../utils/logger';
 
-export interface User {
+interface User {
   id: number;
   email: string;
   name: string;

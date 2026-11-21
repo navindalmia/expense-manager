@@ -12,7 +12,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { SplitType } from '../../../types/common';
 import { validateSplitConfig, calculateSplitTotal, computeEqualPercentages, computeEqualAmounts } from '../utils/splitValidation';
 
-export interface SplitState {
+interface SplitState {
   splitType: SplitType;
   splitWithIds: number[];
   splitAmount: Record<number, string>;

@@ -7,7 +7,7 @@
 import { useState, useCallback } from 'react';
 import type { Expense } from '../../../services/expenseService';
 
-export interface FormState {
+interface FormState {
   title: string;
   amount: string;
   category: number | null;
