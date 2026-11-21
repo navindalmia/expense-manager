@@ -9,7 +9,6 @@ import CheckEmailScreen from './src/screens/CheckEmailScreen';
 import VerifyEmailScreen from './src/screens/VerifyEmailScreen';
 import ExpenseListScreen from './src/screens/ExpenseListScreen';
 import CreateGroupScreen from './src/screens/CreateGroupScreen';
-import CreateExpenseScreen from './src/screens/CreateExpenseScreen';
 import EditExpenseScreen from './src/screens/EditExpenseScreen';
 import { SettlementScreen } from './src/screens/SettlementScreen';
 import ManageLabelsScreen from './src/screens/ManageLabelsScreen';
@@ -112,11 +111,6 @@ function AppNavigator() {
               name="CreateGroup"
               component={CreateGroupScreen}
               options={{ title: 'Create Group' }}
-            />
-            <Stack.Screen
-              name="CreateExpense"
-              component={CreateExpenseScreen}
-              options={{ title: 'Add Expense' }}
             />
             <Stack.Screen
               name="EditExpense"

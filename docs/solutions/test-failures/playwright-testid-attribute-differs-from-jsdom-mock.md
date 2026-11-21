@@ -62,5 +62,5 @@ The two conventions look almost identical (`testid` vs `data-testid` — one cha
 
 ## Related Issues
 
-- `frontend/src/screens/__tests__/CreateExpenseScreen.test.tsx` and similar files document the Vitest-side convention this doc distinguishes from.
+- `frontend/src/components/__tests__/TypeAheadDropdown.test.tsx` and similar files document the Vitest-side convention this doc distinguishes from.
 - `e2e/intelligence-layer.spec.ts` — the spec that surfaced this, first real Playwright E2E coverage in the repo.

@@ -170,7 +170,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   const isInitialRenderRef = useRef(true);
 
   /**
-   * Refresh expenses when screen is focused (e.g., returning from CreateExpenseScreen).
+   * Refresh expenses when screen is focused (e.g., returning from the expense form).
    * Skip the first render to avoid double-loading (useEffect handles first load).
    * This ensures the list always shows the latest expenses when user navigates back.
    */

@@ -13,7 +13,6 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   Home: undefined;
   ExpenseList: { groupId: number; groupName?: string; groupCurrencyCode?: string };
   ExpenseDetail: { expenseId: number };
-  CreateExpense: { groupId: number; groupName?: string; groupCurrencyCode?: string; currency?: { id: number; code: string; label: string } };
   EditExpense: { expenseId?: number; groupId: number; groupName?: string; groupCurrencyCode?: string; currency?: { id: number; code: string; label: string } };
   CreateGroup: undefined;
   Settlement: { groupId: number; groupName?: string; currency?: { id: number; code: string; label: string }; expenses: Expense[] };
@@ -47,11 +46,6 @@ export type EditExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 
  * Props for CreateGroupScreen
  */
 export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
-
-/**
- * Props for CreateExpenseScreen
- */
-export type CreateExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateExpense'>;
 
 /**
  * Props for SettlementScreen

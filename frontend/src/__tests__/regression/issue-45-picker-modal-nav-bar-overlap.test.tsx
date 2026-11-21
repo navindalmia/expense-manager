@@ -15,8 +15,8 @@
  * stay above it.
  *
  * A second, related root cause surfaced in the same session: whole
- * screens (HomeScreen, ExpenseListScreen, SettlementScreen,
- * CreateExpenseScreen) also render their root list/scroll content in a
+ * screens (HomeScreen, ExpenseListScreen, SettlementScreen)
+ * also render their root list/scroll content in a
  * plain `View`/`KeyboardAvoidingView` with no SafeAreaView anywhere,
  * so their last visible row/button can be obscured by the system nav
  * bar too. Those are covered by a source-level check below, since they
@@ -168,7 +168,7 @@ describe('issue #45: picker-modal content stays above the system nav bar', () =>
 
 // ---------------------------------------------------------------------
 // Part 2: TypeAheadDropdown -- the shared Category/Label picker used by
-// both EditExpenseScreen and CreateExpenseScreen, identified by the
+// EditExpenseScreen, identified by the
 // whole-frontend grep for the same pickerModal-shaped Modal pattern
 // (task item 3).
 // ---------------------------------------------------------------------
@@ -229,12 +229,5 @@ describe('issue #45: screen-level root containers apply safe-area insets', () =>
     expect(src).toMatch(/import\s*\{\s*SafeAreaView\s*\}\s*from\s*'react-native-safe-area-context'/);
     expect(src).toMatch(/<SafeAreaView style=\{styles\.container\}>/);
     expect(src).toMatch(/<\/SafeAreaView>/);
-  });
-
-  it('CreateExpenseScreen wraps its root container in a SafeAreaView, matching the sibling EditExpenseScreen pattern', () => {
-    const src = readScreenSource('CreateExpenseScreen.tsx');
-    expect(src).toMatch(/import\s*\{\s*SafeAreaView\s*\}\s*from\s*'react-native-safe-area-context'/);
-    expect(src).toMatch(/<SafeAreaView style=\{styles\.container\}>/);
-    expect(src).toMatch(/<\/SafeAreaView>\s*\n\s*\);/);
   });
 });
