@@ -30,7 +30,6 @@ interface DeletedGroupCase {
 const CASES: DeletedGroupCase[] = [
   { name: 'getGroupById', call: () => groupService.getGroupById(7, CREATOR_ID) },
   { name: 'getGroupStats', call: () => groupService.getGroupStats(7, CREATOR_ID) },
-  { name: 'getGroupExpenses', call: () => groupService.getGroupExpenses(7, CREATOR_ID) },
   { name: 'updateGroup', call: () => groupService.updateGroup(7, CREATOR_ID, { name: 'x' }) },
   {
     name: 'addMemberByEmail',

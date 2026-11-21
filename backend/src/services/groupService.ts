@@ -11,7 +11,7 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
 import { assertThemeVisible } from './themeService';
-import { assertGroupActive } from './groupGuards';
+import { assertGroupActive, assertGroupMember } from './groupGuards';
 
 /**
  * Shared catch-block policy: rethrow an AppError untouched, otherwise throw a
@@ -277,13 +277,7 @@ export async function getGroupById(groupId: number, userId: number) {
 
     assertGroupActive(group, groupId);
 
-    // Check if user is a member or creator
-    const isMember = group.members.some((m) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new Error('Unauthorized: You are not a member of this group');
-    }
+    assertGroupMember(group, userId, groupId);
 
     return group;
   } catch (error) {
@@ -324,7 +318,7 @@ export async function addMemberByEmail(
     // Only creator can add members
     if (group.createdById !== requestorId) {
       throw new AppError(
-        'Unauthorized: Only group creator can add members',
+        'GROUP.ADD_MEMBER_UNAUTHORIZED',
         403,
         'GROUP_UNAUTHORIZED',
         { groupId, requestorId }
@@ -396,8 +390,8 @@ export async function addMemberByEmail(
 export async function addMemberToGroup(
   groupId: number,
   memberName: string,
-  memberEmail?: string,
-  requestorId?: number
+  memberEmail: string | undefined,
+  requestorId: number
 ) {
   try {
     const group = await prisma.group.findUnique({ 
@@ -411,10 +405,11 @@ export async function addMemberToGroup(
 
     assertGroupActive(group, groupId);
 
-    // Only creator can add members
-    if (requestorId && group.createdById !== requestorId) {
+    // Only creator can add members. Compared unconditionally so a missing
+    // requestor is denied (fail closed), never treated as "no check needed".
+    if (group.createdById !== requestorId) {
       throw new AppError(
-        'Unauthorized: Only group creator can add members',
+        'GROUP.ADD_MEMBER_UNAUTHORIZED',
         403,
         'GROUP_UNAUTHORIZED',
         { groupId, requestorId }
@@ -813,12 +808,7 @@ export async function getGroupStats(groupId: number, userId: number) {
 
     assertGroupActive(group, groupId);
 
-    const isMember = group.members.some((m: any) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new Error('Unauthorized: You are not a member of this group');
-    }
+    assertGroupMember(group, userId, groupId);
 
     const expenses = await prisma.expense.findMany({
       where: { groupId, isSettled: false },
@@ -852,60 +842,5 @@ export async function getGroupStats(groupId: number, userId: number) {
       throw error;
     }
     throw new Error('Failed to fetch group statistics');
-  }
-}
-
-/**
- * Get all expenses for a specific group
- * @param groupId Group ID
- * @param userId User ID (for permission check)
- * @returns Array of expenses for the group
- */
-export async function getGroupExpenses(groupId: number, userId: number) {
-  try {
-    // Verify group exists and user is member or creator
-    const group = await prisma.group.findUnique({
-      where: { id: groupId },
-      include: { members: { select: { id: true } } },
-    });
-
-    assertGroupActive(group, groupId);
-
-    const isMember = group.members.some((m: any) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { groupId, userId }
-      );
-    }
-
-    // Fetch expenses ONLY for this group (not orphan expenses)
-    const expenses = await prisma.expense.findMany({
-      where: {
-        groupId, // CRITICAL: Filter by groupId
-        isSettled: false,
-      },
-      include: {
-        paidBy: {
-          select: SAFE_USER_SELECT,
-        },
-        category: true,
-        splitWith: {
-          select: SAFE_USER_SELECT,
-        },
-      },
-      orderBy: { expenseDate: 'desc' },
-    });
-
-    return expenses;
-  } catch (error) {
-    return rethrowOrWrapAsAppError(error, {
-      messageKey: 'Failed to fetch group expenses',
-      code: 'FETCH_EXPENSES_ERROR',
-    });
   }
 }

@@ -195,8 +195,7 @@ export async function createExpense(data: {
     assertGroupMember(group, requesterId, groupId);
 
     // Verify paidById user is a member of the group
-    const isPayerMember = group.members.some((m) => m.id === paidById);
-    if (!isPayerMember && group.createdById !== paidById) {
+    if (!isGroupMember(group, paidById)) {
       throw new AppError(
         'Payer is not a member of this group',
         403,
@@ -531,8 +530,7 @@ export async function updateExpense(
 
     // Validate paidBy if provided
     if (paidById !== undefined) {
-      const payerMember = expense.group.members.some((m) => m.id === paidById);
-      if (!payerMember && expense.group.createdById !== paidById) {
+      if (!isGroupMember(expense.group, paidById)) {
         throw new AppError(
           'Payer is not a member of this group',
           403,

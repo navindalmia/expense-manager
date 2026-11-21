@@ -235,26 +235,4 @@ describe('Group Controller', () => {
       expect(groupService.getGroupStats).not.toHaveBeenCalled();
     });
   });
-
-  describe('getGroupExpenses', () => {
-    it('returns expenses with a count', async () => {
-      req.params = { id: '1' };
-      (groupService.getGroupExpenses as jest.Mock).mockResolvedValue([{ id: 1 }, { id: 2 }]);
-
-      await groupController.getGroupExpenses(req as Request, res as Response, next);
-
-      expect(statusCode).toBe(200);
-      expect(jsonData.count).toBe(2);
-    });
-
-    it('forwards a non-member rejection to next()', async () => {
-      req.params = { id: '1' };
-      const error = new AppError('Unauthorized', 403, 'GROUP_UNAUTHORIZED');
-      (groupService.getGroupExpenses as jest.Mock).mockRejectedValue(error);
-
-      await groupController.getGroupExpenses(req as Request, res as Response, next);
-
-      expect(next).toHaveBeenCalledWith(error);
-    });
-  });
 });

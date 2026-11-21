@@ -247,9 +247,10 @@ describe('GroupService', () => {
     it('throws when the requesting user is neither a member nor the creator', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
 
-      await expect(groupService.getGroupById(1, OUTSIDER_ID)).rejects.toThrow(
-        'Unauthorized: You are not a member of this group'
-      );
+      await expect(groupService.getGroupById(1, OUTSIDER_ID)).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'GROUP_UNAUTHORIZED',
+      });
     });
 
     it('throws when the group does not exist', async () => {
@@ -486,39 +487,10 @@ describe('GroupService', () => {
     it('throws for a non-member, non-creator', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
 
-      await expect(groupService.getGroupStats(1, OUTSIDER_ID)).rejects.toThrow(
-        'Failed to fetch group statistics'
-      );
-    });
-  });
-
-  describe('getGroupExpenses', () => {
-    it('returns expenses scoped to the group for a member', async () => {
-      (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
-      (prisma.expense.findMany as jest.Mock).mockResolvedValue([{ id: 1, groupId: 1 }]);
-
-      const result = await groupService.getGroupExpenses(1, MEMBER_ID);
-
-      expect(prisma.expense.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ groupId: 1 }) })
-      );
-      expect(result).toHaveLength(1);
-    });
-
-    it('throws for a non-member, non-creator', async () => {
-      (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
-
-      await expect(
-        groupService.getGroupExpenses(1, OUTSIDER_ID)
-      ).rejects.toMatchObject({ statusCode: 403, code: 'GROUP_UNAUTHORIZED' });
-    });
-
-    it('throws when the group does not exist', async () => {
-      (prisma.group.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await expect(
-        groupService.getGroupExpenses(999, CREATOR_ID)
-      ).rejects.toMatchObject({ statusCode: 404, code: 'GROUP_NOT_FOUND' });
+      await expect(groupService.getGroupStats(1, OUTSIDER_ID)).rejects.toMatchObject({
+        statusCode: 403,
+        code: 'GROUP_UNAUTHORIZED',
+      });
     });
   });
 });
