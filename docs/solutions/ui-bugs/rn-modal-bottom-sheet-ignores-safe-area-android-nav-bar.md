@@ -1,6 +1,7 @@
 ---
 title: RN Modal bottom-sheet pickers ignore SafeAreaView insets, so the Android nav bar covers rows
 date: 2026-09-26
+last_updated: 2026-11-21
 category: docs/solutions/ui-bugs
 module: frontend
 problem_type: ui_bug
@@ -38,8 +39,8 @@ Issue #45 ("Paid by field cannot select 2nd payer and so on") was a real device 
 
 React Native's `Modal` renders in a separate native layer and does not inherit the parent screen's `SafeAreaView` insets. Wrap each bottom-sheet modal's content in its own `SafeAreaView` from `react-native-safe-area-context`, and give screens with no safe-area root one. Shipped in PR #82:
 
-- Modal wrappers: `TypeAheadDropdown.tsx` (`frontend/src/components/TypeAheadDropdown.tsx:138`), and the Who Paid?/Split Type modals in `EditExpenseScreen.tsx` (line 463 for Split Type). `CreateExpenseScreen.tsx`'s four modals got the same wrapper.
-- Screen roots with no safe-area container: `HomeScreen`, `ExpenseListScreen`, `SettlementScreen`, `CreateExpenseScreen`.
+- Modal wrappers: `TypeAheadDropdown.tsx` (`frontend/src/components/TypeAheadDropdown.tsx:138`), and the Who Paid?/Split Type modals in `EditExpenseScreen.tsx` (line 463 for Split Type). (`CreateExpenseScreen.tsx`'s modals got the same wrapper in #82; that orphan screen was deleted in #187, and add-expense is `EditExpenseScreen` in create mode.)
+- Screen roots with no safe-area container: `HomeScreen`, `ExpenseListScreen`, `SettlementScreen`.
 - `EditExpenseScreen` already wrapped its screen root (line 373); only its modals were missing the wrapper.
 
 ## Why This Works
