@@ -32,6 +32,8 @@ export interface SimilarExpenseMatch {
   title: string;
   amount: number;
   categoryId: number;
+  labelId?: number | null;
+  themeId?: number | null;
   splitWithIds: number[];
 }
 
@@ -734,6 +736,8 @@ export async function findSimilarExpenses(
         title: true,
         amount: true,
         categoryId: true,
+        labelId: true,
+        themeId: true,
         expenseDate: true,
         splitWith: { select: { id: true } },
       },
@@ -753,6 +757,8 @@ export async function findSimilarExpenses(
       title: item.title,
       amount: item.amount,
       categoryId: item.categoryId,
+      labelId: item.labelId,
+      themeId: item.themeId,
       splitWithIds: item.splitWith.map((member: { id: number }) => member.id),
     }));
   } catch (error) {
