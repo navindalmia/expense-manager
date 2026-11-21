@@ -14,7 +14,7 @@ import { http } from '../api/http';
 import { setAuthToken } from '../api/http/interceptors';
 import { logger } from '../utils/logger';
 
-export interface User {
+interface User {
   id: number;
   email: string;
   name: string;
@@ -135,13 +135,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Extract error details from normalized error
         let errorMessage = 'Signup failed';
         
-        // Debug: log error structure
-        console.log('Signup error:', {
-          message: err.message,
-          code: err.code,
-          status: err.status,
-          data: err.data,
-        });
         
         // Check if backend returned validation details
         if (err.data?.details && Array.isArray(err.data.details)) {
@@ -191,13 +184,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Extract error details from normalized error
       let errorMessage = 'Login failed';
       
-      // Debug: log error structure
-      console.log('Login error:', {
-        message: err.message,
-        code: err.code,
-        status: err.status,
-        data: err.data,
-      });
       
       // Check if backend returned validation details
       if (err.data?.details && Array.isArray(err.data.details)) {

@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SettlementScreen } from '../SettlementScreen';
 import type { Expense } from '../../services/expenseService';
@@ -23,6 +23,12 @@ import type { Expense } from '../../services/expenseService';
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 1, email: 'user@test.com', name: 'Alice' } }),
 }));
+
+vi.mock('../../utils/logger', () => ({
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}));
+
+import { logger } from '../../utils/logger';
 
 function makeExpense(overrides: Partial<Expense>): Expense {
   return {
@@ -72,6 +78,22 @@ function renderSettlementWithoutCurrencyParam(expenses: Expense[]) {
 }
 
 describe('SettlementScreen', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should report a calculation failure through the logger instead of crashing', () => {
+    const malformed = [null as unknown as Expense];
+
+    renderSettlement(malformed);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to calculate settlements',
+      expect.any(TypeError),
+      { screen: 'SettlementScreen' }
+    );
+  });
+
   it('derives currency from the expenses data when route.params.currency is missing, instead of defaulting to USD (regression: GBP group showed USD)', () => {
     const gbpExpense = makeExpense({
       id: 20,

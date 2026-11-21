@@ -138,12 +138,17 @@ cd backend && npm test
 # Frontend (Vitest)
 cd frontend && npm test -- --run
 
+# Frontend coverage table (@vitest/coverage-v8 must stay on the same version as vitest)
+cd frontend && npm run test:coverage -- --run
+
 # TypeScript check
 cd backend && npx tsc --noEmit
 
 # E2E (Playwright)
 npm run test:e2e
 ```
+
+Frontend logging: use `utils/logger` (`logger.error/warn/info`), never `console.*` in app source. A static test (`noConsoleInSource`) fails the suite if the console is used outside `logger.ts`. Never log tokens, credentials or full auth error payloads.
 
 ---
 

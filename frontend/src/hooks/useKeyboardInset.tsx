@@ -18,7 +18,7 @@ export function computeKeyboardOverlap(containerBottom: number | null, keyboardT
   return Math.max(0, Math.round(containerBottom - keyboardTop));
 }
 
-export function useKeyboardInset(): {
+function useKeyboardInset(): {
   ref: React.RefObject<View | null>;
   onLayout: () => void;
   inset: number;

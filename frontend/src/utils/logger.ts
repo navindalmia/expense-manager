@@ -19,7 +19,7 @@ function shouldLog(level: LogLevel): boolean {
 }
 
 export const logger = {
-  error(message: string, error?: any, context: Record<string, any> = {}) {
+  error(message: string, error?: unknown, context: Record<string, unknown> = {}) {
     if (shouldLog('error')) {
       console.error(`[ERROR] ${message}`, { error, ...context });
       // In a real app, you might want to send this to an error tracking service
@@ -27,19 +27,19 @@ export const logger = {
     }
   },
   
-  warn(message: string, context: Record<string, any> = {}) {
+  warn(message: string, context: Record<string, unknown> = {}) {
     if (shouldLog('warn')) {
       console.warn(`[WARN] ${message}`, context);
     }
   },
   
-  info(message: string, context: Record<string, any> = {}) {
+  info(message: string, context: Record<string, unknown> = {}) {
     if (shouldLog('info')) {
       console.log(`[INFO] ${message}`, context);
     }
   },
   
-  debug(message: string, context: Record<string, any> = {}) {
+  debug(message: string, context: Record<string, unknown> = {}) {
     if (shouldLog('debug')) {
       console.log(`[DEBUG] ${message}`, context);
     }

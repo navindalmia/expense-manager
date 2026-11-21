@@ -7,7 +7,7 @@
  * - Net balance (who owes whom)
  */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import type { Expense } from '../services/expenseService';
 import type { SettlementScreenProps } from '../types/navigation';
+import { logger } from '../utils/logger';
 
 // Note (issue #46, 2026-09): this file used to have its own copy of
 // calculateUserExpenseShare here, with a docstring incorrectly claiming it
@@ -179,41 +180,12 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
   const currencyCode = currency?.code || 'USD';
   const { user: currentUser } = useAuth();
 
-  // Debug what we actually received
-  useEffect(() => {
-    console.log('🔍 SettlementScreen mounted');
-    console.log('  Expenses received:', expenses.length);
-    console.log('  Looking for rent expense...');
-    const rentExpense = expenses.find(e => 
-      (e.category?.code && e.category.code.toLowerCase().includes('rent')) || 
-      (e.category?.label && e.category.label.toLowerCase().includes('rent')) || 
-      (e.title && e.title.toLowerCase().includes('rent'))
-    );
-    if (rentExpense) {
-      console.log('  ✅ Found rent:', {
-        id: rentExpense.id,
-        category: rentExpense.category?.label || rentExpense.category?.code,
-        amount: rentExpense.amount,
-        paidBy: rentExpense.paidBy?.name,
-        splitWith: rentExpense.splitWith?.map(m => m.name),
-      });
-    } else {
-      console.log('  ❌ Rent expense NOT found in array');
-      console.log('  All expenses:', expenses.map(e => ({ category: e.category?.code, amount: e.amount })));
-    }
-  }, [expenses]);
-
   // Calculate member settlements with PAIRWISE logic
   // For each pair of members: find all expenses they both participated in, 
   // calculate net balance between them
   const memberSettlements = useMemo((): MemberSettlement[] => {
     try {
       if (!expenses.length) return [];
-
-      console.log('🔍 Settlement - Received expenses:', expenses.length);
-      expenses.forEach((e, idx) => {
-        console.log(`  [${idx}] ${e.category?.code || 'Unknown'} - Amount: ${e.amount}, Paid by: ${e.paidBy?.name || 'MISSING'}, Split with: ${e.splitWith?.map(m => m.name).join(', ')}`);
-      });
 
     // Collect all unique members involved in any expense
     const memberSet = new Set<number>();
@@ -233,7 +205,6 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
     }
 
     const allMembers = Array.from(memberSet);
-    console.log('👥 All members involved:', allMembers.map(id => memberNames.get(id)));
 
     // For each member, calculate their net position
     const settlements = new Map<number, MemberSettlement>();
@@ -273,12 +244,10 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
         // Step 3: Add to running totals (paid and owed independently)
         if (paidAmount > 0) {
           member.totalPaid += paidAmount;
-          console.log(`  ${member.memberName} paid ${paidAmount} (${exp.category?.code || 'Unknown'})`);
         }
 
         if (owedAmount > 0) {
           member.totalOwes += owedAmount;
-          console.log(`  ${member.memberName} owes share ${owedAmount} (${exp.category?.code || 'Unknown'})`);
         }
 
         // Step 4: Track debt relationships (only if NOT the payer)
@@ -324,10 +293,9 @@ function SettlementScreenComponent({ navigation, route }: SettlementScreenProps)
       a.memberName.localeCompare(b.memberName)
     );
 
-    console.log('📊 Final Settlement:', result);
     return result;
     } catch (error) {
-      console.error('❌ Error calculating settlements:', error);
+      logger.error('Failed to calculate settlements', error, { screen: 'SettlementScreen' });
       return [];
     }
   }, [expenses, currentUser?.id]);

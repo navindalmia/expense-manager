@@ -16,8 +16,7 @@ const baseItems: TypeAheadItem[] = [
 // RN's TextInput mock forwards `testID` verbatim, which React renders on
 // the underlying <input>/<button> as a lowercase `testid` attribute (not
 // the `data-testid` that @testing-library/react's getByTestId expects),
-// so query by that attribute directly instead (same pattern as
-// CreateExpenseScreen.test.tsx).
+// so query by that attribute directly instead.
 function queryTestId(container: HTMLElement, id: string): HTMLElement | null {
   return container.querySelector(`[testid="${id}"]`) as HTMLElement | null;
 }

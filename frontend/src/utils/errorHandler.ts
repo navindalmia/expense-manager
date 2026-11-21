@@ -28,7 +28,7 @@ interface ApiErrorPayload {
  * Structured error information for screen display and handling.
  * Classifies error type and provides necessary metadata.
  */
-export interface ErrorDisplay {
+interface ErrorDisplay {
   /** User-friendly message (translated by backend) */
   message: string;
   
@@ -68,7 +68,7 @@ export interface ErrorDisplay {
  * }
  * ```
  */
-export function handleApiError(error: unknown): ErrorDisplay {
+function handleApiError(error: unknown): ErrorDisplay {
   const apiError = extractApiError(error);
 
   if (!apiError) {
@@ -303,45 +303,3 @@ function logErrorContext(errorDisplay: ErrorDisplay): void {
 export function getErrorMessage(error: unknown): string {
   return handleApiError(error).message;
 }
-
-/**
- * Determines if caller should retry the operation.
- * True for network errors and rate-limit errors.
- * 
- * @param error - Unknown error from service
- * @returns boolean - true if operation is retryable
- * @example
- * ```typescript
- * if (isRetryableError(error)) {
- *   showRetryButton();
- * } else {
- *   showErrorMessage(error);
- * }
- * ```
- */
-export function isRetryableError(error: unknown): boolean {
-  return handleApiError(error).isRetryable;
-}
-
-/**
- * Checks if error is authentication-related.
- * Used to redirect to login if token expired.
- * 
- * @param error - Unknown error from service
- * @returns boolean - true if auth error (401)
- */
-export function isAuthError(error: unknown): boolean {
-  return handleApiError(error).isAuthError;
-}
-
-/**
- * Checks if error is due to rate limiting.
- * Used to show backoff guidance and retry timing.
- * 
- * @param error - Unknown error from service
- * @returns boolean - true if rate limited (429)
- */
-export function isRateLimitError(error: unknown): boolean {
-  return handleApiError(error).isRateLimitError;
-}
-

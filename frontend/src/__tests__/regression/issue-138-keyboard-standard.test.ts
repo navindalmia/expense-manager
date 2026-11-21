@@ -47,7 +47,7 @@ describe('keyboard handling standard (issue #138)', () => {
   });
 
   it('should use KeyboardAwareScroll on the scrolling-form screens', () => {
-    for (const name of ['CreateGroupScreen', 'CreateExpenseScreen', 'EditExpenseScreen', 'LoginScreen', 'VerifyEmailScreen', 'CheckEmailScreen']) {
+    for (const name of ['CreateGroupScreen', 'EditExpenseScreen', 'LoginScreen', 'VerifyEmailScreen', 'CheckEmailScreen']) {
       expect(fs.readFileSync(path.join(SRC, 'screens', `${name}.tsx`), 'utf8')).toContain('<KeyboardAwareScroll');
     }
   });

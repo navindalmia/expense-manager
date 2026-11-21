@@ -13,7 +13,6 @@ export interface RootStackParamList extends Record<string, object | undefined> {
   Home: undefined;
   ExpenseList: { groupId: number; groupName?: string; groupCurrencyCode?: string };
   ExpenseDetail: { expenseId: number };
-  CreateExpense: { groupId: number; groupName?: string; groupCurrencyCode?: string; currency?: { id: number; code: string; label: string } };
   EditExpense: { expenseId?: number; groupId: number; groupName?: string; groupCurrencyCode?: string; currency?: { id: number; code: string; label: string } };
   CreateGroup: undefined;
   Settlement: { groupId: number; groupName?: string; currency?: { id: number; code: string; label: string }; expenses: Expense[] };
@@ -23,35 +22,15 @@ export interface RootStackParamList extends Record<string, object | undefined> {
 }
 
 /**
- * Props for HomeScreen
- */
-export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
-
-/**
  * Props for ExpenseListScreen
  * Uses NativeStackScreenProps for proper navigation typing
  */
 export type ExpenseListScreenProps = NativeStackScreenProps<RootStackParamList, 'ExpenseList'>;
 
 /**
- * Props for ExpenseDetailScreen
- */
-export type ExpenseDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'ExpenseDetail'>;
-
-/**
  * Props for EditExpenseScreen (handles both create and edit modes)
  */
 export type EditExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 'EditExpense'>;
-
-/**
- * Props for CreateGroupScreen
- */
-export type CreateGroupScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateGroup'>;
-
-/**
- * Props for CreateExpenseScreen
- */
-export type CreateExpenseScreenProps = NativeStackScreenProps<RootStackParamList, 'CreateExpense'>;
 
 /**
  * Props for SettlementScreen

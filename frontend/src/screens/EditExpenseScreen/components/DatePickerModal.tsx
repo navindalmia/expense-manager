@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { logger } from '../../../utils/logger';
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -185,7 +186,7 @@ function SimpleCalendar({
 
     const parts = dateStr.split('-').map(Number);
     if (parts.length !== 3 || parts.some(isNaN)) {
-      console.warn(`Invalid date format: ${dateStr}. Expected YYYY-MM-DD`);
+      logger.warn('Invalid date format, expected YYYY-MM-DD', { dateStr });
       const today = new Date();
       return {
         year: today.getFullYear(),
@@ -226,7 +227,6 @@ function SimpleCalendar({
     todayObj.setHours(0, 0, 0, 0);
 
     if (selectedDateObj > todayObj) {
-      console.log('❌ Future date not allowed:', selectedDateObj);
       return;
     }
 
@@ -234,7 +234,6 @@ function SimpleCalendar({
     const monthStr = String(month + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
     const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
-    console.log('📅 Day selected:', day, 'formatted date:', dateStr);
     onSelectDate(dateStr);
   };
 

@@ -42,4 +42,3 @@ export const httpBase = axios.create({
     "Content-Type": "application/json",
   },
 });
-export type HttpClient = typeof httpBase;

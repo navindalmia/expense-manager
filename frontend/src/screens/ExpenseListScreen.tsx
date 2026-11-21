@@ -49,22 +49,9 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   const { user: currentUser } = useAuth();
   
   // DEBUG: Log what we actually received
-  if (__DEV__) {
-    console.log('📍 ExpenseListScreen mounted', {
-      params: JSON.stringify(params),
-      groupId,
-      groupName,
-    });
-  }
   
   // Validate required params - warn if missing
   if (!groupId || groupId === 0) {
-    if (__DEV__) {
-      console.warn('⚠️ ExpenseListScreen: Missing or invalid groupId', {
-        groupId,
-        params,
-      });
-    }
     logger.warn('ExpenseListScreen: Missing required groupId parameter', {
       screen: 'ExpenseListScreen',
       groupId,
@@ -101,20 +88,10 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    */
   const loadExpenses = useCallback(async () => {
     try {
-      if (__DEV__) {
-        console.log('🔄 loadExpenses called with groupId:', groupId);
-      }
       
       setError(null);
       const data = await getGroupExpenses(groupId);
       
-      if (__DEV__) {
-        console.log('✅ Expenses loaded:', {
-          count: data.length,
-          groupId,
-          data: data.map(e => ({ id: e.id, title: e.title, amount: e.amount }))
-        });
-      }
       
       // Sort by expenseDate (descending = newest first), then by id (descending for deterministic order)
       const sorted = data.sort((a, b) => {
@@ -133,13 +110,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
     } catch (err) {
       const errorMessage = getErrorMessage(err);
       
-      if (__DEV__) {
-        console.error('❌ Failed to load expenses:', {
-          error: errorMessage,
-          groupId,
-          rawError: err,
-        });
-      }
       
       setError(errorMessage);
       logger.error('Failed to load expenses', err, {
@@ -170,7 +140,7 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
   const isInitialRenderRef = useRef(true);
 
   /**
-   * Refresh expenses when screen is focused (e.g., returning from CreateExpenseScreen).
+   * Refresh expenses when screen is focused (e.g., returning from the expense form).
    * Skip the first render to avoid double-loading (useEffect handles first load).
    * This ensures the list always shows the latest expenses when user navigates back.
    */
@@ -182,9 +152,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
         return;
       }
       
-      if (__DEV__) {
-        console.log('🔄 ExpenseListScreen focused - reloading expenses for groupId:', groupId);
-      }
       loadExpenses();
     }, [loadExpenses, groupId])
   );
@@ -193,9 +160,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
    * Handle pull-to-refresh gesture.
    */
   const handleRefresh = () => {
-    if (__DEV__) {
-      console.log('🔄 Pull-to-refresh triggered');
-    }
     setRefreshing(true);
     loadExpenses();
   };
@@ -480,17 +444,6 @@ function ExpenseListScreen({ navigation, route }: ExpenseListScreenProps) {
           accessible={true}
           accessibilityLabel={`Total: ${currencyPreference} ${total.toFixed(2)}, Your share: ${currencyPreference} ${personal.toFixed(2)}, Balance: ${balance > 0 ? 'owed' : 'owe'} ${currencyPreference} ${Math.abs(balance).toFixed(2)}`}
           onPress={() => {
-            console.log('📤 Navigating to Settlement with:', {
-              groupId,
-              groupName,
-              expenseCount: expenses.length,
-              expenseList: expenses.map(e => ({
-                id: e.id,
-                category: e.category,
-                amount: e.amount,
-                paidBy: e.paidBy?.name,
-              })),
-            });
             navigation.navigate('Settlement', {
               groupId,
               groupName,

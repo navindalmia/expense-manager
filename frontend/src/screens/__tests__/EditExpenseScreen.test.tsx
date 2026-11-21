@@ -129,6 +129,26 @@ describe('EditExpenseScreen (CREATE mode)', () => {
     expect(screen.queryByText('Select payer...')).toBeNull();
   });
 
+  it('does not block save with a category error when the user never touched the category picker', async () => {
+    vi.mocked(createExpense).mockResolvedValue({ id: 99 } as Awaited<ReturnType<typeof createExpense>>);
+    const { container } = renderScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText('Other')).toBeTruthy();
+    });
+
+    fireEvent.change(getByTestId(container, 'edit-expense-title-input'), { target: { value: 'Dinner' } });
+    fireEvent.change(getByTestId(container, 'edit-expense-amount-input'), { target: { value: '25' } });
+    fireEvent.click(getByTestId(container, 'edit-expense-save-button'));
+
+    await waitFor(() => {
+      expect(createExpense).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.queryByText('Please select a category')).toBeNull();
+    expect(vi.mocked(createExpense).mock.calls[0][0].categoryId).toBe(7); // "OTHER" id from mockCategories
+  });
+
   it('does not show a Delete button when creating a new expense (nothing to delete yet)', async () => {
     const { container } = renderScreen();
 
