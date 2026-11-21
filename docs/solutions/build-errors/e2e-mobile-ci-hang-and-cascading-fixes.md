@@ -184,3 +184,7 @@ The debug APK is now built once in `e2e-mobile-build` and shared with the four `
 - Process gap: a PR that changes layout must refresh the affected baselines from the CI emulator (steps in the baseline extraction section above), never from a local AVD. The rule was already recorded; the new fact is that it was missed for the layout change and went red on every run until #160.
 - Re-running a single failed shard of a run older than 3 days fails with `Artifact not found for name: e2e-debug-apk`: the build job's upload sets `retention-days: 3` (`.github/workflows/ci.yml`, "Upload debug APK" step). Re-run ALL jobs or push a new commit. `gh pr update-branch` is a no-op when the branch is already up to date.
 - Retry classifier dead on every failure: see `docs/solutions/test-failures/maestro-retry-classifier-matched-text-in-every-failure-log.md`.
+
+## 2026-11-19: runner default JDK moved to 25, debug APK build fails in seconds
+
+`./gradlew assembleDebug` failed with `Unsupported class file major version 69`; the job had no `setup-java`. Fixed by pinning Temurin 17. See `docs/solutions/build-errors/ci-android-build-unsupported-class-file-major-version-69.md`.
