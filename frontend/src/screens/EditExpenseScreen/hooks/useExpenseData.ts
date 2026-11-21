@@ -79,11 +79,6 @@ export function useExpenseData(expenseId: number | null | undefined, groupId: nu
         setGroupMembers(group.members);
         setLoading(false);
 
-        // DEBUG: Log paidBy details
-        if (fetchedExpense) {
-          console.log(`💳 EditExpenseScreen loaded expense "${fetchedExpense.title}" - paidById: ${fetchedExpense.paidById}, paidBy.id: ${fetchedExpense.paidBy?.id}, paidBy.name: ${fetchedExpense.paidBy?.name}`);
-        }
-
         logger.info('Expense data loaded successfully', {
           screen: 'EditExpenseScreen',
           expenseId,

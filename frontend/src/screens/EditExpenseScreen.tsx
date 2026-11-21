@@ -283,13 +283,6 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // Validate form FIRST, show errors if any
     if (!validateForm()) {
       logger.warn('Form validation failed', { errors: formState.errors });
-      console.log('❌ VALIDATION FAILED - Form errors:', formState);
-      console.log('   Title:', formState.title);
-      console.log('   Amount:', formState.amount);
-      console.log('   Category:', formState.category);
-      console.log('   Payer:', formState.paidById);
-      console.log('   Date:', formState.date);
-      console.log('   Split IDs:', splitState.splitWithIds);
       
       // Check which field failed
       const firstError = Object.values(formState.errors).find(e => e);
@@ -302,7 +295,6 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     // For EDIT mode, expense must be loaded
     if (!isCreateMode && !expense) {
       logger.warn('Expense not loaded yet');
-      console.log('❌ EDIT MODE: Expense not loaded');
       return;
     }
 
@@ -310,17 +302,6 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
     try {
       const splitPayload = getSplitPayload();
       
-      console.log('📤 SUBMITTING EXPENSE');
-      console.log('   Mode:', isCreateMode ? 'CREATE' : 'EDIT');
-      console.log('   Title:', formState.title);
-      console.log('   Amount:', formState.amount);
-      console.log('   Category ID:', formState.category);
-      console.log('   Paid By ID:', formState.paidById);
-      console.log('   Date:', formState.date);
-      console.log('   Currency:', currency);
-      console.log('   Split Type:', splitState.splitType);
-      console.log('   Split Members:', splitState.splitWithIds);
-      console.log('   Split Payload:', splitPayload);
       
       const payload: any = {
         title: formState.title.trim(),
@@ -336,32 +317,25 @@ export default function EditExpenseScreen({ navigation, route }: EditExpenseScre
         ...splitPayload
       };
       
-      console.log('📦 FULL PAYLOAD:', JSON.stringify(payload, null, 2));
       
       if (isCreateMode) {
         // CREATE mode
         logger.info('Creating expense', { groupId, paidById: formState.paidById, splitType: splitState.splitType });
         payload.groupId = groupId;
-        console.log('🆕 CREATE MODE - Calling createExpense with:', payload);
         await createExpense(payload);
         logger.info('Expense created successfully', { groupId, title: formState.title });
-        console.log('✅ Expense created successfully!');
         Alert.alert('Success', 'Expense created');
       } else {
         // EDIT mode
         logger.info('Attempting update', { expenseId, paidById: formState.paidById, splitType: splitState.splitType });
-        console.log('✏️ EDIT MODE - Calling updateExpense with:', payload);
         await updateExpense(expenseId, payload);
         logger.info('Expense updated successfully', { expenseId, title: formState.title });
-        console.log('✅ Expense updated successfully!');
         Alert.alert('Success', 'Expense updated');
       }
       
       navigation.goBack();
     } catch (err: any) {
       const msg = getErrorMessage(err);
-      console.log('❌ API ERROR:', msg);
-      console.log('   Full error:', err);
       logger.error(isCreateMode ? 'Create failed' : 'Update failed', err, { 
         [isCreateMode ? 'groupId' : 'expenseId']: isCreateMode ? groupId : expenseId, 
         errorMsg: msg 

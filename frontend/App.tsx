@@ -21,7 +21,6 @@ import { setOnUnauthorized } from './src/api/http/interceptors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-console.log("Frontend API Base URL:", process.env.EXPO_PUBLIC_API_BASE_URL);
 
 
 /**
