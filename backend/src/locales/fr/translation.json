@@ -46,6 +46,7 @@
     "CREATION_FAILED": "Échec de la création du groupe.",
     "NOT_FOUND": "Groupe non trouvé.",
     "DELETE_UNAUTHORIZED": "Seul le créateur du groupe peut le supprimer.",
+    "ADD_MEMBER_UNAUTHORIZED": "Seul le créateur du groupe peut ajouter des membres.",
     "NOT_MEMBER": "Vous n'êtes pas membre de ce groupe.",
     "DELETE_FAILED": "Échec de la suppression du groupe."
   }

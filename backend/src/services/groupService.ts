@@ -11,7 +11,8 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
 import { assertThemeVisible } from './themeService';
-import { assertGroupActive } from './groupGuards';
+import { distributeAmountEvenly, distributeAmountByWeights } from '../utils/splitCalculation';
+import { assertGroupActive, assertGroupMember } from './groupGuards';
 
 /**
  * Shared catch-block policy: rethrow an AppError untouched, otherwise throw a
@@ -40,50 +41,61 @@ interface ExpenseWithSplit {
 }
 
 /**
+ * Cent-exact share at a position: the same distribution createExpense stores,
+ * so per-member shares always add back to the expense amount (no drifting
+ * cents from dividing and rounding each share independently).
+ */
+function equalShareAt(amount: number, memberCount: number, index: number): number {
+  return distributeAmountEvenly(amount, memberCount)[index] ?? 0;
+}
+
+function percentageShareAt(amount: number, percentages: number[], index: number): number {
+  return distributeAmountByWeights(amount, percentages)[index] ?? 0;
+}
+
+/**
  * Calculate user's share of an expense based on split type and their role.
- * Single source of truth for share calculations.
+ * Single source of truth for share calculations; whole-cent shares come from
+ * utils/splitCalculation, matching what createExpense/updateExpense persist.
  * Handles payer inclusion detection for accurate calculations.
  */
 function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): number {
-  // Check if user is the payer
+  const userIndex = exp.splitWith?.findIndex((m) => m.id === userId) ?? -1;
+
   if (exp.paidById === userId) {
-    // User is the payer - calculate their share based on split type
     if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-      // Matches createExpense's EQUAL calculation: amount / splitWith.length
-      // among whoever is in splitWith. If the payer opted out of the split,
-      // their share is 0 - the others' shares already sum to the full amount.
-      const payerInSplit = exp.splitWith.some(m => m.id === exp.paidById);
-      return payerInSplit ? exp.amount / exp.splitWith.length : 0;
-    } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
-      // Find payer's index in splitWith
-      const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidById) ?? -1;
-      if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
-        return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
-      }
-      // Payer opted out of the percentage split entirely (not in
-      // splitWith) -- their own share is 0, same as the EQUAL branch
-      // above. Bug fixed here (issue #46): this used to fall back to
-      // exp.splitPercentage[0], which is splitWith[0]'s percentage, not
-      // the payer's -- attributing another member's share to the payer.
-    } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+      // If the payer opted out of the split, their share is 0 - the others'
+      // shares already sum to the full amount.
+      return userIndex !== -1 ? equalShareAt(exp.amount, exp.splitWith.length, userIndex) : 0;
+    }
+    if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+      // Payer opted out of the percentage split entirely (not in splitWith):
+      // their own share is 0 (issue #46 - never fall back to splitWith[0]'s).
+      return userIndex !== -1 && exp.splitPercentage[userIndex]
+        ? percentageShareAt(exp.amount, exp.splitPercentage, userIndex)
+        : 0;
+    }
+    if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
       // Amount split: total - sum of others' amounts
       return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
-    } else if (!exp.splitWith || exp.splitWith.length === 0) {
+    }
+    if (!exp.splitWith || exp.splitWith.length === 0) {
       // No split - user pays full amount
       return exp.amount;
     }
-  } else {
-    // User is in splitWith - find their share
-    const userIndex = exp.splitWith?.findIndex(u => u.id === userId) ?? -1;
-    if (userIndex !== -1) {
-      if (exp.splitType === 'EQUAL') {
-        return exp.amount / exp.splitWith.length;
-      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
-        return (exp.amount * exp.splitPercentage[userIndex]) / 100;
-      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-        return exp.splitAmount[userIndex];
-      }
-    }
+    return 0;
+  }
+
+  if (userIndex === -1) return 0;
+
+  if (exp.splitType === 'EQUAL') {
+    return equalShareAt(exp.amount, exp.splitWith.length, userIndex);
+  }
+  if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
+    return percentageShareAt(exp.amount, exp.splitPercentage, userIndex);
+  }
+  if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+    return exp.splitAmount[userIndex];
   }
   return 0;
 }
@@ -277,13 +289,7 @@ export async function getGroupById(groupId: number, userId: number) {
 
     assertGroupActive(group, groupId);
 
-    // Check if user is a member or creator
-    const isMember = group.members.some((m) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new Error('Unauthorized: You are not a member of this group');
-    }
+    assertGroupMember(group, userId, groupId);
 
     return group;
   } catch (error) {
@@ -324,7 +330,7 @@ export async function addMemberByEmail(
     // Only creator can add members
     if (group.createdById !== requestorId) {
       throw new AppError(
-        'Unauthorized: Only group creator can add members',
+        'GROUP.ADD_MEMBER_UNAUTHORIZED',
         403,
         'GROUP_UNAUTHORIZED',
         { groupId, requestorId }
@@ -396,8 +402,8 @@ export async function addMemberByEmail(
 export async function addMemberToGroup(
   groupId: number,
   memberName: string,
-  memberEmail?: string,
-  requestorId?: number
+  memberEmail: string | undefined,
+  requestorId: number
 ) {
   try {
     const group = await prisma.group.findUnique({ 
@@ -411,10 +417,11 @@ export async function addMemberToGroup(
 
     assertGroupActive(group, groupId);
 
-    // Only creator can add members
-    if (requestorId && group.createdById !== requestorId) {
+    // Only creator can add members. Compared unconditionally so a missing
+    // requestor is denied (fail closed), never treated as "no check needed".
+    if (group.createdById !== requestorId) {
       throw new AppError(
-        'Unauthorized: Only group creator can add members',
+        'GROUP.ADD_MEMBER_UNAUTHORIZED',
         403,
         'GROUP_UNAUTHORIZED',
         { groupId, requestorId }
@@ -508,6 +515,32 @@ export async function addMemberToGroup(
 }
 
 /**
+ * Mark every expense the member paid in the group as settled, so removing
+ * them cannot leave orphaned expenses breaking settlement calculations.
+ * Runs on the caller's transaction client. Returns how many were settled.
+ */
+async function settleMemberExpenses(
+  tx: Prisma.TransactionClient,
+  groupId: number,
+  memberId: number
+): Promise<number> {
+  const memberExpenses = await tx.expense.findMany({
+    where: { groupId, paidById: memberId },
+    select: { id: true },
+  });
+
+  if (memberExpenses.length === 0) {
+    return 0;
+  }
+
+  await tx.expense.updateMany({
+    where: { id: { in: memberExpenses.map((e) => e.id) } },
+    data: { isSettled: true },
+  });
+  return memberExpenses.length;
+}
+
+/**
  * Remove a member from a group
  * IMPORTANT: Handles data integrity - settles member's expenses before removal
  * @param groupId Group ID
@@ -561,50 +594,30 @@ export async function removeMemberFromGroup(
       );
     }
 
-    // CRITICAL: Handle data integrity - mark member's expenses as settled
-    // This prevents orphaned expenses from breaking settlement calculations
-    const memberExpenses = await prisma.expense.findMany({
-      where: {
-        groupId,
-        paidById: memberId,
-      },
-      select: { id: true },
-    });
+    // Settle the member's expenses and disconnect them atomically: a failure
+    // in either step must not leave settled expenses with a still-active member
+    // (or the reverse).
+    const updated = await prisma.$transaction(async (tx) => {
+      const settledCount = await settleMemberExpenses(tx, groupId, memberId);
+      if (settledCount > 0) {
+        logger.info('Settled member expenses on removal', { groupId, memberId, expenseCount: settledCount });
+      }
 
-    // Mark all expenses paid by this member as settled
-    if (memberExpenses.length > 0) {
-      await prisma.expense.updateMany({
-        where: {
-          id: { in: memberExpenses.map(e => e.id) },
+      return tx.group.update({
+        where: { id: groupId },
+        data: { members: { disconnect: { id: memberId } } },
+        include: {
+          currency: {
+            select: { id: true, code: true, label: true },
+          },
+          members: {
+            select: SAFE_USER_SELECT,
+          },
+          createdBy: {
+            select: SAFE_USER_SELECT,
+          },
         },
-        data: { isSettled: true },
       });
-      logger.info('Settled member expenses on removal', {
-        groupId,
-        memberId,
-        expenseCount: memberExpenses.length,
-      });
-    }
-
-    // Remove member from group and all expense splitWith relationships
-    const updated = await prisma.group.update({
-      where: { id: groupId },
-      data: {
-        members: {
-          disconnect: { id: memberId },
-        },
-      },
-      include: {
-        currency: {
-          select: { id: true, code: true, label: true },
-        },
-        members: {
-          select: SAFE_USER_SELECT,
-        },
-        createdBy: {
-          select: SAFE_USER_SELECT,
-        },
-      },
     });
 
     logger.info('Member successfully removed from group', {
@@ -813,12 +826,7 @@ export async function getGroupStats(groupId: number, userId: number) {
 
     assertGroupActive(group, groupId);
 
-    const isMember = group.members.some((m: any) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new Error('Unauthorized: You are not a member of this group');
-    }
+    assertGroupMember(group, userId, groupId);
 
     const expenses = await prisma.expense.findMany({
       where: { groupId, isSettled: false },
@@ -852,60 +860,5 @@ export async function getGroupStats(groupId: number, userId: number) {
       throw error;
     }
     throw new Error('Failed to fetch group statistics');
-  }
-}
-
-/**
- * Get all expenses for a specific group
- * @param groupId Group ID
- * @param userId User ID (for permission check)
- * @returns Array of expenses for the group
- */
-export async function getGroupExpenses(groupId: number, userId: number) {
-  try {
-    // Verify group exists and user is member or creator
-    const group = await prisma.group.findUnique({
-      where: { id: groupId },
-      include: { members: { select: { id: true } } },
-    });
-
-    assertGroupActive(group, groupId);
-
-    const isMember = group.members.some((m: any) => m.id === userId);
-    const isCreator = group.createdById === userId;
-
-    if (!isMember && !isCreator) {
-      throw new AppError(
-        'Unauthorized: You are not a member of this group',
-        403,
-        'GROUP_UNAUTHORIZED',
-        { groupId, userId }
-      );
-    }
-
-    // Fetch expenses ONLY for this group (not orphan expenses)
-    const expenses = await prisma.expense.findMany({
-      where: {
-        groupId, // CRITICAL: Filter by groupId
-        isSettled: false,
-      },
-      include: {
-        paidBy: {
-          select: SAFE_USER_SELECT,
-        },
-        category: true,
-        splitWith: {
-          select: SAFE_USER_SELECT,
-        },
-      },
-      orderBy: { expenseDate: 'desc' },
-    });
-
-    return expenses;
-  } catch (error) {
-    return rethrowOrWrapAsAppError(error, {
-      messageKey: 'Failed to fetch group expenses',
-      code: 'FETCH_EXPENSES_ERROR',
-    });
   }
 }

@@ -9,7 +9,7 @@ import prisma from "../lib/prisma";
 import { SAFE_USER_SELECT } from "../lib/safeUserSelect";
 import { SplitType, Prisma } from "@prisma/client";
 import { cleanData } from "../utils/cleanData";
-import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue } from "../utils/splitCalculation";
+import { resolveSplit, ResolvedSplit } from "./expenseSplit";
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
 import { assertThemeVisible } from "./themeService";
@@ -152,35 +152,10 @@ export async function createExpense(data: {
     throw new Error('Expense amount must be greater than 0');
   }
 
-  let finalSplitAmounts: number[] = [];
-
-  if (splitWithIds.length > 0) {
-    switch (splitType) {
-      case SplitType.EQUAL:
-        // Payer is now optional in split - only divide by actual split member count
-        finalSplitAmounts = distributeAmountEvenly(amount, splitWithIds.length);
-        break;
-
-      case SplitType.AMOUNT:
-        if (hasNonPositiveValue(splitAmount))
-          throw new AppError("EXPENSE.SPLIT_AMOUNT_INVALID", 400, "EXPENSE_SPLIT_INVALID");
-        const sumAmount = splitAmount.reduce((a, b) => a + b, 0);
-        if (Math.abs(sumAmount - amount) > 0.01)
-          throw new AppError("EXPENSE.SPLIT_SUM_MISMATCH", 400, "EXPENSE_SPLIT_INVALID");
-        finalSplitAmounts = splitAmount;
-        break;
-
-      case SplitType.PERCENTAGE:
-        if (hasNonPositiveValue(splitPercentage))
-          throw new AppError("EXPENSE.SPLIT_PERCENTAGE_INVALID", 400, "EXPENSE_PERCENT_INVALID");
-        const sumPercentage = splitPercentage.reduce((a, b) => a + b, 0);
-        if (Math.abs(sumPercentage - 100) > 0.01)
-          throw new AppError("EXPENSE.SPLIT_PERCENTAGE_INVALID", 400, "EXPENSE_PERCENT_INVALID");
-
-        finalSplitAmounts = distributeAmountByWeights(amount, splitPercentage);
-        break;
-    }
-  }
+  const resolvedSplit: ResolvedSplit | null =
+    splitWithIds.length > 0
+      ? resolveSplit({ splitType, amount, memberCount: splitWithIds.length, splitAmount, splitPercentage })
+      : null;
 
   try {
     // Verify group exists
@@ -195,8 +170,7 @@ export async function createExpense(data: {
     assertGroupMember(group, requesterId, groupId);
 
     // Verify paidById user is a member of the group
-    const isPayerMember = group.members.some((m) => m.id === paidById);
-    if (!isPayerMember && group.createdById !== paidById) {
+    if (!isGroupMember(group, paidById)) {
       throw new AppError(
         'Payer is not a member of this group',
         403,
@@ -274,11 +248,11 @@ export async function createExpense(data: {
     };
 
     // Add splitWith relationship only if there are split members
-    if (splitWithIds.length > 0) {
+    if (resolvedSplit) {
       expenseData.splitWith = { connect: splitWithIds.map((id) => ({ id })) };
-      expenseData.splitAmount = finalSplitAmounts;
-      if (splitType === SplitType.PERCENTAGE) {
-        expenseData.splitPercentage = splitPercentage;
+      expenseData.splitAmount = resolvedSplit.amounts;
+      if (resolvedSplit.percentages) {
+        expenseData.splitPercentage = resolvedSplit.percentages;
       }
     }
 
@@ -497,7 +471,6 @@ export async function updateExpense(
       throw new AppError('Expense amount must be greater than 0', 400, 'INVALID_AMOUNT');
     }
 
-    let finalSplitAmounts: number[] = [];
     const finalAmount = amount ?? expense.amount;
 
     // Validate category if provided
@@ -531,8 +504,7 @@ export async function updateExpense(
 
     // Validate paidBy if provided
     if (paidById !== undefined) {
-      const payerMember = expense.group.members.some((m) => m.id === paidById);
-      if (!payerMember && expense.group.createdById !== paidById) {
+      if (!isGroupMember(expense.group, paidById)) {
         throw new AppError(
           'Payer is not a member of this group',
           403,
@@ -550,45 +522,16 @@ export async function updateExpense(
     // finalSplitAmounts correctly but never got persisted (see below) because
     // the write-back was gated on splitWithIds alone.
     const finalSplitIds = splitWithIds ?? expense.splitWith.map((u: any) => u.id);
-    let finalSplitPercentage: number[] | undefined;
-
-    if (finalSplitIds.length > 0) {
-      const effectiveSplitType = splitType ?? expense.splitType;
-
-      switch (effectiveSplitType) {
-        case SplitType.EQUAL:
-          // Payer is now optional in split - only divide by actual split member count
-          finalSplitAmounts = distributeAmountEvenly(finalAmount, finalSplitIds.length);
-          break;
-
-        case SplitType.AMOUNT: {
-          const newSplitAmount = splitAmount ?? expense.splitAmount;
-          if (hasNonPositiveValue(newSplitAmount)) {
-            throw new AppError('EXPENSE.SPLIT_AMOUNT_INVALID', 400, 'EXPENSE_SPLIT_INVALID');
-          }
-          const sumAmount = newSplitAmount.reduce((a, b) => a + b, 0);
-          if (Math.abs(sumAmount - finalAmount) > 0.01) {
-            throw new AppError('Split amounts do not match total amount', 400, 'EXPENSE_SPLIT_INVALID');
-          }
-          finalSplitAmounts = newSplitAmount;
-          break;
-        }
-
-        case SplitType.PERCENTAGE: {
-          const newSplitPercentage = splitPercentage ?? expense.splitPercentage;
-          if (hasNonPositiveValue(newSplitPercentage)) {
-            throw new AppError('EXPENSE.SPLIT_PERCENTAGE_INVALID', 400, 'EXPENSE_PERCENT_INVALID');
-          }
-          const sumPercentage = newSplitPercentage.reduce((a, b) => a + b, 0);
-          if (Math.abs(sumPercentage - 100) > 0.01) {
-            throw new AppError('Split percentages must sum to 100', 400, 'EXPENSE_PERCENT_INVALID');
-          }
-          finalSplitAmounts = distributeAmountByWeights(finalAmount, newSplitPercentage);
-          finalSplitPercentage = newSplitPercentage;
-          break;
-        }
-      }
-    }
+    const resolvedSplit: ResolvedSplit | null =
+      finalSplitIds.length > 0
+        ? resolveSplit({
+            splitType: splitType ?? expense.splitType,
+            amount: finalAmount,
+            memberCount: finalSplitIds.length,
+            splitAmount: splitAmount ?? expense.splitAmount,
+            splitPercentage: splitPercentage ?? expense.splitPercentage,
+          })
+        : null;
 
     // Build update data
     const updateData: Prisma.ExpenseUpdateInput = {};
@@ -624,13 +567,13 @@ export async function updateExpense(
       updateData.splitWith = { set: splitWithIds.map((id) => ({ id })) };
     }
 
-    if (finalSplitIds.length > 0) {
+    if (resolvedSplit) {
       // Persist whenever the split was (re)computed above - covers
       // amount-only, splitType-only, splitAmount-only, and
       // splitPercentage-only edits, not just splitWithIds changes.
-      updateData.splitAmount = finalSplitAmounts;
-      if (finalSplitPercentage !== undefined) {
-        updateData.splitPercentage = finalSplitPercentage;
+      updateData.splitAmount = resolvedSplit.amounts;
+      if (resolvedSplit.percentages) {
+        updateData.splitPercentage = resolvedSplit.percentages;
       }
     } else if (splitWithIds !== undefined) {
       // splitWithIds explicitly cleared to an empty split

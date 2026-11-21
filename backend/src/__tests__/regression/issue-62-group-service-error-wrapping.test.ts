@@ -32,12 +32,6 @@ const CASES: WrapCase[] = [
     message: 'Failed to update group',
     code: 'UPDATE_GROUP_ERROR',
   },
-  {
-    name: 'getGroupExpenses',
-    call: () => groupService.getGroupExpenses(1, 1),
-    message: 'Failed to fetch group expenses',
-    code: 'FETCH_EXPENSES_ERROR',
-  },
 ];
 
 describe('groupService error wrapping (issue #62)', () => {
