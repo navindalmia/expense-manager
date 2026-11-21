@@ -44,7 +44,8 @@ router.post('/:id/members/email', authMiddleware, requireEmailVerified, groupCon
 
 // Add member to group by ID
 // POST /api/groups/:id/members
-router.post('/:id/members', authMiddleware, groupController.addMember);
+// Protected: Requires verified email, same as the /members/email sibling
+router.post('/:id/members', authMiddleware, requireEmailVerified, groupController.addMember);
 
 // Remove member from group
 // DELETE /api/groups/:id/members/:memberId
