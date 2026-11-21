@@ -1,8 +1,9 @@
-import prisma from '../../lib/prisma';
+import prisma from '../lib/prisma';
 
 /**
- * Database Verification Utility
- * Used for end-to-end testing to verify data state after UI actions
+ * Test-support service (database verification and cleanup).
+ * Backs the /api/internal routes, which are only mounted when
+ * ENABLE_INTERNAL_ROUTES=true outside production.
  */
 
 export interface EmailVerificationState {
@@ -171,4 +172,38 @@ export async function generateEmailVerificationReport(): Promise<{
     usedTokens,
     expiredTokens,
   };
+}
+
+export interface ActiveVerificationToken {
+  token: string;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+/** Most recent unused, unexpired verification token for a user, or null. */
+export async function getActiveVerificationToken(userId: number): Promise<ActiveVerificationToken | null> {
+  return prisma.emailVerificationToken.findFirst({
+    where: { userId, isUsed: false, expiresAt: { gt: new Date() } },
+    select: { token: true, expiresAt: true, createdAt: true },
+    orderBy: { expiresAt: 'desc' },
+  });
+}
+
+/** Deletes a user and its verification tokens. Returns null if the user does not exist. */
+export async function clearUserByEmail(email: string): Promise<{ tokensDeleted: number } | null> {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return null;
+
+  // Tokens first (FK constraint)
+  const tokens = await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+  await prisma.user.deleteMany({ where: { email } });
+  return { tokensDeleted: tokens.count };
+}
+
+/** Deletes all e2e-created users (e2e-test-*@example.com). Returns how many were removed. */
+export async function clearAllE2eTestUsers(): Promise<number> {
+  const result = await prisma.user.deleteMany({
+    where: { email: { contains: 'e2e-test-', endsWith: '@example.com' } },
+  });
+  return result.count;
 }
