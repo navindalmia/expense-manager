@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 import { logger } from '../utils/logger';
 import { assertThemeVisible } from './themeService';
+import { distributeAmountEvenly, distributeAmountByWeights } from '../utils/splitCalculation';
 import { assertGroupActive, assertGroupMember } from './groupGuards';
 
 /**
@@ -40,50 +41,61 @@ interface ExpenseWithSplit {
 }
 
 /**
+ * Cent-exact share at a position: the same distribution createExpense stores,
+ * so per-member shares always add back to the expense amount (no drifting
+ * cents from dividing and rounding each share independently).
+ */
+function equalShareAt(amount: number, memberCount: number, index: number): number {
+  return distributeAmountEvenly(amount, memberCount)[index] ?? 0;
+}
+
+function percentageShareAt(amount: number, percentages: number[], index: number): number {
+  return distributeAmountByWeights(amount, percentages)[index] ?? 0;
+}
+
+/**
  * Calculate user's share of an expense based on split type and their role.
- * Single source of truth for share calculations.
+ * Single source of truth for share calculations; whole-cent shares come from
+ * utils/splitCalculation, matching what createExpense/updateExpense persist.
  * Handles payer inclusion detection for accurate calculations.
  */
 function calculateUserExpenseShare(exp: ExpenseWithSplit, userId: number): number {
-  // Check if user is the payer
+  const userIndex = exp.splitWith?.findIndex((m) => m.id === userId) ?? -1;
+
   if (exp.paidById === userId) {
-    // User is the payer - calculate their share based on split type
     if (exp.splitType === 'EQUAL' && exp.splitWith && exp.splitWith.length > 0) {
-      // Matches createExpense's EQUAL calculation: amount / splitWith.length
-      // among whoever is in splitWith. If the payer opted out of the split,
-      // their share is 0 - the others' shares already sum to the full amount.
-      const payerInSplit = exp.splitWith.some(m => m.id === exp.paidById);
-      return payerInSplit ? exp.amount / exp.splitWith.length : 0;
-    } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
-      // Find payer's index in splitWith
-      const payerIndex = exp.splitWith?.findIndex(m => m.id === exp.paidById) ?? -1;
-      if (payerIndex !== -1 && exp.splitPercentage?.[payerIndex]) {
-        return (exp.amount * exp.splitPercentage[payerIndex]) / 100;
-      }
-      // Payer opted out of the percentage split entirely (not in
-      // splitWith) -- their own share is 0, same as the EQUAL branch
-      // above. Bug fixed here (issue #46): this used to fall back to
-      // exp.splitPercentage[0], which is splitWith[0]'s percentage, not
-      // the payer's -- attributing another member's share to the payer.
-    } else if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
+      // If the payer opted out of the split, their share is 0 - the others'
+      // shares already sum to the full amount.
+      return userIndex !== -1 ? equalShareAt(exp.amount, exp.splitWith.length, userIndex) : 0;
+    }
+    if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage) {
+      // Payer opted out of the percentage split entirely (not in splitWith):
+      // their own share is 0 (issue #46 - never fall back to splitWith[0]'s).
+      return userIndex !== -1 && exp.splitPercentage[userIndex]
+        ? percentageShareAt(exp.amount, exp.splitPercentage, userIndex)
+        : 0;
+    }
+    if (exp.splitType === 'AMOUNT' && exp.splitAmount) {
       // Amount split: total - sum of others' amounts
       return exp.amount - exp.splitAmount.reduce((a, b) => a + b, 0);
-    } else if (!exp.splitWith || exp.splitWith.length === 0) {
+    }
+    if (!exp.splitWith || exp.splitWith.length === 0) {
       // No split - user pays full amount
       return exp.amount;
     }
-  } else {
-    // User is in splitWith - find their share
-    const userIndex = exp.splitWith?.findIndex(u => u.id === userId) ?? -1;
-    if (userIndex !== -1) {
-      if (exp.splitType === 'EQUAL') {
-        return exp.amount / exp.splitWith.length;
-      } else if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
-        return (exp.amount * exp.splitPercentage[userIndex]) / 100;
-      } else if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
-        return exp.splitAmount[userIndex];
-      }
-    }
+    return 0;
+  }
+
+  if (userIndex === -1) return 0;
+
+  if (exp.splitType === 'EQUAL') {
+    return equalShareAt(exp.amount, exp.splitWith.length, userIndex);
+  }
+  if (exp.splitType === 'PERCENTAGE' && exp.splitPercentage?.[userIndex]) {
+    return percentageShareAt(exp.amount, exp.splitPercentage, userIndex);
+  }
+  if (exp.splitType === 'AMOUNT' && exp.splitAmount?.[userIndex]) {
+    return exp.splitAmount[userIndex];
   }
   return 0;
 }
