@@ -82,7 +82,7 @@ describe('SettlementScreen', () => {
     vi.clearAllMocks();
   });
 
-  it('should report a calculation failure through the logger and render no members instead of crashing', () => {
+  it('should report a calculation failure through the logger instead of crashing', () => {
     const malformed = [null as unknown as Expense];
 
     renderSettlement(malformed);

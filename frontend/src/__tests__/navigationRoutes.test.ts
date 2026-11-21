@@ -5,7 +5,7 @@ import { extractNavigationTargets, NavigationTargets } from './helpers/navigatio
 
 function registeredRoutes(): string[] {
   const app: string = fs.readFileSync(path.join(FRONTEND_ROOT, 'App.tsx'), 'utf8');
-  return [...app.matchAll(/<Stack\.Screen\s+name="(\w+)"/g)].map((m: RegExpMatchArray): string => m[1]);
+  return [...app.matchAll(/<\w+\.Screen\s+name=\{?['"](\w+)['"]/g)].map((m: RegExpMatchArray): string => m[1]);
 }
 
 function appNavigationTargets(): NavigationTargets {
@@ -27,6 +27,27 @@ describe('extractNavigationTargets', () => {
   it('should read the object form and reset routes', () => {
     const src = "navigation.navigate({ name: 'Home' }); navigationRef.current?.reset({ index: 0, routes: [{ name: 'Login' }] });";
     expect(extractNavigationTargets(src).literals).toEqual(['Home', 'Login']);
+  });
+
+  it('should not treat a literal followed by an expression as a plain literal', () => {
+    expect(extractNavigationTargets("navigation.navigate('Home' + suffix)").dynamic).toHaveLength(1);
+    expect(extractNavigationTargets("navigation.navigate('Home' as never, { id: 1 })").dynamic).toHaveLength(1);
+    expect(extractNavigationTargets("navigation.navigate('Home', { id: 1 })").literals).toEqual(['Home']);
+  });
+
+  it('should ignore a name key inside route params', () => {
+    const src = "navigation.reset({ index: 0, routes: [{ name: 'Login', params: { name: 'Bob' } }] });";
+    expect(extractNavigationTargets(src)).toEqual({ literals: ['Login'], dynamic: [] });
+  });
+
+  it('should match navigate on any receiver, destructured calls and CommonActions', () => {
+    const src = "navigation.getParent()?.navigate('A'); nav.navigate('B'); navigate('C'); CommonActions.reset({ routes: [{ name: 'D' }] });";
+    expect(extractNavigationTargets(src).literals.sort()).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('should not be fooled by parentheses inside strings or comments', () => {
+    const src = "navigation.navigate('Home', { note: ')' }); // navigation.navigate('X'\nnavigation.navigate('Y');";
+    expect(extractNavigationTargets(src).literals).toEqual(['Home', 'Y']);
   });
 
   it('should flag variable and template targets as dynamic instead of ignoring them', () => {

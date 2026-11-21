@@ -130,7 +130,7 @@ describe('EditExpenseScreen (CREATE mode)', () => {
   });
 
   it('does not block save with a category error when the user never touched the category picker', async () => {
-    (createExpense as any).mockResolvedValue({ id: 99 });
+    vi.mocked(createExpense).mockResolvedValue({ id: 99 } as Awaited<ReturnType<typeof createExpense>>);
     const { container } = renderScreen();
 
     await waitFor(() => {
@@ -146,7 +146,7 @@ describe('EditExpenseScreen (CREATE mode)', () => {
     });
 
     expect(screen.queryByText('Please select a category')).toBeNull();
-    expect((createExpense as any).mock.calls[0][0].categoryId).toBe(7); // "OTHER" id from mockCategories
+    expect(vi.mocked(createExpense).mock.calls[0][0].categoryId).toBe(7); // "OTHER" id from mockCategories
   });
 
   it('does not show a Delete button when creating a new expense (nothing to delete yet)', async () => {
