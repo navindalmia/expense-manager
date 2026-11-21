@@ -642,6 +642,22 @@ describe('ExpenseService', () => {
       (prisma.expense.update as jest.Mock).mockResolvedValue({ id: 1 });
     });
 
+    it('rejects mismatched AMOUNT shares on update with the same 400 key and code createExpense uses', async () => {
+      (prisma.expense.findUnique as jest.Mock).mockResolvedValue({
+        ...mockExistingExpense,
+        splitType: SplitType.AMOUNT,
+        splitAmount: [50, 50],
+        splitWith: [{ id: 1 }, { id: 2 }],
+      });
+
+      await expect(expenseService.updateExpense(1, 1, { splitAmount: [60, 30] })).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'EXPENSE_SPLIT_INVALID',
+        messageKey: 'EXPENSE.SPLIT_SUM_MISMATCH',
+      });
+      expect(prisma.expense.update).not.toHaveBeenCalled();
+    });
+
     it('persists the recalculated splitAmount when only the total amount changes (regression: was silently dropped, leaving a stale split in the DB)', async () => {
       await expenseService.updateExpense(1, 1, { amount: 120 });
 
