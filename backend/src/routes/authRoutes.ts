@@ -7,6 +7,12 @@
 import { Router } from 'express';
 import * as authController from '../controllers/authController';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import {
+  rateLimitLogin,
+  rateLimitSignup,
+  rateLimitVerifyEmail,
+  rateLimitResendVerification,
+} from '../middlewares/rateLimitMiddleware';
 
 const router = Router();
 
@@ -15,14 +21,14 @@ const router = Router();
  * POST /api/auth/signup
  * Body: { email, password, name }
  */
-router.post('/signup', authController.signup);
+router.post('/signup', rateLimitSignup, authController.signup);
 
 /**
  * User login with email and password
  * POST /api/auth/login
  * Body: { email, password }
  */
-router.post('/login', authController.login);
+router.post('/login', rateLimitLogin, authController.login);
 
 /**
  * Get current authenticated user
@@ -44,7 +50,7 @@ router.post('/logout', authMiddleware, authController.logout);
  * Public: No authentication required
  * Body: { token }
  */
-router.post('/verify-email', authController.verifyEmail);
+router.post('/verify-email', rateLimitVerifyEmail, authController.verifyEmail);
 
 /**
  * Resend verification email
@@ -52,6 +58,6 @@ router.post('/verify-email', authController.verifyEmail);
  * Public: No authentication required (generic response)
  * Body: { email }
  */
-router.post('/resend-verification', authController.resendVerificationEmail);
+router.post('/resend-verification', rateLimitResendVerification, authController.resendVerificationEmail);
 
 export default router;
