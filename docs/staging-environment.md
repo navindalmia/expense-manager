@@ -45,7 +45,7 @@ Staging runs `migrate:deploy && seed && start`, the same as production, to rehea
 
 ## Notes
 
-- The smoke job polls the host root (`STAGING_API_URL` minus `/api`, via `scripts/staging-health-url.js`). `/api/internal/*` is only mounted when `NODE_ENV !== 'production'`, so it is a 404 on staging.
+- The smoke job polls the host root (`STAGING_API_URL` minus `/api`, via `scripts/staging-health-url.js`). `/api/internal/*` is only mounted when `NODE_ENV !== 'production'` and `ENABLE_INTERNAL_ROUTES=true`, so it is a 404 on staging.
 - The prerelease GitHub Release (`staging-YYYYMMDD-<sha7>`) and job summary use `node scripts/eas-release-notes.js --list <before> <head>`. Promotion PRs use `.github/PULL_REQUEST_TEMPLATE/promotion.md` (append `?template=promotion.md` to the compare URL).
 - The master-side release (`vYYYY.MM.DD-N` GitHub Release) from the plan's phase 4 is not implemented here.
 
