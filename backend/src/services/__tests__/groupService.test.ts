@@ -345,6 +345,12 @@ describe('GroupService', () => {
   });
 
   describe('removeMemberFromGroup', () => {
+    beforeEach(() => {
+      (prisma.$transaction as jest.Mock).mockImplementation(
+        async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)
+      );
+    });
+
     it('removes a member when called by the creator', async () => {
       (prisma.group.findUnique as jest.Mock).mockResolvedValue(buildGroup());
       (prisma.expense.findMany as jest.Mock).mockResolvedValue([]);

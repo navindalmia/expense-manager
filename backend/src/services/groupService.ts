@@ -503,6 +503,32 @@ export async function addMemberToGroup(
 }
 
 /**
+ * Mark every expense the member paid in the group as settled, so removing
+ * them cannot leave orphaned expenses breaking settlement calculations.
+ * Runs on the caller's transaction client. Returns how many were settled.
+ */
+async function settleMemberExpenses(
+  tx: Prisma.TransactionClient,
+  groupId: number,
+  memberId: number
+): Promise<number> {
+  const memberExpenses = await tx.expense.findMany({
+    where: { groupId, paidById: memberId },
+    select: { id: true },
+  });
+
+  if (memberExpenses.length === 0) {
+    return 0;
+  }
+
+  await tx.expense.updateMany({
+    where: { id: { in: memberExpenses.map((e) => e.id) } },
+    data: { isSettled: true },
+  });
+  return memberExpenses.length;
+}
+
+/**
  * Remove a member from a group
  * IMPORTANT: Handles data integrity - settles member's expenses before removal
  * @param groupId Group ID
@@ -556,50 +582,30 @@ export async function removeMemberFromGroup(
       );
     }
 
-    // CRITICAL: Handle data integrity - mark member's expenses as settled
-    // This prevents orphaned expenses from breaking settlement calculations
-    const memberExpenses = await prisma.expense.findMany({
-      where: {
-        groupId,
-        paidById: memberId,
-      },
-      select: { id: true },
-    });
+    // Settle the member's expenses and disconnect them atomically: a failure
+    // in either step must not leave settled expenses with a still-active member
+    // (or the reverse).
+    const updated = await prisma.$transaction(async (tx) => {
+      const settledCount = await settleMemberExpenses(tx, groupId, memberId);
+      if (settledCount > 0) {
+        logger.info('Settled member expenses on removal', { groupId, memberId, expenseCount: settledCount });
+      }
 
-    // Mark all expenses paid by this member as settled
-    if (memberExpenses.length > 0) {
-      await prisma.expense.updateMany({
-        where: {
-          id: { in: memberExpenses.map(e => e.id) },
+      return tx.group.update({
+        where: { id: groupId },
+        data: { members: { disconnect: { id: memberId } } },
+        include: {
+          currency: {
+            select: { id: true, code: true, label: true },
+          },
+          members: {
+            select: SAFE_USER_SELECT,
+          },
+          createdBy: {
+            select: SAFE_USER_SELECT,
+          },
         },
-        data: { isSettled: true },
       });
-      logger.info('Settled member expenses on removal', {
-        groupId,
-        memberId,
-        expenseCount: memberExpenses.length,
-      });
-    }
-
-    // Remove member from group and all expense splitWith relationships
-    const updated = await prisma.group.update({
-      where: { id: groupId },
-      data: {
-        members: {
-          disconnect: { id: memberId },
-        },
-      },
-      include: {
-        currency: {
-          select: { id: true, code: true, label: true },
-        },
-        members: {
-          select: SAFE_USER_SELECT,
-        },
-        createdBy: {
-          select: SAFE_USER_SELECT,
-        },
-      },
     });
 
     logger.info('Member successfully removed from group', {
