@@ -45,6 +45,15 @@ Commit the result. If any count INCREASES versus the base baseline, the check re
 - Intentionally public, unvalidated or unlimited routes: add `"<routesFile> <METHOD> <path>"` to `scripts/principles-allowlist.json` (`publicRoutes`, `unvalidatedRoutes`, `unlimitedRoutes`).
 - Whole PR: commit trailer `Principles-Exempt: <rule-id> <reason>`.
 
+## Trust boundary (hardened after the first adversarial review round)
+
+- Thresholds and the baseline come from the BASE commit. If the base has no baseline the check fails closed, except for the one PR that introduces the baseline file.
+- A file's allowance is the smaller of the stored baseline and what the file really had at the base, so a cleanup merged without refreshing the baseline never lends slack to a later PR.
+- Fixing a violation in one place and adding another elsewhere in the same file fails (pure deletions do not pay for additions). Editing a violating line in place does not.
+- Growing `scripts/principles-allowlist.json` reports `ALLOWLIST-RAISED` unless a commit carries `Principles-Baseline-Raise: <reason>`.
+- `Principles-Exempt:` matches the exact rule id (no family prefix) and applies to the whole PR.
+- The check script, workflow and tests come from the PR head, so only branch protection plus code-owner review on `scripts/principles-*` and `.github/workflows/` guards them. Not configured by this PR.
+
 ## Limits
 
 An exemption trailer is honour-system, visible in review. A file renamed with heavy edits is matched to its old baseline via git rename detection only. Unused-export detection is a word grep, not knip. CI runs the check as the `principles-check` job (pull_request only); until the owner marks it required in branch protection it is advisory.

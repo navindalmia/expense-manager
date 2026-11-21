@@ -25,3 +25,11 @@ test('principles-check job pins actions to a major tag like the rest of the file
   for (const m of job.matchAll(/uses:\s*(\S+)/g)) assert.match(m[1], /@v\d+/, m[1]);
   assert.doesNotMatch(job, /run:[^\n]*\$\{\{\s*github\.(head_ref|base_ref|event)/);
 });
+
+test('the gating step cannot be neutered: it targets the PR base, has no || true, no step-level if or continue-on-error', () => {
+  const step = job.split(/\n\s+- name:/).find((b) => /Principles ratchet \(new violations only\)/.test(b)) || '';
+  assert.ok(step.length > 0, 'gating step missing');
+  assert.match(step, /--base "origin\/\$BASE_REF"/);
+  assert.doesNotMatch(step, /\|\|\s*true/);
+  assert.doesNotMatch(step, /\bif:|continue-on-error/);
+});

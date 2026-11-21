@@ -52,7 +52,7 @@ test('P5 flags unauthenticated, unvalidated and unlimited routes; allowlist and 
   assert.deepEqual(rules(f, "router.post('/login', ctl.login);\n").sort(), ['P5-route-ratelimit', 'P5-route-validation']);
   assert.deepEqual(rules(f, "router.post('/login', loginLimiter, validate(s), ctl.login);\n"), []);
   assert.deepEqual(rules('backend/src/routes/g.ts', "router.use(authMiddleware);\nrouter.get('/x', c.x);\n"), []);
-  const validating = { ...ctx, readFile: (p) => (p.endsWith('gController.ts') ? 'export const make = async () => { S.parse(req.body); };' : "import * as gController from '../controllers/gController';") };
+  const validating = { ...ctx, readFile: (p) => (p.endsWith('gController.ts') ? 'export const make = async () => { makeSchema.parse(req.body); };' : "import * as gController from '../controllers/gController';") };
   assert.deepEqual(rules('backend/src/routes/g.ts', "router.post('/', authMiddleware, gController.make);\n", validating), []);
 });
 
@@ -88,11 +88,9 @@ function makeRepo() {
   w('backend/src/__tests__/clean.test.ts', "import { clean } from '../services/clean';\n");
   w('scripts/principles-baseline.json', '{}');
   const ctxR = { cfg, keys: new Set(), allowlist: {}, readFile: (p) => { try { return fs.readFileSync(path.join(dir, p), 'utf8'); } catch (_) { return null; } } };
-  const base = pc.computeBaseline(pc.makeIo(dir, 'HEAD'), cfg, ctxR); // before first commit: ls-files empty, so stage first
   run('add', '-A');
   const b2 = pc.computeBaseline(pc.makeIo(dir, 'HEAD'), cfg, ctxR);
   w('scripts/principles-baseline.json', JSON.stringify(b2));
-  assert.ok(base);
   run('add', '-A'); run('commit', '-q', '-m', 'base'); run('branch', 'baseref'); run('checkout', '-q', '-b', 'feat');
   const check = (msg) => {
     run('add', '-A'); run('commit', '-q', '-m', msg || 'change');
@@ -185,4 +183,152 @@ test('--report prints a markdown table naming the rule ids', () => {
   const md = pc.formatReport(check());
   assert.match(md, /Principles ratchet: FAIL/);
   assert.match(md, /\| FAIL \| P3-console \|/);
+});
+
+// ---------- round-2 hardening: trust boundary, accounting, rename, CLI ----------
+
+const CLI = path.join(__dirname, '..', 'principles-check.js');
+
+test('P5 validation is bound to the handler body: JSON.parse or a neighbouring parse does not count', () => {
+  const src = (body) => (p) => (p.endsWith('gController.ts') ? body : "import * as gController from '../controllers/gController';");
+  const route = "router.post('/', authMiddleware, gController.make);\n";
+  const bad1 = { ...ctx, readFile: src('export const make = async () => { JSON.parse(x); };\nexport const other = async () => { S.parse(y); };') };
+  assert.deepEqual(rules('backend/src/routes/g.ts', route, bad1), ['P5-route-validation']);
+  const good = { ...ctx, readFile: src('export const make = async () => { createSchema.parse(req.body); };') };
+  assert.deepEqual(rules('backend/src/routes/g.ts', route, good), []);
+});
+
+test('Principles-Exempt matches the exact rule id only, not its family prefix', () => {
+  const { w, check } = makeRepo();
+  w('backend/src/services/clean.ts', 'export const clean = (a: number): number => a;\nthrow new Error("x");\nthrow new AppError("English text", 400, "X");\n');
+  const r = check('change\n\nPrinciples-Exempt: P2 whole family');
+  assert.ok(r.findings.some((f) => f.rule === 'P2-raw-error'));
+});
+
+test('NEGATIVE: a PR that adds a violation AND raises the baseline still fails (baseline is read from the base)', () => {
+  const { dir, w, check } = makeRepo();
+  w('backend/src/legacy.ts', 'export const old: any = 1;\nconsole.log("legacy");\nconsole.log("new");\n');
+  const b = JSON.parse(fs.readFileSync(path.join(dir, 'scripts/principles-baseline.json'), 'utf8'));
+  b.files['backend/src/legacy.ts']['P3-console'] = 2;
+  w('scripts/principles-baseline.json', JSON.stringify(b));
+  const r = check();
+  const got = r.findings.map((f) => f.rule);
+  assert.ok(got.includes('P3-console') && got.includes('BASELINE-RAISED'), got.join(','));
+  assert.equal(r.baselineSource, 'base');
+});
+
+test('Principles-Baseline-Raise trailer suppresses only BASELINE-RAISED, not the violation', () => {
+  const { dir, w, check } = makeRepo();
+  w('backend/src/legacy.ts', 'export const old: any = 1;\nconsole.log("legacy");\nconsole.log("new");\n');
+  const b = JSON.parse(fs.readFileSync(path.join(dir, 'scripts/principles-baseline.json'), 'utf8'));
+  b.files['backend/src/legacy.ts']['P3-console'] = 2;
+  w('scripts/principles-baseline.json', JSON.stringify(b));
+  const got = check('change\n\nPrinciples-Baseline-Raise: approved').findings.map((f) => f.rule);
+  assert.deepEqual(got, ['P3-console']);
+});
+
+test('NEGATIVE: raising thresholds in the PR does not loosen the base thresholds', () => {
+  const { w, check } = makeRepo();
+  w('scripts/principles-config.json', JSON.stringify({ ...cfg, thresholds: { ...cfg.thresholds, fileLines: 99999 } }));
+  w('backend/src/lib/big.ts', Array.from({ length: 450 }, (_, i) => `export const a${i} = ${i};`).join('\n') + '\n');
+  assert.ok(check().findings.some((f) => f.rule === 'P6-file-size'));
+});
+
+test('NEGATIVE: a PR cannot self-allow an unauthenticated route; the allowlist growth needs a trailer', () => {
+  const { dir, w, check } = makeRepo();
+  fs.writeFileSync(path.join(dir, 'scripts/principles-allowlist.json'), JSON.stringify({ publicRoutes: [] }));
+  w('backend/src/routes/gRoutes.ts', "import { Router } from 'express';\nconst router = Router();\nrouter.get('/', authMiddleware, c.list);\nrouter.get('/open', c.open);\nexport default router;\n");
+  w('scripts/principles-allowlist.json', JSON.stringify({ publicRoutes: ['gRoutes.ts GET /open'] }));
+  const r = check();
+  assert.deepEqual(r.findings.map((f) => f.rule), ['ALLOWLIST-RAISED']);
+  assert.match(r.findings[0].text, /gRoutes\.ts GET \/open/);
+});
+
+test('allowlist growth with a Principles-Baseline-Raise trailer passes', () => {
+  const { dir, w, check } = makeRepo();
+  fs.writeFileSync(path.join(dir, 'scripts/principles-allowlist.json'), JSON.stringify({ publicRoutes: [] }));
+  w('backend/src/routes/gRoutes.ts', "import { Router } from 'express';\nconst router = Router();\nrouter.get('/', authMiddleware, c.list);\nrouter.get('/open', c.open);\nexport default router;\n");
+  w('scripts/principles-allowlist.json', JSON.stringify({ publicRoutes: ['gRoutes.ts GET /open'] }));
+  assert.equal(check('change\n\nPrinciples-Baseline-Raise: public status page').ok, true);
+});
+
+test('NEGATIVE: swapping one violation for another in the same file fails (count stays equal)', () => {
+  const { w, check } = makeRepo();
+  w('backend/src/legacy.ts', 'export const old: any = 1;\nconsole.log("different");\n');
+  const r = check();
+  assert.equal(r.ok, true, 'editing the same console line is not a swap');
+  const t = makeRepo();
+  t.w('backend/src/legacy.ts', 'console.log("legacy");\nexport const other: any = 2;\n');
+  const r2 = t.check();
+  assert.ok(r2.findings.some((f) => f.rule === 'P1-any'), 'removing one any and adding another must fail');
+});
+
+test('NEGATIVE: a stale baseline never lends slack after a cleanup merged without refreshing it', () => {
+  const { dir, w, run, check } = makeRepo();
+  w('backend/src/legacy.ts', 'export const old: any = 1;\n');
+  assert.equal(check('cleanup').ok, true);
+  run('branch', '-f', 'baseref', 'feat');
+  w('backend/src/legacy.ts', 'export const old: any = 1;\nconsole.log("new debt");\n');
+  assert.ok(check('next pr').findings.some((f) => f.rule === 'P3-console'));
+  assert.ok(dir);
+});
+
+test('rename: an unchanged legacy file keeps its baseline; a rename plus new debt fails', () => {
+  const a = makeRepo();
+  a.run('mv', 'backend/src/legacy.ts', 'backend/src/legacy2.ts');
+  assert.equal(a.check('rename').ok, true);
+  const b = makeRepo();
+  b.run('mv', 'backend/src/legacy.ts', 'backend/src/legacy2.ts');
+  b.w('backend/src/legacy2.ts', 'export const old: any = 1;\nconsole.log("legacy");\nconsole.log("extra");\n');
+  const r = b.check('rename plus');
+  assert.ok(r.findings.some((f) => f.rule === 'P3-console' && f.file === 'backend/src/legacy2.ts'));
+});
+
+test('P6 growth through the ratchet: baselined oversized function fails when it grows, passes when unchanged', () => {
+  const body = (n) => Array.from({ length: n }, (_, i) => `  const v${i} = ${i};`).join('\n');
+  const mk = (n) => `export function huge(): void {\n${body(n)}\n}\n`;
+  const t = makeRepo();
+  t.w('backend/src/lib/big.ts', mk(90));
+  t.run('add', '-A'); t.run('commit', '-q', '-m', 'oversized');
+  t.run('branch', '-f', 'baseref', 'feat');
+  const io = pc.makeIo(t.dir, 'baseref');
+  // regenerate baseline at the new base so the oversized function is frozen
+  const ctxR = { cfg, keys: new Set(), allowlist: {}, readFile: (p) => { try { return fs.readFileSync(path.join(t.dir, p), 'utf8'); } catch (_) { return null; } } };
+  t.w('scripts/principles-baseline.json', JSON.stringify(pc.computeBaseline(io, cfg, ctxR)));
+  t.run('add', '-A'); t.run('commit', '-q', '-m', 'baseline');
+  t.run('branch', '-f', 'baseref', 'feat');
+  t.w('backend/src/lib/big.ts', mk(90) + '// touched\n');
+  assert.equal(t.check('comment only').ok, true);
+  t.w('backend/src/lib/big.ts', mk(95));
+  assert.ok(t.check('grow').findings.some((f) => f.rule === 'P6-func-size'));
+});
+
+test('missing base baseline that this diff does not introduce fails closed', () => {
+  const { dir, run } = makeRepo();
+  run('rm', '-q', '-f', 'scripts/principles-baseline.json'); run('commit', '-q', '-m', 'drop baseline');
+  run('branch', '-f', 'baseref', 'feat');
+  fs.writeFileSync(path.join(dir, 'x.txt'), 'x'); run('add', '-A'); run('commit', '-q', '-m', 'x');
+  assert.throws(() => pc.evaluate(pc.makeIo(dir, 'baseref'), { skipJscpd: true }), /failing closed/);
+});
+
+test('CLI: exit 0 clean, 1 on a new violation, 2 on error; --json and --update-baseline work', () => {
+  const { dir, w, run } = makeRepo();
+  const cli = (...a) => spawnSync('node', [CLI, '--cwd', dir, '--skip-jscpd', ...a], { encoding: 'utf8' });
+  assert.equal(cli('--base', 'baseref').status, 0);
+  w('backend/src/lib/x.ts', 'console.log(1);\n');
+  run('add', '-A'); run('commit', '-q', '-m', 'x');
+  const out = path.join(dir, 'res.json');
+  const bad = cli('--base', 'baseref', '--json', out);
+  assert.equal(bad.status, 1);
+  assert.equal(JSON.parse(fs.readFileSync(out, 'utf8')).ok, false);
+  assert.equal(cli('--base', 'no-such-ref').status, 2);
+  const up = cli('--update-baseline');
+  assert.equal(up.status, 0);
+  assert.match(up.stdout, /wrote scripts\/principles-baseline\.json/);
+});
+
+test('improvements below the baseline are reported', () => {
+  const { w, check } = makeRepo();
+  w('backend/src/legacy.ts', 'export const old: any = 1;\n');
+  assert.equal(check().improvements.length, 1);
 });

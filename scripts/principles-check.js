@@ -30,9 +30,6 @@ const ROOT = path.join(__dirname, '..');
 const BASELINE_REL = 'scripts/principles-baseline.json';
 const CONFIG_REL = 'scripts/principles-config.json';
 const ALLOWLIST_REL = 'scripts/principles-allowlist.json';
-const COUNT_RULES = ['P1-any', 'P2-raw-error', 'P2-apperror-literal', 'P3-console', 'P4-jsx-string',
-  'P5-route-auth', 'P5-route-validation', 'P5-route-ratelimit', 'P6-func-size', 'P6-file-size'];
-const WARN_RULES = new Set(['P9-unused-export']);
 
 // ---------- text helpers ----------
 
@@ -80,7 +77,7 @@ function flattenKeys(obj, prefix, out) {
 
 // ---------- per-file scanners (return [{rule, line, text}]) ----------
 
-const ANY_PATTERNS = [/:\s*any\b/, /\bas\s+any\b/, /<any\s*[,>\[]/, /\bany\[\]/, /,\s*any\s*>/, /\bArray<any>/, /=\s*any\s*[;,)]/];
+const ANY_PATTERNS = [/\|\s*any\b/, /\bany\s*\|/, /<\w+\s*=\s*any\b/, /:\s*any\b/, /\bas\s+any\b/, /<any\s*[,>\[]/, /\bany\[\]/, /,\s*any\s*>/, /\bArray<any>/, /=\s*any\s*[;,)]/];
 
 function scanAny(raw, clean) {
   const found = [];
@@ -95,7 +92,7 @@ function scanAny(raw, clean) {
 
 function scanRawError(clean, raw) {
   const found = [];
-  const re = /throw\s+new\s+Error\s*\(/g;
+  const re = /throw\s+(?:new\s+)?(?:Type|Range|Syntax)?Error\s*\(/g;
   let m;
   while ((m = re.exec(clean))) found.push({ rule: 'P2-raw-error', line: lineOf(clean, m.index), text: raw.split('\n')[lineOf(clean, m.index) - 1].trim() });
   return found;
@@ -154,7 +151,7 @@ function scanRoutes(raw, clean, file, ctx) {
   const found = [];
   const base = path.basename(file);
   const allow = ctx.allowlist || {};
-  const re = /\b(router|app)\.(get|post|put|patch|delete)\s*\(/g;
+  const re = /\b(router|app)\.(get|post|put|patch|delete|all)\s*\(/g;
   let m;
   while ((m = re.exec(clean))) {
     let depth = 0; let j = m.index + m[0].length - 1; let end = j;
@@ -173,7 +170,7 @@ function scanRoutes(raw, clean, file, ctx) {
     const fileAuth = /\b(router|app)\.use\(\s*(['"`][^'"`]*['"`]\s*,\s*)?\w*[aA]uth\w*\b/.test(before);
     const hasAuth = /\b(authMiddleware|requireAuth|authenticate\w*)\b/.test(call) || fileAuth;
     if (!hasAuth && !(allow.publicRoutes || []).includes(key)) found.push({ rule: 'P5-route-auth', line, text });
-    if (['POST', 'PUT', 'PATCH'].includes(method) && !(allow.unvalidatedRoutes || []).includes(key) && !routeValidates(call, file, ctx)) {
+    if (['POST', 'PUT', 'PATCH', 'ALL'].includes(method) && !(allow.unvalidatedRoutes || []).includes(key) && !routeValidates(call, file, ctx)) {
       found.push({ rule: 'P5-route-validation', line, text });
     }
     const authType = /auth/i.test(base) || /login|signup|password|otp|reset|verify|forgot/i.test(rpath);
@@ -196,7 +193,19 @@ function routeValidates(call, file, ctx) {
   if (!src) return false;
   const idx = src.search(new RegExp(`(function\\s+${h[2]}\\b|const\\s+${h[2]}\\s*=)`));
   if (idx < 0) return false;
-  return /\.(safeParse|parse|parseAsync)\(|validate\w*\(/.test(src.slice(idx, idx + 4000));
+  return /\b\w*[sS]chema\w*\.(safeParse|parse|parseAsync)\(|\bvalidate\w*\(/.test(braceBody(src, idx));
+}
+
+// Text of the first brace-balanced block at/after idx (the handler body), so a neighbouring function cannot satisfy the check.
+function braceBody(src, idx) {
+  const open = src.indexOf('{', idx);
+  if (open < 0) return '';
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1);
+  }
+  return src.slice(open);
 }
 
 // `import * as groupController from '../controllers/groupController'` -> read that file.
@@ -235,7 +244,7 @@ function scanSize(clean, cfg) {
   const found = [];
   const total = clean.split('\n').length;
   if (total > cfg.thresholds.fileLines) found.push({ rule: 'P6-file-size', line: 1, text: `${total} lines (threshold ${cfg.thresholds.fileLines})`, weight: total });
-  // Only outermost-most measured entries: nested functions count on their own, acceptable.
+  // Nested functions are measured independently of their parents.
   for (const f of findFunctions(clean)) {
     if (f.lines > cfg.thresholds.functionLines) {
       found.push({ rule: 'P6-func-size', line: f.start, text: `${f.name}: ${f.lines} lines (threshold ${cfg.thresholds.functionLines})`, weight: f.lines });
@@ -272,7 +281,7 @@ function applyInlineExemptions(findings, raw) {
     if (f.rule === 'P6-file-size') return true;
     const ctx = `${lines[f.line - 2] || ''}\n${lines[f.line - 1] || ''}`;
     const m = /principles-exempt:\s*([\w-]+)\s+\S+/.exec(ctx);
-    return !(m && (m[1] === f.rule || m[1] === f.rule.split('-')[0]));
+    return !(m && m[1] === f.rule);
   });
 }
 
@@ -296,7 +305,8 @@ function makeIo(cwd, base) {
     cwd,
     mergeBase() {
       const r = g(['merge-base', base, 'HEAD']);
-      return r.status === 0 ? r.out.trim() : base;
+      if (r.status !== 0) throw new Error(`cannot resolve merge-base of '${base}' and HEAD (is the base fetched?): ${r.err.trim()}`);
+      return r.out.trim();
     },
     diffFiles(mb) {
       const r = g(['diff', '--name-status', '-M', '--no-color', mb]);
@@ -308,19 +318,27 @@ function makeIo(cwd, base) {
       for (const u of g(['ls-files', '--others', '--exclude-standard']).out.split('\n').filter(Boolean)) files.push({ status: 'A', path: u });
       return files;
     },
-    addedLines(mb, file) {
-      const r = g(['diff', '-U0', '--no-color', mb, '--', file]);
-      const set = new Set();
+    // Line numbers added (new side) and removed (old side, only in hunks that also add lines = an edit, not a pure deletion) for a file; oldPath lets rename detection see through a move.
+    lineChanges(mb, file, oldPath) {
+      const paths = oldPath && oldPath !== file ? [oldPath, file] : [file];
+      const r = g(['diff', '-U0', '-M', '--no-color', mb, '--', ...paths]);
+      const added = new Set(); const removed = new Set();
+      let hunkRemoved = []; let hunkAdded = 0;
+      const flush = () => { if (hunkAdded > 0) hunkRemoved.forEach((x) => removed.add(x)); hunkRemoved = []; hunkAdded = 0; };
       if (r.status === 0 && r.out) {
-        let n = 0;
+        let n = 0; let o = 0;
         for (const l of r.out.split('\n')) {
-          const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(l);
-          if (h) { n = Number(h[1]); continue; }
-          if (n && l.startsWith('+') && !l.startsWith('+++')) { set.add(n); n++; }
+          const h = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+          if (h) { flush(); o = Number(h[1]); n = Number(h[2]); continue; }
+          if (!n && !o) continue;
+          if (l.startsWith('+') && !l.startsWith('+++')) { added.add(n); n++; hunkAdded++; }
+          else if (l.startsWith('-') && !l.startsWith('---')) { hunkRemoved.push(o); o++; }
         }
+        flush();
       }
-      return set;
+      return { added, removed };
     },
+    addedLines(mb, file, oldPath) { return this.lineChanges(mb, file, oldPath).added; },
     readWork(rel) { try { return fs.readFileSync(path.join(cwd, rel), 'utf8'); } catch (_) { return null; } },
     readAt(ref, rel) { const r = g(['show', `${ref}:${rel}`]); return r.status === 0 ? r.out : null; },
     commitMessages(mb) { return g(['log', '--format=%B%x00', `${mb}..HEAD`]).out; },
@@ -361,7 +379,7 @@ function exemptedRules(messages) {
   return { set, raise: /^Principles-Baseline-Raise:\s*\S+/m.test(messages) };
 }
 
-function isRuleExempt(set, rule) { return set.has(rule) || set.has(rule.split('-')[0]); }
+function isRuleExempt(set, rule) { return set.has(rule); }
 
 function evaluate(io, opts) {
   const cfgHead = parseJson(io.readWork(CONFIG_REL) || 'null', null);
@@ -371,29 +389,44 @@ function evaluate(io, opts) {
   if (!cfg) throw new Error(`${CONFIG_REL} missing`);
   const allowlist = parseJson(io.readWork(ALLOWLIST_REL) || '{}', {});
   const baseBaselineRaw = io.readAt(mb, BASELINE_REL);
-  const baselineSource = baseBaselineRaw ? 'base' : 'worktree (bootstrap)';
+  const changed = io.diffFiles(mb);
+  // Bootstrap is allowed only for the one PR that INTRODUCES the baseline; any other missing-baseline state fails closed.
+  const introducing = !baseBaselineRaw && changed.some((c) => c.path === BASELINE_REL && c.status === 'A');
+  if (!baseBaselineRaw && !introducing) throw new Error(`${BASELINE_REL} not found at base ${mb.slice(0, 10)} and not introduced by this diff (failing closed)`);
+  const baselineSource = baseBaselineRaw ? 'base' : 'worktree (bootstrap: this PR introduces the baseline)';
   const baseline = parseJson(baseBaselineRaw || io.readWork(BASELINE_REL) || 'null', null);
-  if (!baseline) throw new Error(`${BASELINE_REL} missing: run --update-baseline`);
+  if (!baseline) throw new Error(`${BASELINE_REL} missing or unparseable: run --update-baseline`);
   const headBaseline = parseJson(io.readWork(BASELINE_REL) || 'null', null);
   const ctx = { cfg, keys: loadLocaleKeys(io), allowlist, readFile: (p) => io.readWork(p) };
   const exempt = exemptedRules(io.commitMessages(mb));
-  const changed = io.diffFiles(mb);
   const findings = []; const warnings = []; const improvements = [];
+  allowlistRaised(parseJson(io.readAt(mb, ALLOWLIST_REL) || 'null', null), allowlist, exempt, findings);
 
   for (const f of changed) {
     if (f.status === 'D') continue;
     const raw = io.readWork(f.path);
     if (raw === null) continue;
-    const added = f.status === 'A' ? null : io.addedLines(mb, f.path);
-    const all = scanFile(f.path, raw, ctx);
-    const counts = countFindings(all);
     const baseKey = f.status === 'R' ? f.oldPath : f.path;
-    const allowed = (baseline.files[baseKey] || {});
+    const baseRaw = f.status === 'A' ? null : io.readAt(mb, baseKey);
+    const changes = f.status === 'A' ? null : io.lineChanges(mb, f.path, f.oldPath);
+    const added = changes ? changes.added : null;
+    const all = scanFile(f.path, raw, ctx);
+    const baseAll = baseRaw === null ? [] : scanFile(baseKey, baseRaw, ctx);
+    const counts = countFindings(all);
+    const baseCounts = countFindings(baseAll);
+    const stored = baseline.files[baseKey] || {};
+    // Allowance is the smaller of the stored baseline and what this file really had at the base: a stale baseline never lends slack.
+    const allowed = {};
+    for (const r of new Set([...Object.keys(stored), ...Object.keys(baseCounts)])) allowed[r] = baseRaw === null ? (stored[r] || 0) : Math.min(stored[r] || 0, baseCounts[r] || 0);
     for (const rule of Object.keys(counts)) {
-      if (counts[rule] <= (allowed[rule] || 0)) continue;
       const mine = all.filter((x) => x.rule === rule);
-      let hits = added ? mine.filter((x) => added.has(x.line)) : mine;
-      if (!hits.length) hits = mine.slice(0, 1); // grown via edit of an existing line: still a growth
+      const sized = rule === 'P6-func-size' || rule === 'P6-file-size';
+      const addedHits = added ? mine.filter((x) => added.has(x.line)) : mine;
+      const removedHits = changes ? baseAll.filter((x) => x.rule === rule && changes.removed.has(x.line)).length : 0;
+      const grew = counts[rule] > (allowed[rule] || 0);
+      const swapped = !sized && addedHits.length > removedHits; // a violation moved/edited keeps removed == added; a swap does not
+      if (!grew && !swapped) continue;
+      const hits = addedHits.length ? addedHits : mine.slice(0, 1);
       for (const h of hits) findings.push({ file: f.path, line: h.line, rule, text: h.text, baseline: allowed[rule] || 0, now: counts[rule] });
     }
     for (const rule of Object.keys(allowed)) {
@@ -409,6 +442,17 @@ function evaluate(io, opts) {
   const final = findings.filter((x) => !isRuleExempt(exempt.set, x.rule));
   return { base: mb, baselineSource, findings: final, exemptedCount: findings.length - final.length, warnings, improvements,
     exemptRules: [...exempt.set], ok: final.length === 0 };
+}
+
+function allowlistRaised(baseAllow, headAllow, exempt, findings) {
+  if (!baseAllow || exempt.raise) return;
+  for (const list of ['publicRoutes', 'unvalidatedRoutes', 'unlimitedRoutes']) {
+    for (const entry of (headAllow[list] || [])) {
+      if (!(baseAllow[list] || []).includes(entry)) {
+        findings.push({ file: ALLOWLIST_REL, line: 1, rule: 'ALLOWLIST-RAISED', text: `${list} += '${entry}' (needs a 'Principles-Baseline-Raise: <reason>' commit trailer)`, baseline: 0, now: 1 });
+      }
+    }
+  }
 }
 
 function baselineRaised(baseRaw, head, exempt, findings) {
@@ -556,4 +600,4 @@ if (require.main === module) {
 }
 
 module.exports = { stripComments, scanFile, scanAny, scanRoutes, scanJsxStrings, scanAppErrorLiteral, scanConsole, scanRawError,
-  findFunctions, scanSize, countFindings, evaluate, computeBaseline, formatReport, formatText, exemptedRules, makeIo, main, COUNT_RULES, WARN_RULES };
+  findFunctions, scanSize, countFindings, evaluate, computeBaseline, formatReport, formatText, exemptedRules, makeIo, main };
