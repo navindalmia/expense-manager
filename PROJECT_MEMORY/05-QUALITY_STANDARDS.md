@@ -39,6 +39,26 @@ See `CLAUDE.md` → Code Review Standards for the condensed version `/ce-code-re
 
 ---
 
+## 📏 PRINCIPLES RATCHET (automatic, every review and every PR)
+
+`node scripts/principles-check.js --report --base <base>` compares the diff against `scripts/principles-baseline.json` and fails only on NEW violations. `/ce-code-review`'s project-standards reviewer MUST run it and report each new violation as a finding with its rule id. CI runs the same script as the `principles-check` job on every pull request.
+
+| Rule | Checks |
+|---|---|
+| P1-any | `any`, `as any`, `@ts-ignore`, `@ts-expect-error`, eslint-disable in non-test TS |
+| P2-raw-error / P2-apperror-literal | `throw new Error(` in backend; AppError message that is not an existing i18n key |
+| P3-console | `console.log/warn/error/debug/info` outside the logger util |
+| P4-jsx-string | hardcoded user-facing JSX string (escape: `// i18n-exempt: <reason>`) |
+| P5-route-auth / validation / ratelimit | Express routes missing auth middleware, Zod validation, or a limiter on auth-type routes (allowlist: `scripts/principles-allowlist.json`) |
+| P6-func-size / file-size | function over 80 lines / file over 400 lines, fails only when it grows |
+| P7-duplication | jscpd clone (min 50 tokens) involving added lines |
+| P8-missing-test | new service/controller/hook file without a test (others warn) |
+| P9-unused-export | newly added export referenced nowhere else (warn) |
+
+Raising the baseline or exempting a rule needs a written reason (`Principles-Baseline-Raise:` / `Principles-Exempt:` commit trailer). Details: `docs/solutions/tooling-decisions/principles-ratchet-check.md`.
+
+---
+
 ## 📋 CODE REVIEW GATE
 
 **PASS Criteria:**

@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "generatedFrom": "2edbabe84b1c1b2e238aefdd85e26e1563ef3535",
+  "thresholds": {
+    "functionLines": 80,
+    "fileLines": 400,
+    "jscpdMinTokens": 50
+  },
+  "totals": {
+    "P1-any": 55,
+    "P3-console": 87,
+    "P6-file-size": 7050,
+    "P6-func-size": 5702,
+    "P2-apperror-literal": 53,
+    "P5-route-ratelimit": 7,
+    "P5-route-auth": 11,
+    "P5-route-validation": 7,
+    "P2-raw-error": 10,
+    "P4-jsx-string": 181
+  },
+  "files": {
+    "backend/src/controllers/authController.ts": {
+      "P1-any": 3,
+      "P3-console": 3,
+      "P6-file-size": 500,
+      "P6-func-size": 253
+    },
+    "backend/src/controllers/expenseController.ts": {
+      "P1-any": 1,
+      "P2-apperror-literal": 1,
+      "P3-console": 7
+    },
+    "backend/src/controllers/groupController.ts": {
+      "P2-apperror-literal": 10
+    },
+    "backend/src/middlewares/errorHandler.ts": {
+      "P1-any": 4,
+      "P3-console": 4
+    },
+    "backend/src/middlewares/i18nMiddleware.ts": {
+      "P1-any": 1,
+      "P3-console": 4
+    },
+    "backend/src/routes/authRoutes.ts": {
+      "P5-route-ratelimit": 5,
+      "P5-route-auth": 1
+    },
+    "backend/src/routes/categoryRoutes.ts": {
+      "P5-route-validation": 1
+    },
+    "backend/src/routes/currencyRoutes.ts": {
+      "P5-route-auth": 2,
+      "P5-route-validation": 1
+    },
+    "backend/src/routes/groupRoutes.ts": {
+      "P5-route-validation": 2
+    },
+    "backend/src/routes/internalRoutes.ts": {
+      "P1-any": 7,
+      "P5-route-auth": 8,
+      "P5-route-validation": 3,
+      "P5-route-ratelimit": 2
+    },
+    "backend/src/server.ts": {
+      "P3-console": 1
+    },
+    "backend/src/services/emailVerificationService.ts": {
+      "P1-any": 1,
+      "P2-apperror-literal": 7
+    },
+    "backend/src/services/expenseService.ts": {
+      "P1-any": 1,
+      "P2-raw-error": 2,
+      "P2-apperror-literal": 18,
+      "P3-console": 1,
+      "P6-file-size": 864,
+      "P6-func-size": 233
+    },
+    "backend/src/services/groupService.ts": {
+      "P1-any": 8,
+      "P2-raw-error": 3,
+      "P2-apperror-literal": 17,
+      "P6-file-size": 912,
+      "P6-func-size": 196
+    },
+    "backend/src/utils/cleanData.ts": {
+      "P1-any": 1
+    },
+    "backend/src/utils/i18n.ts": {
+      "P3-console": 3
+    },
+    "backend/src/utils/jwtHelper.ts": {
+      "P2-raw-error": 4
+    },
+    "backend/src/utils/logger.ts": {
+      "P1-any": 4
+    },
+    "backend/src/utils/passwordHelper.ts": {
+      "P2-raw-error": 1
+    },
+    "frontend/src/api/http/error.ts": {
+      "P1-any": 3,
+      "P6-func-size": 103
+    },
+    "frontend/src/components/AddMemberModal.tsx": {
+      "P4-jsx-string": 8,
+      "P6-file-size": 509,
+      "P6-func-size": 311
+    },
+    "frontend/src/components/CurrencyPicker.tsx": {
+      "P4-jsx-string": 3
+    },
+    "frontend/src/components/DeviceDiagnostics.tsx": {
+      "P4-jsx-string": 4
+    },
+    "frontend/src/components/EditGroupModal.tsx": {
+      "P4-jsx-string": 14,
+      "P6-file-size": 521,
+      "P6-func-size": 343
+    },
+    "frontend/src/components/ErrorState.tsx": {
+      "P4-jsx-string": 2
+    },
+    "frontend/src/components/FieldHelp.tsx": {
+      "P4-jsx-string": 1
+    },
+    "frontend/src/components/HomeMenu.tsx": {
+      "P4-jsx-string": 1
+    },
+    "frontend/src/components/RenameModal.tsx": {
+      "P4-jsx-string": 3,
+      "P6-func-size": 86
+    },
+    "frontend/src/components/TypeAheadDropdown.tsx": {
+      "P4-jsx-string": 3,
+      "P6-func-size": 150
+    },
+    "frontend/src/components/UpdateCheck.tsx": {
+      "P4-jsx-string": 1
+    },
+    "frontend/src/context/AuthContext.tsx": {
+      "P1-any": 4,
+      "P3-console": 2,
+      "P6-func-size": 213
+    },
+    "frontend/src/screens/AboutScreen.tsx": {
+      "P4-jsx-string": 2
+    },
+    "frontend/src/screens/CheckEmailScreen.tsx": {
+      "P4-jsx-string": 8,
+      "P6-func-size": 144
+    },
+    "frontend/src/screens/CreateExpenseScreen.tsx": {
+      "P1-any": 1,
+      "P4-jsx-string": 20,
+      "P6-file-size": 706,
+      "P6-func-size": 523
+    },
+    "frontend/src/screens/CreateGroupScreen.tsx": {
+      "P4-jsx-string": 11,
+      "P6-func-size": 260
+    },
+    "frontend/src/screens/EditExpenseScreen.tsx": {
+      "P1-any": 5,
+      "P3-console": 26,
+      "P4-jsx-string": 23,
+      "P6-file-size": 599,
+      "P6-func-size": 531
+    },
+    "frontend/src/screens/EditExpenseScreen/components/DatePickerModal.tsx": {
+      "P3-console": 3,
+      "P4-jsx-string": 2,
+      "P6-func-size": 158
+    },
+    "frontend/src/screens/EditExpenseScreen/components/SplitMembersInput.tsx": {
+      "P4-jsx-string": 1,
+      "P6-func-size": 149
+    },
+    "frontend/src/screens/EditExpenseScreen/hooks/useExpenseData.ts": {
+      "P3-console": 1
+    },
+    "frontend/src/screens/EditExpenseScreen/hooks/useExpenseForm.ts": {
+      "P1-any": 2
+    },
+    "frontend/src/screens/EditExpenseScreen/hooks/useSplitCalculator.ts": {
+      "P1-any": 2,
+      "P3-console": 11
+    },
+    "frontend/src/screens/ExpenseListScreen.tsx": {
+      "P3-console": 8,
+      "P4-jsx-string": 17,
+      "P6-file-size": 558,
+      "P6-func-size": 510
+    },
+    "frontend/src/screens/ExpenseListScreen/SummaryCard.tsx": {
+      "P4-jsx-string": 3,
+      "P6-func-size": 86
+    },
+    "frontend/src/screens/HomeScreen.tsx": {
+      "P1-any": 1,
+      "P4-jsx-string": 9,
+      "P6-file-size": 548,
+      "P6-func-size": 338
+    },
+    "frontend/src/screens/LoginScreen.tsx": {
+      "P4-jsx-string": 13,
+      "P6-file-size": 460,
+      "P6-func-size": 318
+    },
+    "frontend/src/screens/ManageLabelsScreen.tsx": {
+      "P4-jsx-string": 8,
+      "P6-func-size": 138
+    },
+    "frontend/src/screens/ManageThemesScreen.tsx": {
+      "P4-jsx-string": 8,
+      "P6-func-size": 138
+    },
+    "frontend/src/screens/SettlementScreen.tsx": {
+      "P3-console": 13,
+      "P4-jsx-string": 7,
+      "P6-file-size": 434,
+      "P6-func-size": 262
+    },
+    "frontend/src/screens/VerifyEmailScreen.tsx": {
+      "P4-jsx-string": 9,
+      "P6-file-size": 439,
+      "P6-func-size": 259
+    },
+    "frontend/src/utils/errorHandler.ts": {
+      "P1-any": 2
+    },
+    "frontend/src/utils/logger.ts": {
+      "P1-any": 4
+    }
+  }
+}

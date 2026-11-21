@@ -110,6 +110,7 @@ CE's `security-reviewer` persona already hunts injection, auth/authz bypass, sec
 - **Exceptional conditions (OWASP A10:2025):** error/failure paths fail closed, not open (e.g. an auth check that errors must deny, not allow, access)
 
 **Code quality — FAIL if any missing:**
+- **Principles ratchet (deterministic, mandatory):** the project-standards reviewer MUST run `node scripts/principles-check.js --report --base <base>` (base = the PR base, e.g. `origin/staging`; add `--json <file>` for a machine-readable result) and treat EACH new violation it prints as a review finding quoting the rule id (P1-any, P2-raw-error, P2-apperror-literal, P3-console, P4-jsx-string, P5-route-auth/validation/ratelimit, P6-func-size/file-size, P7-duplication, P8-missing-test, BASELINE-RAISED; P9-unused-export is a warning). The check fails only on NEW violations (existing debt is frozen in `scripts/principles-baseline.json`), so any FAIL line is a real finding, never "pre-existing". A review that did not run it, or that dismisses a FAIL without a `// principles-exempt: <rule> <reason>` comment or `Principles-Exempt:` trailer, is incomplete. Detail: `docs/solutions/tooling-decisions/principles-ratchet-check.md`.
 - SOLID followed, no DRY violations
 - Functions extracted when they do more than one thing or their size interferes with understanding the file — judged on single-responsibility/readability, not a fixed line count
 - No `any` types; explicit param/return types
