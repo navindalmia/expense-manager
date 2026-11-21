@@ -1,106 +1,177 @@
 /**
  * Rate Limiting Middleware
- * 
- * Implements IP-based and user-based rate limiting using Redis
- * For MVP without Redis: Uses in-memory store (NOT production-ready)
+ *
+ * Fixed-window, in-memory limiter. Per-process state: correct for a single
+ * instance (current Render deployment); replace the store with Redis before
+ * scaling horizontally.
+ *
+ * Configuration (all optional, documented in backend/.env.example):
+ *   RATE_LIMIT_DISABLED=true            turn limiting off (ignored in production)
+ *   RATE_LIMIT_<NAME>_MAX               requests allowed per window
+ *   RATE_LIMIT_<NAME>_WINDOW_MS         window length in milliseconds
+ *   with <NAME> in LOGIN, SIGNUP, VERIFY_EMAIL, RESEND_VERIFICATION
+ *
+ * Client IP comes from req.ip; app.ts sets `trust proxy` so that behind
+ * Render's proxy it is the real client address, not the proxy's.
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { AppError } from '../errors/AppError';
 
-/**
- * In-memory store for rate limiting (MVP only)
- * In production: Replace with Redis
- * 
- * Format: { key: { count: number, resetTime: Date } }
- */
-const rateLimitStore = new Map<string, { count: number; resetTime: Date }>();
+interface WindowEntry {
+  count: number;
+  resetTime: number; // epoch ms
+}
+
+export interface RateLimitConfig {
+  maxRequests: number;
+  windowMs: number;
+}
+
+const rateLimitStore = new Map<string, WindowEntry>();
+const SWEEP_INTERVAL_MS = 60 * 1000;
+/** Hard cap on tracked keys; the oldest entry is evicted beyond it. */
+const MAX_STORE_ENTRIES = 10_000;
+const MAX_KEY_PART_LENGTH = 254;
+let sweepTimer: NodeJS.Timeout | undefined;
+
+/** Removes expired entries so the store cannot grow without bound. */
+export function sweepExpiredEntries(now: number = Date.now()): void {
+  for (const [key, entry] of rateLimitStore) {
+    if (entry.resetTime <= now) rateLimitStore.delete(key);
+  }
+}
+
+/** Keeps the store bounded: sweep expired keys, then evict the oldest if still full. */
+function enforceStoreCap(now: number): void {
+  if (rateLimitStore.size < MAX_STORE_ENTRIES) return;
+  sweepExpiredEntries(now);
+  if (rateLimitStore.size >= MAX_STORE_ENTRIES) {
+    const oldest = rateLimitStore.keys().next();
+    if (!oldest.done) rateLimitStore.delete(oldest.value);
+  }
+}
+
+/** Starts the periodic sweep once; unref'd so it never keeps the process alive. */
+function ensureSweepTimer(): void {
+  if (sweepTimer) return;
+  sweepTimer = setInterval(() => sweepExpiredEntries(), SWEEP_INTERVAL_MS);
+  sweepTimer.unref();
+}
+
+/** Test helper: empties the store. */
+export function resetRateLimitStore(): void {
+  rateLimitStore.clear();
+}
+
+/** Test helper: number of tracked keys. */
+export function rateLimitStoreSize(): number {
+  return rateLimitStore.size;
+}
+
+/** Limiting is off only when explicitly requested, and never in production. */
+function isRateLimitDisabled(): boolean {
+  return process.env.RATE_LIMIT_DISABLED === 'true' && process.env.NODE_ENV !== 'production';
+}
+
+function readPositiveInt(name: string, fallback: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Defaults, overridable per limiter through env; read at request time. */
+export function getRateLimitConfig(name: 'LOGIN' | 'SIGNUP' | 'VERIFY_EMAIL' | 'RESEND_VERIFICATION'): RateLimitConfig {
+  const defaults: Record<typeof name, RateLimitConfig> = {
+    LOGIN: { maxRequests: 10, windowMs: 15 * 60 * 1000 },
+    SIGNUP: { maxRequests: 5, windowMs: HOUR_MS },
+    VERIFY_EMAIL: { maxRequests: 10, windowMs: HOUR_MS },
+    RESEND_VERIFICATION: { maxRequests: 5, windowMs: HOUR_MS },
+  };
+  return {
+    maxRequests: readPositiveInt(`RATE_LIMIT_${name}_MAX`, defaults[name].maxRequests),
+    windowMs: readPositiveInt(`RATE_LIMIT_${name}_WINDOW_MS`, defaults[name].windowMs),
+  };
+}
 
 /**
- * Rate limit configuration
- */
-export const RATE_LIMIT_CONFIG = {
-  resendVerification: {
-    maxRequests: 5,        // 5 emails per window
-    windowMs: 60 * 60 * 1000,  // 1 hour
-    message: 'Too many verification emails. Please try again later.',
-  },
-  verifyEmail: {
-    maxRequests: 10,       // 10 attempts per window (brute-force protection)
-    windowMs: 60 * 60 * 1000,  // 1 hour
-    message: 'Too many verification attempts. Please try again later.',
-  },
-  signup: {
-    maxRequests: 5,        // 5 signups per hour per IP
-    windowMs: 60 * 60 * 1000,
-    message: 'Too many signup attempts. Please try again later.',
-  },
-};
-
-/**
- * Generic rate limiting middleware factory
- * @param config Rate limit configuration
- * @param keyFn Function to extract the key (IP, user ID, email, etc)
+ * Generic rate limiting middleware factory.
+ * @param config Limit and window, or a function returning them (evaluated per request)
+ * @param keyFn Function to extract the key (IP, email, etc)
  */
 export function createRateLimitMiddleware(
-  config: { maxRequests: number; windowMs: number; message: string },
+  config: RateLimitConfig | (() => RateLimitConfig),
   keyFn: (req: Request) => string
-) {
-  return (req: Request, res: Response, next: NextFunction) => {
+): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (isRateLimitDisabled()) {
+      next();
+      return;
+    }
+    ensureSweepTimer();
+
+    const { maxRequests, windowMs } = typeof config === 'function' ? config() : config;
     const key = keyFn(req);
-    const now = new Date();
+    const now = Date.now();
     const entry = rateLimitStore.get(key);
 
-    // Reset if window expired
-    if (!entry || entry.resetTime < now) {
-      rateLimitStore.set(key, { count: 1, resetTime: new Date(now.getTime() + config.windowMs) });
+    if (!entry || entry.resetTime <= now) {
+      enforceStoreCap(now);
+      rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
       next();
       return;
     }
 
-    // Check if limit exceeded - RETURN EARLY, don't call next()
-    if (entry.count >= config.maxRequests) {
-      res.status(429).json({
-        success: false,
-        message: config.message,
-        error: 'RATE_LIMIT_EXCEEDED',
-        retryAfter: Math.ceil((entry.resetTime.getTime() - now.getTime()) / 1000),
-      });
+    if (entry.count >= maxRequests) {
+      const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+      res.setHeader('Retry-After', String(retryAfter));
+      next(new AppError('RATE_LIMIT.EXCEEDED', 429, 'RATE_LIMIT_EXCEEDED', { retryAfter }));
       return;
     }
 
-    // Increment counter and proceed
     entry.count++;
     next();
   };
 }
 
-/**
- * Rate limit for resend verification by user email
- * Limit: 5 emails per hour per email address
- */
-export function rateLimitResendVerification(req: Request, res: Response, next: NextFunction) {
-  const { email } = req.body;
-  const key = `resend-verification:${email?.toLowerCase() || 'unknown'}`;
-  createRateLimitMiddleware(RATE_LIMIT_CONFIG.resendVerification, () => key)(req, res, next);
+function clientIp(req: Request): string {
+  return req.ip || 'unknown';
 }
 
-/**
- * Rate limit for verify email by IP address
- * Limit: 10 attempts per hour per IP (brute-force protection)
- */
-export function rateLimitVerifyEmail(req: Request, res: Response, next: NextFunction) {
-  const ip = req.ip || 'unknown';
-  const key = `verify-email:${ip}`;
-  createRateLimitMiddleware(RATE_LIMIT_CONFIG.verifyEmail, () => key)(req, res, next);
-}
+/** Login attempts per IP (brute-force protection). Default 10 / 15 min. */
+export const rateLimitLogin = createRateLimitMiddleware(
+  () => getRateLimitConfig('LOGIN'),
+  (req) => `login:${clientIp(req)}`
+);
 
-/**
- * Rate limit for signup by IP address
- * Limit: 5 signups per hour per IP (prevents account creation abuse)
- */
-export function rateLimitSignup(req: Request, res: Response, next: NextFunction) {
-  const ip = req.ip || 'unknown';
-  const key = `signup:${ip}`;
-  createRateLimitMiddleware(RATE_LIMIT_CONFIG.signup, () => key)(req, res, next);
-}
+/** Signups per IP. Default 5 / hour. */
+export const rateLimitSignup = createRateLimitMiddleware(
+  () => getRateLimitConfig('SIGNUP'),
+  (req) => `signup:${clientIp(req)}`
+);
+
+/** Email verification attempts per IP. Default 10 / hour. */
+export const rateLimitVerifyEmail = createRateLimitMiddleware(
+  () => getRateLimitConfig('VERIFY_EMAIL'),
+  (req) => `verify-email:${clientIp(req)}`
+);
+
+/** Resend-verification per target email. Default 5 / hour. */
+export const rateLimitResendVerification = createRateLimitMiddleware(
+  () => getRateLimitConfig('RESEND_VERIFICATION'),
+  (req) => {
+    const email: unknown = req.body?.email;
+    const normalized = typeof email === 'string' ? email.toLowerCase().slice(0, MAX_KEY_PART_LENGTH) : 'unknown';
+    return `resend-verification:${normalized}`;
+  }
+);
+
+/** Resend-verification per client IP, so one client cannot fan out across many emails. Default 20 / hour. */
+export const rateLimitResendVerificationByIp = createRateLimitMiddleware(
+  () => ({
+    maxRequests: readPositiveInt('RATE_LIMIT_RESEND_VERIFICATION_IP_MAX', 20),
+    windowMs: readPositiveInt('RATE_LIMIT_RESEND_VERIFICATION_IP_WINDOW_MS', HOUR_MS),
+  }),
+  (req) => `resend-verification-ip:${clientIp(req)}`
+);

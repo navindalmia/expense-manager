@@ -162,6 +162,8 @@ Never commit without:
 
 See [`backend/.env.example`](backend/.env.example) / [`backend/ENVIRONMENT_SETUP.md`](backend/ENVIRONMENT_SETUP.md) for backend setup including production/Azure deployment, and [`frontend/.env.example`](frontend/.env.example) / [`frontend/ENVIRONMENT_SETUP.md`](frontend/ENVIRONMENT_SETUP.md) for frontend setup (emulator/CI default vs. physical-device override).
 
+Backend hardening variables (details in `backend/.env.example`): `JWT_SECRET` (required, >= 32 chars; the server refuses to start otherwise), `CORS_ORIGINS` (comma-separated allowlist), `TRUST_PROXY`, `ENABLE_INTERNAL_ROUTES` (opt-in, never in production), `RATE_LIMIT_DISABLED` and `RATE_LIMIT_<LOGIN|SIGNUP|VERIFY_EMAIL|RESEND_VERIFICATION>_{MAX,WINDOW_MS}`. CI/e2e jobs that start the backend set `RATE_LIMIT_DISABLED=true`.
+
 ---
 
 ## Roadmap

@@ -6,10 +6,11 @@
  * 
  * Endpoints:
  * - GET /api/currencies - List all supported currencies
- * - POST /api/currencies - Create new currency (admin only - future)
+ * - POST /api/currencies - Create new currency (authenticated; no admin role exists yet)
  */
 
 import { Router } from 'express';
+import { authMiddleware } from '../middlewares/authMiddleware';
 import * as currencyController from '../controllers/currencyController';
 
 const router = Router();
@@ -25,11 +26,12 @@ const router = Router();
 router.get('/', currencyController.getCurrencies);
 
 /**
- * POST /api/currencies (Future: Admin only)
+ * POST /api/currencies
  * 
  * Create a new currency in database.
- * Currently reserved for future admin functionality.
+ * Requires a valid JWT. There is no admin role in the schema yet; restrict to
+ * admins when one is introduced. No client currently calls this endpoint.
  */
-router.post('/', currencyController.createCurrency);
+router.post('/', authMiddleware, currencyController.createCurrency);
 
 export default router;

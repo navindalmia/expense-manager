@@ -5,9 +5,7 @@
  */
 
 import jwt, { SignOptions } from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+import { getJwtSecret } from '../config/env';
 
 export interface TokenPayload {
   userId: number;
@@ -23,7 +21,7 @@ export interface TokenPayload {
 export function generateToken(userId: number): string {
   return jwt.sign(
     { userId },
-    JWT_SECRET as string,
+    getJwtSecret(),
     { expiresIn: '24h' } as SignOptions
   );
 }
@@ -36,7 +34,7 @@ export function generateToken(userId: number): string {
  */
 export function verifyToken(token: string): TokenPayload {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
     return decoded as TokenPayload;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

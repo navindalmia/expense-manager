@@ -151,13 +151,16 @@ See `PROJECT_MEMORY/MIGRATIONS.md` for what this replaced and why.
 Backend (`.env` / `.env.local`):
 ```
 DATABASE_URL              # PostgreSQL connection string
-JWT_SECRET                # JWT signing key
+JWT_SECRET                # JWT signing key (REQUIRED, >= 32 chars; server refuses to start without it)
 JWT_EXPIRES_IN            # e.g. "24h"
 SENDGRID_API_KEY          # Production email (falls back to nodemailer in dev)
 NODE_ENV                  # development | production
 PORT                      # Default 4000
 APP_FRONTEND_URL          # Base URL for email deep links
 APP_SCHEME                # Deep link scheme: expensemanager://
+CORS_ORIGINS              # Comma-separated allowed web origins (dev default: Expo web ports; none in prod if unset)
+ENABLE_INTERNAL_ROUTES    # "true" mounts /api/internal/* (never in production)
+RATE_LIMIT_DISABLED       # "true" disables rate limits (CI/e2e only; ignored in production)
 ```
 
 Frontend:

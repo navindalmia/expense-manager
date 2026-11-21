@@ -1,109 +1,153 @@
 /**
- * Rate Limit Middleware Tests
- *
- * The underlying store is shared module-level state with no reset hook,
- * so each test uses a unique key (unique email/IP) to stay isolated from
- * other tests and previous runs within the same file.
+ * Rate limit middleware tests. State is module-level, so every test resets
+ * the store and restores the env it touched.
  */
 
 import { Request, Response, NextFunction } from 'express';
 import {
   createRateLimitMiddleware,
+  getRateLimitConfig,
   rateLimitResendVerification,
+  rateLimitResendVerificationByIp,
   rateLimitSignup,
+  resetRateLimitStore,
+  rateLimitStoreSize,
+  sweepExpiredEntries,
 } from '../rateLimitMiddleware';
+import { AppError } from '../../errors/AppError';
 
-function makeRes() {
-  let statusCode = 200;
-  let jsonData: any = null;
-  const res = {
-    status: jest.fn().mockImplementation((code: number) => {
-      statusCode = code;
-      return res;
-    }),
-    json: jest.fn().mockImplementation((data) => {
-      jsonData = data;
-      return res;
-    }),
-  } as unknown as Response;
-  return { res, getStatus: () => statusCode, getJson: () => jsonData };
+function makeRes(): Response {
+  return { setHeader: jest.fn() } as unknown as Response;
 }
 
+function run(mw: ReturnType<typeof createRateLimitMiddleware>, req: Partial<Request> = {}): { next: jest.Mock; res: Response } {
+  const next = jest.fn();
+  const res = makeRes();
+  mw(req as Request, res, next as unknown as NextFunction);
+  return { next, res };
+}
+
+const savedEnv = { ...process.env };
+beforeEach(() => {
+  resetRateLimitStore();
+  delete process.env.RATE_LIMIT_DISABLED;
+});
+afterEach(() => {
+  process.env = { ...savedEnv };
+  jest.useRealTimers();
+});
+
 describe('createRateLimitMiddleware', () => {
-  it('allows requests under the configured threshold', () => {
-    const middleware = createRateLimitMiddleware(
-      { maxRequests: 3, windowMs: 60_000, message: 'Too many requests' },
-      () => 'test-key-under-threshold'
-    );
-    const next = jest.fn() as unknown as NextFunction;
-    const { res } = makeRes();
+  const mw = () => createRateLimitMiddleware({ maxRequests: 2, windowMs: 60_000 }, () => 'k');
 
-    middleware({} as Request, res, next);
-    middleware({} as Request, res, next);
-
-    expect(next).toHaveBeenCalledTimes(2);
+  it('should allow requests under the limit', () => {
+    const m = mw();
+    expect(run(m).next).toHaveBeenCalledWith();
+    expect(run(m).next).toHaveBeenCalledWith();
   });
 
-  it('rejects requests over the threshold with 429 and does not call next()', () => {
-    const middleware = createRateLimitMiddleware(
-      { maxRequests: 2, windowMs: 60_000, message: 'Too many requests' },
-      () => 'test-key-over-threshold'
-    );
-    const next = jest.fn() as unknown as NextFunction;
-    const { res, getStatus, getJson } = makeRes();
-
-    middleware({} as Request, res, next); // 1st: allowed, count -> 1
-    middleware({} as Request, res, next); // 2nd: allowed, count -> 2
-    middleware({} as Request, res, next); // 3rd: rejected
-
-    expect(next).toHaveBeenCalledTimes(2);
-    expect(getStatus()).toBe(429);
-    expect(getJson().error).toBe('RATE_LIMIT_EXCEEDED');
+  it('should return a 429 AppError with the i18n key after the limit', () => {
+    const m = mw();
+    run(m);
+    run(m);
+    const { next, res } = run(m);
+    const err = next.mock.calls[0][0] as AppError;
+    expect(err).toBeInstanceOf(AppError);
+    expect(err.statusCode).toBe(429);
+    expect(err.messageKey).toBe('RATE_LIMIT.EXCEEDED');
+    expect(err.code).toBe('RATE_LIMIT_EXCEEDED');
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', '60');
   });
 
-  it('resets the window after it expires', () => {
+  it('should reset after the window expires', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    const m = createRateLimitMiddleware({ maxRequests: 1, windowMs: 10_000 }, () => 'k');
+    run(m);
+    jest.setSystemTime(new Date('2026-01-01T00:00:11Z'));
+    expect(run(m).next).toHaveBeenCalledWith();
+  });
 
-    const middleware = createRateLimitMiddleware(
-      { maxRequests: 1, windowMs: 10_000, message: 'Too many requests' },
-      () => 'test-key-window-reset'
-    );
-    const next = jest.fn() as unknown as NextFunction;
-    const { res } = makeRes();
+  it('should skip limiting when RATE_LIMIT_DISABLED=true outside production', () => {
+    process.env.RATE_LIMIT_DISABLED = 'true';
+    process.env.NODE_ENV = 'development';
+    const m = mw();
+    for (let i = 0; i < 10; i++) expect(run(m).next).toHaveBeenCalledWith();
+  });
 
-    middleware({} as Request, res, next); // consumes the only allowed request
+  it('should ignore RATE_LIMIT_DISABLED in production', () => {
+    process.env.RATE_LIMIT_DISABLED = 'true';
+    process.env.NODE_ENV = 'production';
+    const m = mw();
+    run(m);
+    run(m);
+    expect(run(m).next.mock.calls[0][0]).toBeInstanceOf(AppError);
+  });
 
-    jest.setSystemTime(new Date('2026-01-01T00:00:11Z')); // window has expired
-    middleware({} as Request, res, next); // allowed again
-
-    jest.useRealTimers();
-
-    expect(next).toHaveBeenCalledTimes(2);
+  it('should track keys independently', () => {
+    const m = createRateLimitMiddleware({ maxRequests: 1, windowMs: 60_000 }, (r) => String(r.ip));
+    run(m, { ip: 'a' });
+    expect(run(m, { ip: 'b' }).next).toHaveBeenCalledWith();
   });
 });
 
-describe('rateLimitResendVerification', () => {
-  it('keys the limit by the request body email', () => {
-    const next = jest.fn() as unknown as NextFunction;
-    const { res, getStatus } = makeRes();
-    const req = { body: { email: 'unique-resend-test@example.com' } } as Request;
+describe('store expiry', () => {
+  it('should remove expired entries so the store does not grow unbounded', () => {
+    const m = createRateLimitMiddleware({ maxRequests: 1, windowMs: 1_000 }, (r) => String(r.ip));
+    for (let i = 0; i < 50; i++) run(m, { ip: `ip-${i}` });
+    expect(rateLimitStoreSize()).toBe(50);
+    sweepExpiredEntries(Date.now() + 2_000);
+    expect(rateLimitStoreSize()).toBe(0);
+  });
 
-    rateLimitResendVerification(req, res, next);
-
-    expect(next).toHaveBeenCalled();
-    expect(getStatus()).toBe(200);
+  it('should keep entries whose window is still open', () => {
+    const m = createRateLimitMiddleware({ maxRequests: 1, windowMs: 60_000 }, () => 'live');
+    run(m);
+    sweepExpiredEntries(Date.now() + 1_000);
+    expect(rateLimitStoreSize()).toBe(1);
   });
 });
 
-describe('rateLimitSignup', () => {
-  it('keys the limit by request IP', () => {
-    const next = jest.fn() as unknown as NextFunction;
-    const { res } = makeRes();
-    const req = { ip: '203.0.113.42-unique-signup-test' } as Request;
+describe('getRateLimitConfig', () => {
+  it('should use documented defaults', () => {
+    expect(getRateLimitConfig('LOGIN')).toEqual({ maxRequests: 10, windowMs: 15 * 60 * 1000 });
+    expect(getRateLimitConfig('SIGNUP')).toEqual({ maxRequests: 5, windowMs: 3_600_000 });
+  });
+  it('should honour env overrides and ignore invalid values', () => {
+    process.env.RATE_LIMIT_LOGIN_MAX = '3';
+    process.env.RATE_LIMIT_LOGIN_WINDOW_MS = 'abc';
+    expect(getRateLimitConfig('LOGIN')).toEqual({ maxRequests: 3, windowMs: 15 * 60 * 1000 });
+  });
+});
 
-    rateLimitSignup(req, res, next);
+describe('route limiters', () => {
+  it('should key resend-verification by lower-cased email', () => {
+    process.env.RATE_LIMIT_RESEND_VERIFICATION_MAX = '1';
+    run(rateLimitResendVerification, { body: { email: 'A@x.com' } });
+    const { next } = run(rateLimitResendVerification, { body: { email: 'a@X.com' } });
+    expect(next.mock.calls[0][0]).toBeInstanceOf(AppError);
+  });
 
-    expect(next).toHaveBeenCalled();
+  it('should key signup by IP', () => {
+    process.env.RATE_LIMIT_SIGNUP_MAX = '1';
+    run(rateLimitSignup, { ip: '203.0.113.1' });
+    expect(run(rateLimitSignup, { ip: '203.0.113.2' }).next).toHaveBeenCalledWith();
+    expect(run(rateLimitSignup, { ip: '203.0.113.1' }).next.mock.calls[0][0]).toBeInstanceOf(AppError);
+  });
+});
+
+describe('resend-verification abuse bounds', () => {
+  it('should limit a single IP across many distinct emails', () => {
+    process.env.RATE_LIMIT_RESEND_VERIFICATION_IP_MAX = '2';
+    const req = { ip: '198.51.100.9' };
+    run(rateLimitResendVerificationByIp, req);
+    run(rateLimitResendVerificationByIp, req);
+    expect(run(rateLimitResendVerificationByIp, req).next.mock.calls[0][0]).toBeInstanceOf(AppError);
+  });
+
+  it('should cap the number of tracked keys', () => {
+    const m = createRateLimitMiddleware({ maxRequests: 1, windowMs: 3_600_000 }, (r) => String(r.ip));
+    for (let i = 0; i < 10_050; i++) run(m, { ip: `k-${i}` });
+    expect(rateLimitStoreSize()).toBeLessThanOrEqual(10_000);
   });
 });

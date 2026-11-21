@@ -10,6 +10,9 @@
 // import time, so these must be set here (setupFilesAfterEnv runs before
 // any test file's imports) rather than in a test's beforeEach -- setting
 // them later has no effect on an already-imported module.
+// NOTE: the server itself has NO default secret and refuses to start without a
+// >= 32 char one (src/config/env.ts). This default exists ONLY for the unit-test
+// runner (NODE_ENV=test is exempt from the length rule); it is never used at runtime.
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
 process.env.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
