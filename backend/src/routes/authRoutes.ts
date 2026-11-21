@@ -12,6 +12,7 @@ import {
   rateLimitSignup,
   rateLimitVerifyEmail,
   rateLimitResendVerification,
+  rateLimitResendVerificationByIp,
 } from '../middlewares/rateLimitMiddleware';
 
 const router = Router();
@@ -58,6 +59,6 @@ router.post('/verify-email', rateLimitVerifyEmail, authController.verifyEmail);
  * Public: No authentication required (generic response)
  * Body: { email }
  */
-router.post('/resend-verification', rateLimitResendVerification, authController.resendVerificationEmail);
+router.post('/resend-verification', rateLimitResendVerificationByIp, rateLimitResendVerification, authController.resendVerificationEmail);
 
 export default router;

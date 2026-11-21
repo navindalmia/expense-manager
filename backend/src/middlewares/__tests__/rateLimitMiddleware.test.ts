@@ -8,6 +8,7 @@ import {
   createRateLimitMiddleware,
   getRateLimitConfig,
   rateLimitResendVerification,
+  rateLimitResendVerificationByIp,
   rateLimitSignup,
   resetRateLimitStore,
   rateLimitStoreSize,
@@ -132,5 +133,21 @@ describe('route limiters', () => {
     run(rateLimitSignup, { ip: '203.0.113.1' });
     expect(run(rateLimitSignup, { ip: '203.0.113.2' }).next).toHaveBeenCalledWith();
     expect(run(rateLimitSignup, { ip: '203.0.113.1' }).next.mock.calls[0][0]).toBeInstanceOf(AppError);
+  });
+});
+
+describe('resend-verification abuse bounds', () => {
+  it('should limit a single IP across many distinct emails', () => {
+    process.env.RATE_LIMIT_RESEND_VERIFICATION_IP_MAX = '2';
+    const req = { ip: '198.51.100.9' };
+    run(rateLimitResendVerificationByIp, req);
+    run(rateLimitResendVerificationByIp, req);
+    expect(run(rateLimitResendVerificationByIp, req).next.mock.calls[0][0]).toBeInstanceOf(AppError);
+  });
+
+  it('should cap the number of tracked keys', () => {
+    const m = createRateLimitMiddleware({ maxRequests: 1, windowMs: 3_600_000 }, (r) => String(r.ip));
+    for (let i = 0; i < 10_050; i++) run(m, { ip: `k-${i}` });
+    expect(rateLimitStoreSize()).toBeLessThanOrEqual(10_000);
   });
 });

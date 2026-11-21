@@ -30,12 +30,25 @@ export interface RateLimitConfig {
 
 const rateLimitStore = new Map<string, WindowEntry>();
 const SWEEP_INTERVAL_MS = 60 * 1000;
+/** Hard cap on tracked keys; the oldest entry is evicted beyond it. */
+const MAX_STORE_ENTRIES = 10_000;
+const MAX_KEY_PART_LENGTH = 254;
 let sweepTimer: NodeJS.Timeout | undefined;
 
 /** Removes expired entries so the store cannot grow without bound. */
 export function sweepExpiredEntries(now: number = Date.now()): void {
   for (const [key, entry] of rateLimitStore) {
     if (entry.resetTime <= now) rateLimitStore.delete(key);
+  }
+}
+
+/** Keeps the store bounded: sweep expired keys, then evict the oldest if still full. */
+function enforceStoreCap(now: number): void {
+  if (rateLimitStore.size < MAX_STORE_ENTRIES) return;
+  sweepExpiredEntries(now);
+  if (rateLimitStore.size >= MAX_STORE_ENTRIES) {
+    const oldest = rateLimitStore.keys().next();
+    if (!oldest.done) rateLimitStore.delete(oldest.value);
   }
 }
 
@@ -104,6 +117,7 @@ export function createRateLimitMiddleware(
     const entry = rateLimitStore.get(key);
 
     if (!entry || entry.resetTime <= now) {
+      enforceStoreCap(now);
       rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
       next();
       return;
@@ -148,6 +162,16 @@ export const rateLimitResendVerification = createRateLimitMiddleware(
   () => getRateLimitConfig('RESEND_VERIFICATION'),
   (req) => {
     const email: unknown = req.body?.email;
-    return `resend-verification:${typeof email === 'string' ? email.toLowerCase() : 'unknown'}`;
+    const normalized = typeof email === 'string' ? email.toLowerCase().slice(0, MAX_KEY_PART_LENGTH) : 'unknown';
+    return `resend-verification:${normalized}`;
   }
+);
+
+/** Resend-verification per client IP, so one client cannot fan out across many emails. Default 20 / hour. */
+export const rateLimitResendVerificationByIp = createRateLimitMiddleware(
+  () => ({
+    maxRequests: readPositiveInt('RATE_LIMIT_RESEND_VERIFICATION_IP_MAX', 20),
+    windowMs: readPositiveInt('RATE_LIMIT_RESEND_VERIFICATION_IP_WINDOW_MS', HOUR_MS),
+  }),
+  (req) => `resend-verification-ip:${clientIp(req)}`
 );

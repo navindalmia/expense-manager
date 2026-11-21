@@ -24,6 +24,7 @@ export function parseAllowedOrigins(env: NodeJS.ProcessEnv = process.env): strin
 export function buildCorsOptions(env: NodeJS.ProcessEnv = process.env): CorsOptions {
   const allowed = parseAllowedOrigins(env);
   return {
+    exposedHeaders: ['Retry-After'],
     // Requests without an Origin (native apps, curl, same-origin) pass through.
     origin: (origin, callback) => callback(null, !origin || allowed.includes(origin)),
   };
