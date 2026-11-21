@@ -1,0 +1,18 @@
+{
+  "thresholds": {
+    "functionLines": 80,
+    "fileLines": 400,
+    "jscpdMinTokens": 50
+  },
+  "jscpd": {
+    "package": "jscpd@5.4.3",
+    "paths": ["backend/src", "frontend/src"]
+  },
+  "scope": {
+    "sourceRoots": ["backend/src/", "frontend/src/"],
+    "testPathPattern": "(^|/)(__tests__|tests?|e2e|maestro-flows)/|\\.(test|spec)\\.[jt]sx?$",
+    "loggerPattern": "(^|/)logger\\.[jt]s$",
+    "i18nTablePattern": "(^|/)i18n/",
+    "testRequiredDirs": ["/services/", "/controllers/", "/hooks/"]
+  }
+}

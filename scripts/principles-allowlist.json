@@ -1,0 +1,15 @@
+{
+  "_comment": "Routes that are intentionally public (no auth middleware) or intentionally unlimited. Key: '<routes file basename> <METHOD> <path>'. Adding an entry is reviewed like code.",
+  "publicRoutes": [
+    "authRoutes.ts POST /signup",
+    "authRoutes.ts POST /login",
+    "authRoutes.ts POST /logout",
+    "authRoutes.ts POST /verify-email",
+    "authRoutes.ts GET /verify-email",
+    "authRoutes.ts POST /forgot-password",
+    "authRoutes.ts POST /reset-password",
+    "app.ts GET /health"
+  ],
+  "unvalidatedRoutes": [],
+  "unlimitedRoutes": []
+}

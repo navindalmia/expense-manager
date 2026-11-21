@@ -106,6 +106,35 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
 
+  # Principles ratchet: fails only on NEW violations a PR introduces (any, raw Error, console.*, hardcoded JSX strings,
+  # unauthenticated/unvalidated routes, growth of big functions/files, duplicated blocks, untested new services).
+  # Existing debt is frozen in scripts/principles-baseline.json. No database, no secrets. Named like an advisory
+  # check but a normal failing job, so the owner can mark "principles-check" as required in branch protection.
+  principles-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Fetch PR base
+        run: git fetch --no-tags origin "$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+      - name: Principles ratchet (new violations only)
+        run: node scripts/principles-check.js --base "origin/$BASE_REF" --require-jscpd --json principles-result.json
+        env:
+          BASE_REF: ${{ github.base_ref }}
+      - name: Markdown report
+        if: always()
+        run: node scripts/principles-check.js --base "origin/$BASE_REF" --report --skip-jscpd >> "$GITHUB_STEP_SUMMARY" || true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+
   # Regression pack, part 2 (real browser + real backend + real Postgres): e2e/regression/*.spec.ts.
   e2e-regression:
     runs-on: ubuntu-latest
