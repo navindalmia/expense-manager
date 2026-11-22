@@ -13,6 +13,7 @@ import { distributeAmountEvenly, distributeAmountByWeights, hasNonPositiveValue 
 import { AppError } from "../errors/AppError";
 import { assertLabelVisible } from "./labelService";
 import { assertThemeVisible } from "./themeService";
+import { accessibleGroupWhere } from "./groupGuards";
 import { rankMatches } from "../lib/fuzzyMatch";
 import { suggestCategoryCode } from "../lib/categoryKeywordDictionary";
 
@@ -98,10 +99,12 @@ export async function getGroupExpenses(groupId: number, userId: number) {
 }
 
 /**
- * Get all expenses (DEPRECATED - kept for backward compatibility)
+ * Get all expenses in groups the caller created or belongs to
+ * (DEPRECATED - kept for backward compatibility; issue #153).
  */
-export async function getAllExpenses() {
+export async function getAllExpenses(userId: number) {
   return prisma.expense.findMany({
+    where: { group: accessibleGroupWhere(userId) },
     include: {
       paidBy: { select: SAFE_USER_SELECT },
       category: true,

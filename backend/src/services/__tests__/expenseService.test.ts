@@ -77,7 +77,7 @@ describe('ExpenseService', () => {
 
       (prisma.expense.findMany as jest.Mock).mockResolvedValue(mockExpenses);
 
-      const result = await expenseService.getAllExpenses();
+      const result = await expenseService.getAllExpenses(1);
 
       // ✅ TEST: Service returns data from database
       expect(result).toEqual(mockExpenses);
@@ -95,7 +95,7 @@ describe('ExpenseService', () => {
     it('should handle empty expense list', async () => {
       (prisma.expense.findMany as jest.Mock).mockResolvedValue([]);
 
-      const result = await expenseService.getAllExpenses();
+      const result = await expenseService.getAllExpenses(1);
 
       expect(result).toEqual([]);
       expect(prisma.expense.findMany).toHaveBeenCalled();

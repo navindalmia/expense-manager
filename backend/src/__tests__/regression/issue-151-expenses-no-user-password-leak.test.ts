@@ -32,7 +32,7 @@ describe('issue #151: User relations never expose sensitive fields', () => {
   it('should select only safe fields for paidBy and splitWith in getAllExpenses', async () => {
     (prisma.expense.findMany as jest.Mock).mockResolvedValue([]);
 
-    await expenseService.getAllExpenses();
+    await expenseService.getAllExpenses(1);
 
     const args = (prisma.expense.findMany as jest.Mock).mock.calls[0][0] as {
       include: Record<string, unknown>;
