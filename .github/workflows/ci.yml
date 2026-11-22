@@ -381,6 +381,18 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+      # Pin the JDK: ubuntu-latest's default moved to JDK 25, which the
+      # Gradle/Groovy in RN 0.81 / Expo SDK 54 cannot parse ("Unsupported
+      # class file major version 69"). RN 0.81 and Expo SDK 54 docs require 17.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5.2.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Log Java version
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
