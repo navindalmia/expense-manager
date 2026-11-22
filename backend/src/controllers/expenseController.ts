@@ -10,7 +10,7 @@ import { AppError } from "../errors/AppError";
 const MIN_CATEGORY_SUGGEST_TITLE_LENGTH = 2;
 
 export async function getExpenses(req: Request, res: Response) {
-  const expenses = await expenseService.getAllExpenses();
+  const expenses = await expenseService.getAllExpenses(req.user!.id);
   res.json(expenses);
 }
 
