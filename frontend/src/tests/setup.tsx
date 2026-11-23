@@ -68,6 +68,13 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
+vi.mock('expo-updates', () => ({
+  isEnabled: true,
+  checkForUpdateAsync: vi.fn().mockResolvedValue({ isAvailable: false }),
+  fetchUpdateAsync: vi.fn().mockResolvedValue({ isNew: true }),
+  reloadAsync: vi.fn().mockResolvedValue(undefined),
+}));
+
 // __DEV__ is injected by the Metro/RN bundler at build time; not present
 // under Vitest/jsdom, but referenced by some screens for debug-only UI.
 (globalThis as any).__DEV__ = false;

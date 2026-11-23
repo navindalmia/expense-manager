@@ -6,6 +6,7 @@
  * Shows loading, error, and empty states.
  */
 
+import UpdateCheck from '../components/UpdateCheck';
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
   View,
@@ -494,6 +495,7 @@ function HomeScreen({ navigation }: Props) {
           />
         }
         contentContainerStyle={styles.listContent}
+        ListFooterComponent={<UpdateCheck />}
         testID="groups-flat-list"
         maxToRenderPerBatch={5}
         updateCellsBatchingPeriod={50}
