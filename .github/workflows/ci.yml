@@ -385,7 +385,7 @@ jobs:
       # Gradle/Groovy in RN 0.81 / Expo SDK 54 cannot parse ("Unsupported
       # class file major version 69"). RN 0.81 and Expo SDK 54 docs require 17.
       - name: Set up JDK 17
-        uses: actions/setup-java@v5.2.0
+        uses: actions/setup-java@v6.3.0
         with:
           distribution: temurin
           java-version: "17"
