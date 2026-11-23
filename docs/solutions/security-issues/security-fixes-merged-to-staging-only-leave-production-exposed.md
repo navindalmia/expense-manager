@@ -43,7 +43,7 @@ git cherry-pick -x <staging-commit>   # then list conflicts, abort, remove the w
 Result for this case:
 
 1. **#152 applies cleanly:** cherry-picked as its own hotfix PR (#195, merged to master on 2026-11-22 as `e329a89`; confirmed with `gh pr view`, this staging checkout predates that merge).
-2. **By-id expense routes were already member-scoped on master** (they throw 403 for non-members), so #156's value on master reduced to one thing: scope the list. PR #196 adds `accessibleGroupWhere(userId)` (a 6-line predicate in a new `groupGuards.ts`, the same text as staging so a later promotion merges trivially) and passes `req.user!.id` from the controller. #196 was open at the time of writing.
+2. **By-id expense routes were already member-scoped on master** (they throw 403 for non-members), so #156's value on master reduced to one thing: scope the list. PR #196 adds `accessibleGroupWhere(userId)` (a 6-line predicate in a new `groupGuards.ts`, the same text as staging so a later promotion merges trivially) and passes `req.user!.id` from the controller. #196 merged to master on 2026-11-22 as `fbf5b76` (confirmed with `gh pr view`; this staging checkout predates it).
 3. The 403-to-404 refactor, soft-delete guards and translation keys were deliberately left for the normal staging promotion.
 
 Prove the regression test is real by reverting only the service files to the parent commit, running the test (it must fail), then restoring them.
